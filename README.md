@@ -23,6 +23,11 @@ npm run dev
 
 El acceso demo del panel es `/admin` con contraseña `gigaprint`. Antes de publicar hay que reemplazarlo por Supabase Auth.
 
+## Publicación
+
+GitHub Pages se publica automáticamente desde la rama `main` mediante GitHub Actions en:
+`https://gigaprint-ec.github.io/gigaprint-webpage/`
+
 ## Próximo paso con Supabase
 
 1. Ejecutar `supabase/schema.sql` en el proyecto.
