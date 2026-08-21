@@ -76,9 +76,9 @@ export const initialData = {
     heroText: 'Diseñamos, producimos e instalamos soluciones visuales para que tu negocio se vea profesional desde el primer vistazo.',
   },
   services: [
-    { id: 'rotulos', name: 'Rótulos & fachadas', short: 'Tu local empieza a vender desde la calle.', detail: 'Rótulos sencillos, luminosos, corpóreos y fachadas completas con materiales pensados para durar.', icon: 'Building2', image: media.letrero, tag: 'Más solicitado' },
+    { id: 'rotulos', name: 'Rótulos & fachadas', short: 'Tu local empieza a vender desde la calle.', detail: 'Rótulos sencillos, luminosos, corpóreos y fachadas completas con materiales pensados para durar.', icon: 'Building2', image: media.showcaseMampara, tag: 'Más solicitado' },
     { id: 'impresion', name: 'Impresión gran formato', short: 'Que tu campaña se vea a distancia.', detail: 'Lonas, viniles, microperforados, pendones y todo lo que necesitas para comunicar en grande.', icon: 'Printer', image: media.lona, tag: 'Producción rápida' },
-    { id: 'personalizados', name: 'Personalizados & regalos', short: 'Detalles que hacen que te recuerden.', detail: 'Lámparas, neones, señalética, placas QR y piezas únicas para regalar o ambientar.', icon: 'Sparkles', image: media.laser, tag: 'A medida' },
+    { id: 'personalizados', name: 'Personalizados & regalos', short: 'Detalles que hacen que te recuerden.', detail: 'Lámparas, neones, señalética, placas QR y piezas únicas para regalar o ambientar.', icon: 'Sparkles', image: media.showcaseDesigns, tag: 'A medida' },
     { id: 'laser', name: 'Corte y grabado láser', short: 'Precisión para ideas con carácter.', detail: 'Cortamos y grabamos MDF, acrílico, madera y otros materiales para proyectos especiales.', icon: 'ScanLine', image: media.laser, tag: 'Precisión' },
   ],
   products: [
@@ -98,7 +98,7 @@ export const initialData = {
   homeBlocks: [
     { id: 'home-intro', type: 'text', visible: true, animation: 'none', content: '<div class="home-block-kicker">Gigaprint / sistema visual</div><h2>Una misma idea puede vivir en una fachada, una vitrina y una experiencia.</h2><p>Usa este espacio desde el editor para contar campañas, mostrar procesos o destacar un servicio de temporada.</p>' },
     { id: 'home-story', type: 'media-text', visible: true, animation: 'none', side: 'left', title: 'Diseñamos para que la producción tenga sentido.', content: '<p>El diseño no termina en la pantalla. Probamos proporciones, materiales y acabados para que tu idea llegue al mundo con la fuerza correcta.</p>', src: media.workspace, alt: 'Equipo de Gigaprint trabajando' },
-    { id: 'home-gallery', type: 'gallery', visible: true, animation: 'none', layout: 'masonry', columns: 3, items: [media.lona, media.neon, media.luminoso, media.rollupProduct].map((src) => ({ src, alt: 'Material de publicidad Gigaprint' })) },
+    { id: 'home-gallery', type: 'gallery', visible: true, animation: 'none', layout: 'masonry', columns: 3, items: [media.showcaseMampara, media.showcaseCampaign, media.neon, media.showcaseDesigns, media.luminoso, media.rollupProduct].map((src) => ({ src, alt: 'Trabajo real de publicidad y producción Gigaprint' })) },
   ],
 };
 

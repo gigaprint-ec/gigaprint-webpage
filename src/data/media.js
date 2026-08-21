@@ -6,7 +6,7 @@ export function assetPath(value) {
 }
 
 export const media = {
-  hero: assetPath('/images/gigaprint/galaxy_printer.png'),
+  hero: assetPath('/media/showcase/publicidad-creativa-impresora-1.webp'),
   lona: assetPath('/images/gigaprint/lona_banner.png'),
   vinil: assetPath('/images/gigaprint/vinil_adhesivo.png'),
   laser: assetPath('/images/gigaprint/laser_acrilico.png'),
@@ -18,4 +18,14 @@ export const media = {
   rollupProduct: assetPath('/media/products/rollup.webp'),
   mascot: assetPath('/brand/mascot/chatgpt-image-3-ago-2026-11-51-23.webp'),
   logoDark: assetPath('/brand/logos/recurso-4-logo-giga.svg'),
+  logoMark: assetPath('/brand/logos/recurso-2-logo-giga.svg'),
+  logoVertical: assetPath('/brand/logos/recurso-6-logo-giga.svg'),
+  logoWordmark: assetPath('/brand/logos/recurso-5-logo-giga.svg'),
+  showcaseMampara: assetPath('/media/showcase/0-mampara-5.webp'),
+  showcaseDesigns: assetPath('/media/showcase/disenos-varios-1.webp'),
+  showcaseDesignsTwo: assetPath('/media/showcase/disenos-varios-2.webp'),
+  showcaseHorarios: assetPath('/media/showcase/horarios.webp'),
+  showcaseCampaign: assetPath('/media/showcase/publicidad-creativa-impresora-1.webp'),
+  resourcePrices: assetPath('/media/resources/precios-bomba.webp'),
+  milagroFlag: assetPath('/media/seasonal/milagro/bandera-milagro-g01.webp'),
 };
