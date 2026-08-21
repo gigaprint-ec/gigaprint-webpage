@@ -11,3 +11,16 @@ npm-debug.log*
 pnpm-debug.log*
 yarn-debug.log*
 *.local.json
+
+# Original source pack supplied by the brand team. Optimized copies live in public/.
+Recursos (no borrar)/
+# Legacy generated duplicates from the first resource pass.
+public/media/showcase/
+public/brand/logos/*-2.webp
+public/brand/logos/*-2.svg
+public/brand/mascot/*-2.webp
+public/media/products/*-2.webp
+public/media/resources/*-2.webp
+!public/brand/logos/ilustracion-2.webp
+!public/brand/logos/recurso-2.webp
+public/media/resources/*milagro*.webp

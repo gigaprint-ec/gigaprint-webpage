@@ -10,7 +10,7 @@ https://gigaprint-ec.github.io/gigaprint-webpage/
 
 El repositorio está en la rama `main`. GitHub Actions compila y publica automáticamente después de cada push.
 
-El panel admin publicado está disponible en `https://gigaprint-ec.github.io/gigaprint-webpage/admin`. El acceso demo funciona y permite editar las páginas públicas desde `/admin/contenido` y `/admin/editor`, además de productos, promociones y temas. En este momento los cambios son locales al navegador hasta conectar el adaptador Supabase.
+El panel admin publicado está disponible en `https://gigaprint-ec.github.io/gigaprint-webpage/admin`. El acceso usa Supabase Auth cuando el build tiene configuradas las variables de Supabase; si se ejecuta sin esas variables, queda disponible únicamente el modo demo local para desarrollo.
 
 ## Funcionalidades terminadas
 
@@ -35,6 +35,8 @@ El panel admin publicado está disponible en `https://gigaprint-ec.github.io/gig
 - Temas `default`, `navidad` y `milagro`, aplicables desde `/admin/temas`.
 - Animaciones premium en hero, navegación, secciones, tarjetas, botones, menú, footer y decoraciones.
 - Soporte para `prefers-reduced-motion`.
+- Biblioteca de marca optimizada desde `Recursos (no borrar)`: 55 copias web, WebP para raster y SVG conservados para logos.
+- Biblioteca preparada para editor/admin en `src/data/resourceManifest.js`.
 
 ## Correcciones importantes de GitHub Pages
 
@@ -68,22 +70,21 @@ El sitio funciona con datos demo locales para poder probarlo sin credenciales:
 - `gigaprint-theme`
 - `gigaprint-admin`
 
-La estructura Supabase ya existe, pero todavía no se usa como adaptador principal. Antes de producción hay que migrar lecturas/escrituras, autenticación, Storage y solicitudes al backend.
+Con Supabase configurado, la aplicación lee settings, servicios, productos, promociones y bloques publicados, guarda solicitudes en `inquiries` y sincroniza cambios del administrador con rol `admin`. Si Supabase no está configurado o la red falla, conserva una copia local para que el sitio siga siendo navegable.
+
+La migración `supabase/migrations/20260821010000_auth_storage_admin.sql` ya está aplicada. Incluye `profiles`, trigger de perfil, función `is_admin()`, políticas RLS de escritura y buckets `gigaprint-media` (público) y `gigaprint-private` (privado). El catálogo inicial ya está sembrado: 95 productos, 4 servicios, 3 promociones y 3 bloques de inicio.
 
 ## Pendientes priorizados
 
 ### Prioridad alta
 
-- Supabase Auth para admin.
-- Adaptador Supabase para settings, productos, servicios, promociones, bloques e inquiries.
-- Políticas RLS de escritura únicamente para usuarios autenticados con rol admin.
-- Storage para imágenes WebP, documentos, artes y archivos de cotización.
+- Crear el primer usuario en Supabase Auth y cambiar su fila de `profiles.role` a `admin`; la base ya está preparada, pero no se inventó un correo/contraseña.
+- Subir la biblioteca optimizada a `gigaprint-media` desde el panel cuando el uploader se conecte a la UI de Storage.
 - Reemplazar datos de contacto demo por datos reales.
 - Rotar los secretos compartidos durante la configuración.
 
 ### Prioridad media
 
-- Semilla inicial de productos y contenido en Supabase.
 - Historial/versionado de páginas y bloques.
 - Estados de producción para solicitudes.
 - Analítica y eventos de conversión.

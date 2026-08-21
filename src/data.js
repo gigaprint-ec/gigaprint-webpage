@@ -57,9 +57,9 @@ export const initialData = {
   products: [
     { id: 'lona', name: 'Lona publicitaria', category: 'Gran formato', type: 'm2', calcType: 'm2', price: 7.5, unit: 'm²', image: media.lona, description: 'Impresión full color para exteriores e interiores.', featured: true, specs: ['13 oz / 510 g', 'Full color CMYK', 'Acabado mate o brillante'] },
     { id: 'vinil', name: 'Vinil adhesivo', category: 'Gran formato', type: 'm2', calcType: 'm2', price: 12, unit: 'm²', image: media.vinil, description: 'Ideal para vitrinas, paredes, vehículos y señalización.', featured: true, specs: ['Corte opcional', 'Interior / exterior', 'Aplicación profesional'] },
-    { id: 'corporeo', name: 'Letras corpóreas', category: 'Rótulos', type: 'unit', price: 18, unit: 'unidad', image: media.letrero, description: 'Volumen y presencia para que tu logo destaque.', featured: true, specs: ['Acrílico, PVC o MDF', 'Color personalizado', 'Instalación disponible'] },
-    { id: 'neon', name: 'Neón LED personalizado', category: 'Personalizados', type: 'unit', price: 95, unit: 'desde', image: media.laser, description: 'Tu frase o logo convertido en una pieza luminosa.', featured: false, specs: ['Base acrílica', 'Fuente incluida', 'Diseño a medida'] },
-    { id: 'rollup', name: 'Roll up 85 × 200 cm', category: 'Gran formato', type: 'unit', price: 64, unit: 'unidad', image: assetPath('/images/gigaprint/pendones_rollup.png'), description: 'Tu comunicación lista para eventos y puntos de venta.', featured: false, specs: ['Estructura portátil', 'Gráfico reemplazable', 'Bolso incluido'] },
+    { id: 'corporeo', name: 'Letras corpóreas', category: 'Rótulos', type: 'unit', price: 18, unit: 'unidad', image: media.luminoso, description: 'Volumen y presencia para que tu logo destaque.', featured: true, specs: ['Acrílico, PVC o MDF', 'Color personalizado', 'Instalación disponible'] },
+    { id: 'neon', name: 'Neón LED personalizado', category: 'Personalizados', type: 'unit', price: 95, unit: 'desde', image: media.neon, description: 'Tu frase o logo convertido en una pieza luminosa.', featured: false, specs: ['Base acrílica', 'Fuente incluida', 'Diseño a medida'] },
+    { id: 'rollup', name: 'Roll up 85 × 200 cm', category: 'Gran formato', type: 'unit', price: 64, unit: 'unidad', image: media.rollupProduct, description: 'Tu comunicación lista para eventos y puntos de venta.', featured: false, specs: ['Estructura portátil', 'Gráfico reemplazable', 'Bolso incluido'] },
     { id: 'stickers', name: 'Stickers personalizados', category: 'Imprenta', type: 'unit', price: 0.35, unit: 'unidad', image: media.stickers, description: 'Pequeños formatos, gran recordación de marca.', featured: false, specs: ['Vinil adhesivo', 'Corte personalizado', 'Pedidos desde 50 unidades'] },
   ].concat(estebanCatalogProducts),
   promotions: [
@@ -71,7 +71,7 @@ export const initialData = {
   homeBlocks: [
     { id: 'home-intro', type: 'text', visible: true, animation: 'none', content: '<div class="home-block-kicker">Gigaprint / sistema visual</div><h2>Una misma idea puede vivir en una fachada, una vitrina y una experiencia.</h2><p>Usa este espacio desde el editor para contar campañas, mostrar procesos o destacar un servicio de temporada.</p>' },
     { id: 'home-story', type: 'media-text', visible: true, animation: 'none', side: 'left', title: 'Diseñamos para que la producción tenga sentido.', content: '<p>El diseño no termina en la pantalla. Probamos proporciones, materiales y acabados para que tu idea llegue al mundo con la fuerza correcta.</p>', src: media.workspace, alt: 'Equipo de Gigaprint trabajando' },
-    { id: 'home-gallery', type: 'gallery', visible: true, animation: 'none', layout: 'masonry', columns: 3, items: [media.lona, media.vinil, media.letrero].map((src) => ({ src, alt: 'Material de publicidad Gigaprint' })) },
+    { id: 'home-gallery', type: 'gallery', visible: true, animation: 'none', layout: 'masonry', columns: 3, items: [media.lona, media.neon, media.luminoso, media.rollupProduct].map((src) => ({ src, alt: 'Material de publicidad Gigaprint' })) },
   ],
 };
 

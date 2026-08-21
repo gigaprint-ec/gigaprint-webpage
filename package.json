@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.112.3",
     "@tiptap/extension-color": "^3.30.2",
     "@tiptap/extension-highlight": "^3.30.2",
     "@tiptap/extension-image": "^3.30.2",
@@ -24,5 +25,8 @@
     "react-dom": "latest",
     "react-router-dom": "latest",
     "vite": "latest"
+  },
+  "devDependencies": {
+    "sharp": "^0.35.3"
   }
 }

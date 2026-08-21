@@ -13,4 +13,9 @@ export const media = {
   letrero: assetPath('/images/gigaprint/letras_corporeas.png'),
   stickers: assetPath('/images/gigaprint/stickers.png'),
   workspace: assetPath('/images/gigaprint/disenador_workspace.png'),
+  neon: assetPath('/media/products/neon.webp'),
+  luminoso: assetPath('/media/products/luminoso.webp'),
+  rollupProduct: assetPath('/media/products/rollup.webp'),
+  mascot: assetPath('/brand/mascot/chatgpt-image-3-ago-2026-11-51-23.webp'),
+  logoDark: assetPath('/brand/logos/recurso-4-logo-giga.svg'),
 };

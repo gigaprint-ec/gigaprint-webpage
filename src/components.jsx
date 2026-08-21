@@ -1,6 +1,7 @@
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowUpRight, Check, ChevronRight, Camera, Mail, MapPin, Menu, MessageCircle, Minus, Moon, Plus, Search, ShoppingBag, Sparkles, Sun, X } from 'lucide-react';
 import { media, money, themePresets } from './data';
+import { resourceUrls } from './data/resourceManifest';
 import { getProductCalcType } from './catalog';
 import { useSite } from './store';
 import { ContextMenu, MotionObserver, SearchCommand, SeasonalThemeLayer, ThemeToggle, ToastViewport, contextIcons } from './components/studio/Chrome';
@@ -48,7 +49,7 @@ export function AdminShell({ children }) { const { toast, siteTheme } = useSite(
 
 export function AdminHeader({ eyebrow, title, text, action }) { return <header className="admin-header"><div><span className="eyebrow">{eyebrow}</span><h1>{title}</h1>{text && <p>{text}</p>}</div>{action}</header>; }
 
-export const imageLibrary = [media.lona, media.vinil, media.letrero, media.laser, media.stickers, media.workspace];
+export const imageLibrary = [media.lona, media.vinil, media.letrero, media.laser, media.stickers, media.workspace, ...resourceUrls.filter((item) => item.type === 'image').map((item) => item.url)];
 
 // React is imported lazily here to keep the shared component file compact.
 import React from 'react';

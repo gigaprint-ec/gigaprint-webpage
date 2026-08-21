@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { initialData, themePresets } from './data';
 import { assetPath } from './data/media';
+import { hasSupabase, supabase } from './lib/supabase';
+import { fetchSiteData, persistSiteData, submitInquiry } from './lib/siteRepository';
 
 const DATA_KEY = 'gigaprint-site-v1';
 const CART_KEY = 'gigaprint-cart-v1';
@@ -41,6 +43,7 @@ export function SiteProvider({ children }) {
   const [cart, setCart] = useState(() => load(CART_KEY, []));
   const [toast, setToast] = useState('');
   const [theme, setTheme] = useState(() => localStorage.getItem('gigaprint-theme') || 'light');
+  const [remoteReady, setRemoteReady] = useState(!hasSupabase);
   const siteTheme = data.settings?.themePreset || 'default';
 
   useEffect(() => localStorage.setItem(DATA_KEY, JSON.stringify(data)), [data]);
@@ -56,6 +59,32 @@ export function SiteProvider({ children }) {
     document.documentElement.style.setProperty('--theme-secondary', preset.palette.secondary);
   }, [siteTheme]);
 
+  useEffect(() => {
+    if (!hasSupabase) return undefined;
+    let active = true;
+    fetchSiteData()
+      .then((remote) => {
+        if (!active) return;
+        if (remote) setData((current) => ({ ...current, ...remote, settings: { ...current.settings, ...remote.settings } }));
+        setRemoteReady(true);
+      })
+      .catch(() => setRemoteReady(true));
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!hasSupabase || !remoteReady) return undefined;
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      if (cancelled || !userData.user) return;
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', userData.user.id).maybeSingle();
+      if (cancelled || profile?.role !== 'admin') return;
+      try { await persistSiteData(data); } catch { /* local state remains the safe fallback */ }
+    }, 850);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [data, remoteReady]);
+
   const notify = (message) => { setToast(message); window.setTimeout(() => setToast(''), 2800); };
   const addToCart = (item) => {
     setCart((current) => {
@@ -67,7 +96,14 @@ export function SiteProvider({ children }) {
   };
   const updateCartItem = (id, quantity) => setCart((current) => quantity <= 0 ? current.filter((item) => item.cartId !== id) : current.map((item) => item.cartId === id ? { ...item, quantity } : item));
   const removeCartItem = (id) => setCart((current) => current.filter((item) => item.cartId !== id));
-  const saveInquiry = (inquiry) => { setData((current) => ({ ...current, inquiries: [...current.inquiries, { ...inquiry, id: uid(), createdAt: new Date().toISOString(), status: 'nuevo' }] })); notify('Solicitud recibida. Te contactaremos pronto.'); };
+  const saveInquiry = async (inquiry) => {
+    const localInquiry = { ...inquiry, id: uid(), createdAt: new Date().toISOString(), status: 'nuevo' };
+    setData((current) => ({ ...current, inquiries: [...current.inquiries, localInquiry] }));
+    if (hasSupabase) {
+      try { await submitInquiry(inquiry); } catch { /* the local copy keeps the form usable during a network interruption */ }
+    }
+    notify('Solicitud recibida. Te contactaremos pronto.');
+  };
   const updateCollectionItem = (collection, id, patch) => setData((current) => ({ ...current, [collection]: current[collection].map((item) => item.id === id ? { ...item, ...patch } : item) }));
   const addCollectionItem = (collection, item) => setData((current) => ({ ...current, [collection]: [...current[collection], item] }));
   const removeCollectionItem = (collection, id) => setData((current) => ({ ...current, [collection]: current[collection].filter((item) => item.id !== id) }));
@@ -85,10 +121,38 @@ export function SiteProvider({ children }) {
 export function useSite() { return useContext(SiteContext); }
 
 export function AuthProvider({ children }) {
-  const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem('gigaprint-admin') === 'true');
-  const login = (password) => { if (password === 'gigaprint') { localStorage.setItem('gigaprint-admin', 'true'); setIsAdmin(true); return true; } return false; };
-  const logout = () => { localStorage.removeItem('gigaprint-admin'); setIsAdmin(false); };
-  return <AuthContext.Provider value={{ isAdmin, login, logout }}>{children}</AuthContext.Provider>;
+  const [isAdmin, setIsAdmin] = useState(() => !hasSupabase && localStorage.getItem('gigaprint-admin') === 'true');
+  const [authLoading, setAuthLoading] = useState(hasSupabase);
+
+  useEffect(() => {
+    if (!hasSupabase) return undefined;
+    let active = true;
+    const refreshRole = async (session) => {
+      if (!session?.user) { if (active) setIsAdmin(false); return; }
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).maybeSingle();
+      if (active) setIsAdmin(profile?.role === 'admin');
+    };
+    supabase.auth.getSession().then(({ data }) => refreshRole(data.session).finally(() => active && setAuthLoading(false)));
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => { refreshRole(session); });
+    return () => { active = false; listener.subscription.unsubscribe(); };
+  }, []);
+
+  const login = async (credentials) => {
+    if (!hasSupabase) {
+      const password = typeof credentials === 'string' ? credentials : credentials.password;
+      if (password === 'gigaprint') { localStorage.setItem('gigaprint-admin', 'true'); setIsAdmin(true); return { ok: true }; }
+      return { ok: false, error: 'Contraseña incorrecta.' };
+    }
+    const { error } = await supabase.auth.signInWithPassword({ email: credentials.email, password: credentials.password });
+    if (error) return { ok: false, error: 'Correo o contraseña incorrectos.' };
+    const { data: userData } = await supabase.auth.getUser();
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', userData.user?.id).maybeSingle();
+    if (profile?.role !== 'admin') { await supabase.auth.signOut(); return { ok: false, error: 'Tu usuario aún no tiene rol de administrador.' }; }
+    setIsAdmin(true);
+    return { ok: true };
+  };
+  const logout = async () => { if (hasSupabase) await supabase.auth.signOut(); localStorage.removeItem('gigaprint-admin'); setIsAdmin(false); };
+  return <AuthContext.Provider value={{ isAdmin, authLoading, login, logout, authMode: hasSupabase ? 'supabase' : 'demo' }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() { return useContext(AuthContext); }

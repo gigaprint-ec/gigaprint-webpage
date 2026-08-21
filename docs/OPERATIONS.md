@@ -10,10 +10,9 @@
 
 ## Acceso admin actual
 
-- Usuario: no aplica en el prototipo.
-- Contraseña demo: `gigaprint`.
-- El acceso actual se guarda en `localStorage` del navegador y permite editar contenido, bloques, productos, promociones, temas y solicitudes de ese dispositivo.
-- Para producción hay que sustituirlo por Supabase Auth; no se debe usar esta contraseña demo públicamente.
+- Producción: Supabase Auth con correo y contraseña.
+- El primer usuario debe crearse en Supabase Dashboard → Authentication → Users y luego promoverse con `update public.profiles set role = 'admin' where id = '<UUID>';`.
+- El modo demo `gigaprint` solo existe cuando faltan las variables `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`; no debe usarse en producción.
 
 ## Variables esperadas
 
@@ -48,14 +47,16 @@ Fuente: `supabase/schema.sql`.
 La migración fue ejecutada contra el proyecto remoto usando el pooler IPv4 de Supabase. Verificación realizada:
 
 - 11 tablas públicas creadas.
-- 11 políticas RLS creadas.
+- 28 políticas RLS visibles en el esquema público, incluyendo escritura de administrador.
 - `site_settings.theme_preset` creado.
 - `site_settings.theme_presets` creado.
 - Esquema aplicado sin dejar cambios locales pendientes.
 
 Tablas:
 
-`site_settings`, `services`, `products`, `promotions`, `inquiries`, `pages`, `page_blocks`, `media_assets`, `service_questions`, `form_submissions`, `design_tokens`.
+`site_settings`, `services`, `products`, `promotions`, `inquiries`, `pages`, `page_blocks`, `media_assets`, `service_questions`, `form_submissions`, `design_tokens`, `profiles`.
+
+Storage: `gigaprint-media` es público para recursos web; `gigaprint-private` es privado para archivos de clientes.
 
 ## Cómo verificar sin exponer secretos
 
@@ -71,14 +72,9 @@ No pongas la contraseña real en este archivo. Si la conexión directa `db.<proj
 
 ## Estado de la integración
 
-La base de datos está creada, pero la aplicación aún conserva el adaptador local en `src/store.jsx`. La siguiente fase debe crear un adaptador Supabase que mantenga los mismos IDs y colecciones, migrando de forma gradual:
+La aplicación ya usa `src/lib/siteRepository.js` y `src/lib/supabase.js`. El seed se puede repetir con `scripts/seed-supabase.mjs`; la verificación de conteos se ejecuta con `scripts/check-supabase.mjs`. El primer usuario admin es el único paso manual pendiente para activar escrituras globales desde el panel.
 
-1. Leer settings y temas.
-2. Leer productos y categorías.
-3. Guardar solicitudes.
-4. Guardar bloques y contenido admin.
-5. Conectar Storage.
-6. Activar Auth y políticas de escritura.
+La preparación de recursos se repite con `node scripts/optimize-resources.mjs`. Los originales de `Recursos (no borrar)` están excluidos de Git; las copias optimizadas sí se publican.
 
 ## Antes de producción
 

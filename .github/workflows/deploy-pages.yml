@@ -31,6 +31,12 @@ jobs:
         run: npm ci
 
       - name: Build
+        env:
+          # Supabase publishable keys are intended for browser applications.
+          # Never place the database password or a service_role key here.
+          VITE_SUPABASE_URL: https://ihifnhibzlgxotywbeji.supabase.co
+          VITE_SUPABASE_ANON_KEY: sb_publishable__p2-4-2UkG8pb4x92O3dPg_SRFUnXRf
+          VITE_SITE_URL: https://gigaprint-ec.github.io/gigaprint-webpage/
         run: npm run build
 
       - name: Upload Pages artifact
