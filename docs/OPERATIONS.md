@@ -4,7 +4,7 @@
 
 - Repositorio: https://github.com/gigaprint-ec/gigaprint-webpage
 - GitHub Pages: https://gigaprint-ec.github.io/gigaprint-webpage/
-- El repositorio local contiene tres commits aún no publicados porque la credencial GitHub disponible fue rechazada; después de autenticar la cuenta `gigaprint-ec`, ejecutar `git push origin main`.
+- El repositorio `gigaprint-ec/gigaprint-webpage` está sincronizado con `main`; GitHub Actions publica automáticamente cada push.
 - Panel admin demo: https://gigaprint-ec.github.io/gigaprint-webpage/admin
 - Supabase project ref: `ihifnhibzlgxotywbeji`
 - Supabase URL: `https://ihifnhibzlgxotywbeji.supabase.co`
