@@ -12,7 +12,7 @@
 ## Acceso admin actual
 
 - Producción: Supabase Auth con correo y contraseña.
-- El usuario admin de producción `ecgigaprint@gmail.com` ya existe y tiene `profiles.role = 'admin'`. Para nuevos usuarios, créalos en Supabase Dashboard → Authentication → Users y luego promueve su perfil con `update public.profiles set role = 'admin' where id = '<UUID>';`.
+- Los usuarios de producción `ecgigaprint@gmail.com` y `estebanico10@gmail.com` ya existen y tienen `profiles.role = 'super_admin'`. Para nuevos usuarios, créalos en Supabase Dashboard → Authentication → Users y luego promueve su perfil con `update public.profiles set role = 'admin' where id = '<UUID>';`.
 - El modo demo `gigaprint` solo existe cuando faltan las variables `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`; no debe usarse en producción.
 
 ## Variables esperadas

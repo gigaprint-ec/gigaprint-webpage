@@ -8,6 +8,7 @@ const DATA_KEY = 'gigaprint-site-v1';
 const CART_KEY = 'gigaprint-cart-v1';
 const SiteContext = createContext(null);
 const AuthContext = createContext(null);
+const privilegedRoles = new Set(['admin', 'super_admin']);
 
 const uid = () => globalThis.crypto?.randomUUID?.() || `gigaprint-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -79,7 +80,7 @@ export function SiteProvider({ children }) {
       const { data: userData } = await supabase.auth.getUser();
       if (cancelled || !userData.user) return;
       const { data: profile } = await supabase.from('profiles').select('role').eq('id', userData.user.id).maybeSingle();
-      if (cancelled || profile?.role !== 'admin') return;
+      if (cancelled || !privilegedRoles.has(profile?.role)) return;
       try { await persistSiteData(data); } catch { /* local state remains the safe fallback */ }
     }, 850);
     return () => { cancelled = true; window.clearTimeout(timer); };
@@ -130,7 +131,7 @@ export function AuthProvider({ children }) {
     const refreshRole = async (session) => {
       if (!session?.user) { if (active) setIsAdmin(false); return; }
       const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).maybeSingle();
-      if (active) setIsAdmin(profile?.role === 'admin');
+      if (active) setIsAdmin(privilegedRoles.has(profile?.role));
     };
     supabase.auth.getSession().then(({ data }) => refreshRole(data.session).finally(() => active && setAuthLoading(false)));
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => { refreshRole(session); });
@@ -147,7 +148,7 @@ export function AuthProvider({ children }) {
     if (error) return { ok: false, error: 'Correo o contraseña incorrectos.' };
     const { data: userData } = await supabase.auth.getUser();
     const { data: profile } = await supabase.from('profiles').select('role').eq('id', userData.user?.id).maybeSingle();
-    if (profile?.role !== 'admin') { await supabase.auth.signOut(); return { ok: false, error: 'Tu usuario aún no tiene rol de administrador.' }; }
+    if (!privilegedRoles.has(profile?.role)) { await supabase.auth.signOut(); return { ok: false, error: 'Tu usuario aún no tiene rol de administrador.' }; }
     setIsAdmin(true);
     return { ok: true };
   };
