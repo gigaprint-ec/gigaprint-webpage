@@ -43,7 +43,7 @@ const fromSettings = (row) => ({
 
 export async function fetchSiteData() {
   if (!supabase) return null;
-  const [settings, services, products, promotions, inquiries, pages, blocks] = await Promise.all([
+  const [settings, services, products, promotions, inquiries, pages, blocks, calculatorSettings] = await Promise.all([
     supabase.from('site_settings').select('*').eq('id', 'main').maybeSingle(),
     supabase.from('services').select('*').eq('is_published', true).order('sort_order'),
     supabase.from('products').select('*').eq('is_published', true).order('sort_order'),
@@ -51,8 +51,9 @@ export async function fetchSiteData() {
     supabase.from('inquiries').select('*').order('created_at', { ascending: false }),
     supabase.from('pages').select('*').eq('slug', 'home').maybeSingle(),
     supabase.from('page_blocks').select('*').eq('is_visible', true).order('sort_order'),
+    supabase.from('calculator_settings').select('*').eq('id', 'default').maybeSingle(),
   ]);
-  const error = firstError([settings, services, products, promotions, inquiries, pages, blocks]);
+  const error = firstError([settings, services, products, promotions, inquiries, pages, blocks, calculatorSettings]);
   if (error) throw error;
   if (!settings.data && !products.data?.length) return null;
   const homeBlocks = (blocks.data || []).map((row) => ({ id: row.id, type: row.block_type, visible: row.is_visible, ...(row.content || {}) }));
@@ -64,6 +65,16 @@ export async function fetchSiteData() {
     inquiries: inquiries.data || [],
     homeBlocks,
     remotePageId: pages.data?.id || null,
+    calculatorSettings: calculatorSettings.data ? {
+      taxRate: calculatorSettings.data.tax_rate,
+      minDimensionCm: calculatorSettings.data.min_dimension_cm,
+      maxDimensionCm: calculatorSettings.data.max_dimension_cm,
+      designAdaptationPrice: calculatorSettings.data.design_adaptation_price,
+      designFromScratchPrice: calculatorSettings.data.design_from_scratch_price,
+      eyeletSmallPrice: calculatorSettings.data.eyelet_small_price,
+      eyeletLargePrice: calculatorSettings.data.eyelet_large_price,
+      disclaimer: calculatorSettings.data.disclaimer,
+    } : undefined,
   };
 }
 
@@ -78,12 +89,19 @@ export async function persistSiteData(data) {
     }),
     supabase.from('services').upsert((data.services || []).map((row, index) => ({ id: row.id, name: row.name, short: row.short, detail: row.detail, icon: row.icon, image: assetStoragePath(row.image), tag: row.tag, sort_order: index, is_published: row.isPublished !== false })), { onConflict: 'id' }),
     supabase.from('products').upsert((data.products || []).map((row, index) => ({
-      id: row.id, name: row.name, category: row.category || 'General', type: row.type || 'unit', calc_type: row.calcType || row.type || 'unit', pricing_mode: row.pricingMode || 'unit', price: Number(row.price) || 0, unit: row.unit,
-      image: assetStoragePath(row.image), description: row.description, specs: row.specs || [], price_scales: row.priceScales || [], variant_options: row.variantOptions || [], price_matrix: row.priceMatrix || {}, colors: row.colors || [], sizes: row.sizes || [], min_quantity: Number(row.minQuantity) || 1, quantity_step: Number(row.quantityStep) || 1, source: row.source || 'manual', featured: Boolean(row.featured), is_published: row.isPublished !== false, sort_order: index,
+      id: row.id, name: row.name, category: row.category || 'General', subcategory: row.subcategory, type: row.type || 'unit', calc_type: row.calcType || row.type || 'unit', pricing_mode: row.pricingMode || 'unit', price: Number(row.price) || 0, price_inst: row.price_inst ?? row.priceInst ?? null, price_corp: row.price_corp ?? row.priceCorp ?? null, unit: row.unit,
+      image: assetStoragePath(row.image), images: row.images || [], features: row.features || [], description: row.description, specs: row.specs || [], price_scales: row.priceScales || [], variant_options: row.variantOptions || [], price_matrix: row.priceMatrix || {}, colors: row.colors || [], color_variations: row.colorVariations || [], attributes: row.attributes || {}, custom_options: row.customOptions || row.custom_options || {}, has_variants: Boolean(row.hasVariants || row.has_variants), sizes: row.sizes || [], min_quantity: Number(row.minQuantity) || 1, quantity_step: Number(row.quantityStep) || 1, source: row.source || 'manual', featured: Boolean(row.featured), is_published: row.isPublished !== false, sort_order: index,
     })), { onConflict: 'id' }),
     supabase.from('promotions').upsert((data.promotions || []).map((row, index) => ({ id: row.id, title: row.title, eyebrow: row.eyebrow, description: row.description, price: Number(row.price) || 0, old_price: Number(row.oldPrice) || 0, badge: row.badge, active: row.active !== false, sort_order: index })), { onConflict: 'id' }),
     supabase.from('pages').upsert({ id: 'home', slug: 'home', title: 'Inicio', intro: settings.heroText, is_published: true, updated_at: new Date().toISOString() }, { onConflict: 'id' }),
   ];
+  const calculator = data.calculatorSettings || {};
+  operations.push(supabase.from('calculator_settings').upsert({
+    id: 'default', tax_rate: Number(calculator.taxRate) || 15, min_dimension_cm: Number(calculator.minDimensionCm) || 1,
+    max_dimension_cm: Number(calculator.maxDimensionCm) || 5000, design_adaptation_price: Number(calculator.designAdaptationPrice) || 5,
+    design_from_scratch_price: Number(calculator.designFromScratchPrice) || 15, eyelet_small_price: Number(calculator.eyeletSmallPrice) || 0.3,
+    eyelet_large_price: Number(calculator.eyeletLargePrice) || 0.5, disclaimer: calculator.disclaimer || 'Los valores son referenciales.', updated_at: new Date().toISOString(),
+  }, { onConflict: 'id' }));
   const pageBlocks = (data.homeBlocks || []).map((block, index) => ({ id: block.id, page_id: 'home', block_type: block.type, content: cleanAssets(Object.fromEntries(Object.entries(block).filter(([key]) => !['id', 'type', 'visible'].includes(key)))), sort_order: index, is_visible: block.visible !== false, updated_at: new Date().toISOString() }));
   operations.push(supabase.from('page_blocks').upsert(pageBlocks, { onConflict: 'id' }));
   const results = await Promise.all(operations);
@@ -95,6 +113,18 @@ export async function persistSiteData(data) {
 export async function submitInquiry(inquiry) {
   if (!supabase) return null;
   const { data, error } = await supabase.from('inquiries').insert({ name: inquiry.name, company: inquiry.company, email: inquiry.email, phone: inquiry.phone, message: inquiry.message }).select().single();
+  if (error) throw error;
+  return data;
+}
+
+export async function submitQuoteRequest(quote) {
+  if (!supabase) return null;
+  const { data, error } = await supabase.from('quote_requests').insert({
+    customer_name: quote.customerName || null, customer_email: quote.customerEmail || null, customer_phone: quote.customerPhone || null,
+    customer_company: quote.customerCompany || null, items: quote.items || [], subtotal: Number(quote.subtotal) || 0,
+    tax_rate: Number(quote.taxRate) || 0, tax_amount: Number(quote.taxAmount) || 0, total: Number(quote.total) || 0,
+    notes: quote.notes || null, source: 'cotizador',
+  }).select('id,quote_number').single();
   if (error) throw error;
   return data;
 }

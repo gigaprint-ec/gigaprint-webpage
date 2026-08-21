@@ -110,6 +110,10 @@ function makeProduct(rows, index) {
     variantOptions: options,
     priceScales,
     priceMatrix: pricesByVariant,
+    customOptions: {
+      allowDesign: true,
+      allowEyelets: pricingMode === 'area' && /lona|vinil|microperforado|panaflex|tela/i.test(name),
+    },
     sourceRows: rows,
     minQuantity: Math.max(1, priceScales[0]?.qty || 1),
     quantityStep: 1,
@@ -149,23 +153,31 @@ export function getPriceTiers(product, selection = {}) {
   return (matrix[key] || product?.priceScales || []).slice().sort((a, b) => Number(a.qty) - Number(b.qty));
 }
 
+function tierPrice(tier, fallback = 0) {
+  return Number(tier?.price ?? tier?.pvp ?? tier?.unitPrice ?? tier?.total ?? fallback) || 0;
+}
+
 export function getTier(product, quantity, selection = {}) {
   const tiers = getPriceTiers(product, selection);
   return tiers.reduce((current, tier) => Number(quantity) >= Number(tier.qty) ? tier : current, tiers[0] || { qty: 1, price: Number(product?.price) || 0 });
 }
 
 export function calculateCatalogQuote(product, config = {}) {
-  const quantity = Math.max(Number(product?.minQuantity || 1), Number(config.quantity) || 1);
-  const tier = getTier(product, quantity, config.options || {});
-  const rate = Number(tier.price ?? product?.price ?? 0);
   const mode = product?.pricingMode || (getProductCalcType(product) === 'm2' ? 'area' : 'unit');
+  const quantity = Math.max(Number(product?.minQuantity || 1), Number(config.quantity) || 1);
   const width = Math.max(0.01, Number(config.width) || 1);
   const height = Math.max(0.01, Number(config.height) || 1);
   const area = width * height;
+  // Los escalones de Campana Lonas están expresados en m², no en piezas.
+  const tierBasis = mode === 'area' ? area * quantity : quantity;
+  const tier = getTier(product, tierBasis, config.options || {});
+  const rate = tierPrice(tier, product?.price);
   const design = Number(config.designCost) || 0;
   const extras = (config.extras || []).reduce((sum, extra) => sum + Number(extra.price || 0), 0);
   const optionAdjustment = Number(config.optionAdjustment) || 0;
   const material = mode === 'area' ? area * rate * quantity : mode === 'tier-total' ? rate : rate * quantity;
   const subtotal = Math.max(0, material + design + extras + optionAdjustment);
-  return { quantity, tier, rate, mode, width, height, area, material, design, extras, optionAdjustment, subtotal, total: subtotal };
+  const taxRate = Math.max(0, Number(config.taxRate) || 0);
+  const tax = subtotal * (taxRate / 100);
+  return { quantity, tier, tierBasis, rate, mode, width, height, area, material, design, extras, optionAdjustment, subtotal, taxRate, tax, total: subtotal + tax };
 }

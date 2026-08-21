@@ -15,7 +15,7 @@ create table if not exists public.services (
   id text primary key, name text not null, short text, detail text, icon text, image text, tag text, sort_order int not null default 0, is_published boolean not null default true
 );
 create table if not exists public.products (
-  id text primary key, name text not null, category text not null, type text not null default 'unit', calc_type text not null default 'unit', pricing_mode text not null default 'unit', price numeric(12,2) not null default 0, unit text, image text, description text, specs jsonb not null default '[]'::jsonb, price_scales jsonb not null default '[]'::jsonb, variant_options jsonb not null default '[]'::jsonb, price_matrix jsonb not null default '{}'::jsonb, colors jsonb not null default '[]'::jsonb, sizes jsonb not null default '[]'::jsonb, min_quantity numeric(12,2) not null default 1, quantity_step numeric(12,2) not null default 1, source text not null default 'manual', featured boolean not null default false, is_published boolean not null default true, sort_order int not null default 0
+  id text primary key, name text not null, category text not null, type text not null default 'unit', calc_type text not null default 'unit', pricing_mode text not null default 'unit', price numeric(12,4) not null default 0, unit text, image text, description text, specs jsonb not null default '[]'::jsonb, price_scales jsonb not null default '[]'::jsonb, variant_options jsonb not null default '[]'::jsonb, price_matrix jsonb not null default '{}'::jsonb, colors jsonb not null default '[]'::jsonb, sizes jsonb not null default '[]'::jsonb, min_quantity numeric(12,2) not null default 1, quantity_step numeric(12,2) not null default 1, source text not null default 'manual', featured boolean not null default false, is_published boolean not null default true, sort_order int not null default 0
 );
 
 -- Campos de catálogo inteligente. Son seguros para ejecutar sobre instalaciones existentes.
@@ -29,6 +29,15 @@ alter table public.products add column if not exists sizes jsonb not null defaul
 alter table public.products add column if not exists min_quantity numeric(12,2) not null default 1;
 alter table public.products add column if not exists quantity_step numeric(12,2) not null default 1;
 alter table public.products add column if not exists source text not null default 'manual';
+alter table public.products add column if not exists subcategory text;
+alter table public.products add column if not exists price_inst numeric(12,4);
+alter table public.products add column if not exists price_corp numeric(12,4);
+alter table public.products add column if not exists custom_options jsonb not null default '{}'::jsonb;
+alter table public.products add column if not exists color_variations jsonb not null default '[]'::jsonb;
+alter table public.products add column if not exists attributes jsonb not null default '{}'::jsonb;
+alter table public.products add column if not exists images jsonb not null default '[]'::jsonb;
+alter table public.products add column if not exists features jsonb not null default '[]'::jsonb;
+alter table public.products add column if not exists has_variants boolean not null default false;
 create table if not exists public.promotions (
   id text primary key, title text not null, eyebrow text, description text, price numeric(12,2), old_price numeric(12,2), badge text, active boolean not null default true, sort_order int not null default 0
 );

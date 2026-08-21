@@ -59,6 +59,8 @@ GitHub Pages publica el proyecto debajo de `/gigaprint-webpage/`. Para evitar en
 - `variantOptions` para materiales, acabados y configuraciones.
 - `pricingMode` para unidad, m² o total por lote.
 - `calcType` para cálculo por área o unidad.
+- Para familias como `Campana Lonas`, los escalones se comparan contra el área total (m²), no contra la cantidad de piezas.
+- Los precios escalonados aceptan `price`, `pvp`, `unitPrice` o `total`, para conservar datos importados sin perder precisión.
 
 El catálogo local actual contiene 95 productos normalizados, incluyendo productos manuales y familias del catálogo importado.
 
@@ -73,13 +75,14 @@ El sitio funciona con datos demo locales para poder probarlo sin credenciales:
 
 Con Supabase configurado, la aplicación lee settings, servicios, productos, promociones y bloques publicados, guarda solicitudes en `inquiries` y sincroniza cambios del administrador con rol `admin`. Si Supabase no está configurado o la red falla, conserva una copia local para que el sitio siga siendo navegable.
 
-La migración `supabase/migrations/20260821010000_auth_storage_admin.sql` ya está aplicada. Incluye `profiles`, trigger de perfil, función `is_admin()`, políticas RLS de escritura y buckets `gigaprint-media` (público) y `gigaprint-private` (privado). El catálogo inicial ya está sembrado: 95 productos, 4 servicios, 3 promociones y 3 bloques de inicio.
+Las migraciones `20260821010000_auth_storage_admin.sql`, `20260821020000_super_admin_roles.sql` y `20260821030000_quote_calculator_catalog.sql` ya están aplicadas. La última añade configuración del cotizador, IVA, diseño, ojales, instalación, variantes, imágenes y la tabla persistente `quote_requests`. El catálogo inicial ya está sembrado: 95 productos, 89 importados de Esteban, 4 servicios, 3 promociones y 3 bloques de inicio.
 
 ## Pendientes priorizados
 
 ### Prioridad alta
 
 - Los usuarios `ecgigaprint@gmail.com` y `estebanico10@gmail.com` ya fueron creados en Supabase Auth y sus filas en `profiles` tienen rol `super_admin`.
+- Mostrar las `quote_requests` en un tablero Kanban del panel admin.
 - Subir la biblioteca optimizada a `gigaprint-media` desde el panel cuando el uploader se conecte a la UI de Storage.
 - Reemplazar datos de contacto demo por datos reales.
 - Rotar los secretos compartidos durante la configuración.

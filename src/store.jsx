@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { initialData, themePresets } from './data';
 import { assetPath } from './data/media';
 import { hasSupabase, supabase } from './lib/supabase';
-import { fetchSiteData, persistSiteData, submitInquiry } from './lib/siteRepository';
+import { fetchSiteData, persistSiteData, submitInquiry, submitQuoteRequest } from './lib/siteRepository';
 
 const DATA_KEY = 'gigaprint-site-v1';
 const CART_KEY = 'gigaprint-cart-v1';
@@ -30,6 +30,7 @@ function loadSiteData() {
     promotions: stored.promotions?.length ? stored.promotions : initialData.promotions,
     inquiries: stored.inquiries || [],
     homeBlocks: stored.homeBlocks?.length ? stored.homeBlocks : initialData.homeBlocks,
+    calculatorSettings: { ...initialData.calculatorSettings, ...(stored.calculatorSettings || {}) },
   };
   const normalize = (value, key = '') => {
     if (Array.isArray(value)) return value.map((item) => normalize(item));
@@ -105,6 +106,9 @@ export function SiteProvider({ children }) {
     }
     notify('Solicitud recibida. Te contactaremos pronto.');
   };
+  const saveQuoteRequest = async (quote) => {
+    try { return await submitQuoteRequest(quote); } catch { return null; }
+  };
   const updateCollectionItem = (collection, id, patch) => setData((current) => ({ ...current, [collection]: current[collection].map((item) => item.id === id ? { ...item, ...patch } : item) }));
   const addCollectionItem = (collection, item) => setData((current) => ({ ...current, [collection]: [...current[collection], item] }));
   const removeCollectionItem = (collection, id) => setData((current) => ({ ...current, [collection]: current[collection].filter((item) => item.id !== id) }));
@@ -115,7 +119,7 @@ export function SiteProvider({ children }) {
     notify(next === 'default' ? 'Tema base de Gigaprint restaurado' : `Tema ${themePresets.find((item) => item.id === next)?.name || 'de temporada'} aplicado`);
   };
 
-  const value = useMemo(() => ({ data, setData, cart, addToCart, updateCartItem, removeCartItem, saveInquiry, updateCollectionItem, addCollectionItem, removeCollectionItem, resetData, toast, notify, theme, setTheme, siteTheme, setSiteTheme }), [data, cart, toast, theme, siteTheme]);
+  const value = useMemo(() => ({ data, setData, cart, addToCart, updateCartItem, removeCartItem, saveInquiry, saveQuoteRequest, updateCollectionItem, addCollectionItem, removeCollectionItem, resetData, toast, notify, theme, setTheme, siteTheme, setSiteTheme }), [data, cart, toast, theme, siteTheme]);
   return <SiteContext.Provider value={value}>{children}</SiteContext.Provider>;
 }
 

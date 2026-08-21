@@ -75,6 +75,16 @@ export const initialData = {
     heroTitle: 'Haz que tu marca ocupe espacio.',
     heroText: 'Diseñamos, producimos e instalamos soluciones visuales para que tu negocio se vea profesional desde el primer vistazo.',
   },
+  calculatorSettings: {
+    taxRate: 15,
+    minDimensionCm: 1,
+    maxDimensionCm: 5000,
+    designAdaptationPrice: 5,
+    designFromScratchPrice: 15,
+    eyeletSmallPrice: 0.3,
+    eyeletLargePrice: 0.5,
+    disclaimer: 'Los valores son referenciales y pueden variar según acabados, instalación y condiciones del proyecto.',
+  },
   services: [
     { id: 'rotulos', name: 'Rótulos & fachadas', short: 'Tu local empieza a vender desde la calle.', detail: 'Rótulos sencillos, luminosos, corpóreos y fachadas completas con materiales pensados para durar.', icon: 'Building2', image: media.showcaseMampara, tag: 'Más solicitado' },
     { id: 'impresion', name: 'Impresión gran formato', short: 'Que tu campaña se vea a distancia.', detail: 'Lonas, viniles, microperforados, pendones y todo lo que necesitas para comunicar en grande.', icon: 'Printer', image: media.lona, tag: 'Producción rápida' },

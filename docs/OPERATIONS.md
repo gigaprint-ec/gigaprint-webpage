@@ -47,7 +47,7 @@ Fuente: `supabase/schema.sql`.
 
 La migración fue ejecutada contra el proyecto remoto usando el pooler IPv4 de Supabase. Verificación realizada:
 
-- 11 tablas públicas creadas.
+- 14 tablas públicas creadas, incluyendo `calculator_settings` y `quote_requests`.
 - 28 políticas RLS visibles en el esquema público, incluyendo escritura de administrador.
 - `site_settings.theme_preset` creado.
 - `site_settings.theme_presets` creado.
@@ -55,7 +55,7 @@ La migración fue ejecutada contra el proyecto remoto usando el pooler IPv4 de S
 
 Tablas:
 
-`site_settings`, `services`, `products`, `promotions`, `inquiries`, `pages`, `page_blocks`, `media_assets`, `service_questions`, `form_submissions`, `design_tokens`, `profiles`.
+`site_settings`, `services`, `products`, `promotions`, `inquiries`, `pages`, `page_blocks`, `media_assets`, `service_questions`, `form_submissions`, `design_tokens`, `profiles`, `calculator_settings`, `quote_requests`.
 
 Storage: `gigaprint-media` es público para recursos web; `gigaprint-private` es privado para archivos de clientes.
 
@@ -73,7 +73,7 @@ No pongas la contraseña real en este archivo. Si la conexión directa `db.<proj
 
 ## Estado de la integración
 
-La aplicación ya usa `src/lib/siteRepository.js` y `src/lib/supabase.js`. El seed se puede repetir con `scripts/seed-supabase.mjs`; la verificación de conteos se ejecuta con `scripts/check-supabase.mjs`. El usuario admin de producción ya está activo para habilitar escrituras globales desde el panel.
+La aplicación ya usa `src/lib/siteRepository.js` y `src/lib/supabase.js`. El seed se puede repetir con `scripts/seed-supabase.mjs`; la verificación de conteos se ejecuta con `scripts/check-supabase.mjs`. El cotizador usa el catálogo normalizado de Esteban, aplica el escalón correcto por m²/unidad/lote, calcula IVA y guarda la solicitud completa en `quote_requests` cuando el cliente envía el formulario de contacto con artículos en el carrito.
 
 La preparación de recursos se repite con `node scripts/optimize-resources.mjs`. Los originales de `Recursos (no borrar)` están excluidos de Git; las copias optimizadas sí se publican.
 
