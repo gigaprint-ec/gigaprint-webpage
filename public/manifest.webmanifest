@@ -1,0 +1,14 @@
+{
+  "name": "Gigaprint — Tus ideas en grande",
+  "short_name": "Gigaprint",
+  "description": "Publicidad, impresión y fabricación visual para marcas que quieren verse en grande.",
+  "lang": "es",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f2e9",
+  "theme_color": "#ea580c",
+  "icons": [
+    { "src": "./favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

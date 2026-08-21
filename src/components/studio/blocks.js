@@ -30,7 +30,7 @@ export function createBlock(type) {
   if (type === 'button') return { ...common, label: 'Cuéntanos tu idea', href: '/contacto', variant: 'primary', align: 'left' };
   if (type === 'social') return { ...common, title: 'Síguenos y ve más ideas', links: [{ label: 'Instagram', href: 'https://instagram.com' }, { label: 'WhatsApp', href: 'https://wa.me/593999999999' }] };
   if (type === 'map') return { ...common, title: 'Visítanos', address: 'Quito, Ecuador', embedUrl: '' };
-  if (type === 'embed') return { ...common, html: '<div style="padding:24px;border:1px dashed #ff5b1f">Embed externo</div>', label: 'Embed HTML' };
+  if (type === 'embed') return { ...common, html: '<div style="padding:24px;border:1px dashed #ea580c">Embed externo</div>', label: 'Embed HTML' };
   if (type === 'form') return { ...common, title: 'Cuéntanos tu proyecto', fields: [{ key: 'name', label: 'Tu nombre', type: 'text', required: true }, { key: 'email', label: 'Correo', type: 'email', required: true }, { key: 'message', label: '¿Qué necesitas producir?', type: 'textarea', required: true }] };
   return common;
 }

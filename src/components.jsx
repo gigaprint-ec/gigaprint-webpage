@@ -7,7 +7,7 @@ import { useSite } from './store';
 import { ContextMenu, MotionObserver, SearchCommand, SeasonalThemeLayer, ThemeToggle, ToastViewport, contextIcons } from './components/studio/Chrome';
 
 export function Brand({ compact = false }) {
-  return <Link className="brand" to="/"><span className="brand-mark">G</span><span><b>Giga</b>print{!compact && <small>Tus ideas en grande</small>}</span></Link>;
+  return <Link className="brand" to="/">{compact ? <img className="brand-logo-image" src={media.logoDark} alt="Gigaprint" /> : <><span className="brand-mark">G</span><span><b>Giga</b>print<small>Tus ideas en grande</small></span></>}</Link>;
 }
 
 export function Button({ children, to, onClick, variant = 'primary', className = '', type = 'button' }) {

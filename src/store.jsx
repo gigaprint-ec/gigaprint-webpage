@@ -52,7 +52,7 @@ export function SiteProvider({ children }) {
   useEffect(() => {
     const preset = themePresets.find((item) => item.id === siteTheme) || themePresets[0];
     document.documentElement.dataset.siteTheme = preset.id;
-    document.documentElement.style.setProperty('--brand-orange', '#ff5b1f');
+    document.documentElement.style.setProperty('--brand-orange', '#ea580c');
     document.documentElement.style.setProperty('--orange', preset.palette.accent);
     document.documentElement.style.setProperty('--orange-dark', preset.palette.accentDark);
     document.documentElement.style.setProperty('--orange-soft', preset.palette.accentSoft);
