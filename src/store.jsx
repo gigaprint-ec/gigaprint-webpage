@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { initialData, themePresets } from './data';
+import { assetPath } from './data/media';
 
 const DATA_KEY = 'gigaprint-site-v1';
 const CART_KEY = 'gigaprint-cart-v1';
@@ -16,7 +17,7 @@ function loadSiteData() {
   const stored = load(DATA_KEY, null);
   if (!stored) return initialData;
   const catalogIsCurrent = Number(stored.catalogVersion || 0) >= Number(initialData.catalogVersion || 1);
-  return {
+  const next = {
     ...initialData,
     ...stored,
     settings: { ...initialData.settings, ...(stored.settings || {}) },
@@ -27,6 +28,12 @@ function loadSiteData() {
     inquiries: stored.inquiries || [],
     homeBlocks: stored.homeBlocks?.length ? stored.homeBlocks : initialData.homeBlocks,
   };
+  const normalize = (value, key = '') => {
+    if (Array.isArray(value)) return value.map((item) => normalize(item));
+    if (!value || typeof value !== 'object') return key === 'src' || key === 'poster' || key === 'image' ? assetPath(value) : value;
+    return Object.fromEntries(Object.entries(value).map(([entryKey, entryValue]) => [entryKey, normalize(entryValue, entryKey)]));
+  };
+  return { ...next, services: normalize(next.services), products: normalize(next.products), homeBlocks: normalize(next.homeBlocks) };
 }
 
 export function SiteProvider({ children }) {

@@ -1,3 +1,5 @@
+import { assetPath } from '../../data/media';
+
 export const blockCatalog = [
   { type: 'text', label: 'Texto enriquecido', description: 'Titulares, párrafos, listas y enlaces', icon: 'Type' },
   { type: 'columns', label: 'Columnas', description: 'Combina bloques en 2 o 3 columnas', icon: 'Columns3' },
@@ -19,11 +21,11 @@ export function createBlock(type) {
   const common = { id, type, visible: true, animation: 'none' };
   if (type === 'text') return { ...common, content: '<h2>Una idea que merece verse en grande.</h2><p>Escribe aquí el contenido de tu página con una jerarquía clara y una voz propia.</p>' };
   if (type === 'columns') return { ...common, columns: [{ id: `${id}-a`, width: 50, blocks: [createBlock('text')] }, { id: `${id}-b`, width: 50, blocks: [createBlock('image')] }] };
-  if (type === 'image') return { ...common, src: '/images/gigaprint/impresion_gran_formato.png', alt: 'Publicidad Gigaprint', caption: '', size: 'medium', fit: 'cover', radius: 'large' };
-  if (type === 'gallery') return { ...common, layout: 'grid', columns: 3, items: ['/images/gigaprint/lona_banner.png', '/images/gigaprint/vinil_adhesivo.png', '/images/gigaprint/letras_corporeas.png'].map((src) => ({ src, alt: 'Proyecto Gigaprint' })) };
-  if (type === 'media-text') return { ...common, side: 'left', title: 'La producción también cuenta una historia.', content: '<p>Una imagen bien elegida y un mensaje claro convierten una visita en una conversación.</p>', src: '/images/gigaprint/disenador_workspace.png', alt: 'Equipo Gigaprint' };
-  if (type === 'banner') return { ...common, src: '/images/gigaprint/lona_banner.png', alt: 'Lona publicitaria', height: 'medium', overlay: 0.25 };
-  if (type === 'video') return { ...common, url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', title: 'Mira cómo trabajamos', poster: '/images/gigaprint/galaxy_printer.png' };
+  if (type === 'image') return { ...common, src: assetPath('/images/gigaprint/impresion_gran_formato.png'), alt: 'Publicidad Gigaprint', caption: '', size: 'medium', fit: 'cover', radius: 'large' };
+  if (type === 'gallery') return { ...common, layout: 'grid', columns: 3, items: ['/images/gigaprint/lona_banner.png', '/images/gigaprint/vinil_adhesivo.png', '/images/gigaprint/letras_corporeas.png'].map((src) => ({ src: assetPath(src), alt: 'Proyecto Gigaprint' })) };
+  if (type === 'media-text') return { ...common, side: 'left', title: 'La producción también cuenta una historia.', content: '<p>Una imagen bien elegida y un mensaje claro convierten una visita en una conversación.</p>', src: assetPath('/images/gigaprint/disenador_workspace.png'), alt: 'Equipo Gigaprint' };
+  if (type === 'banner') return { ...common, src: assetPath('/images/gigaprint/lona_banner.png'), alt: 'Lona publicitaria', height: 'medium', overlay: 0.25 };
+  if (type === 'video') return { ...common, url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', title: 'Mira cómo trabajamos', poster: assetPath('/images/gigaprint/galaxy_printer.png') };
   if (type === 'divider') return { ...common, style: 'line', space: 32 };
   if (type === 'button') return { ...common, label: 'Cuéntanos tu idea', href: '/contacto', variant: 'primary', align: 'left' };
   if (type === 'social') return { ...common, title: 'Síguenos y ve más ideas', links: [{ label: 'Instagram', href: 'https://instagram.com' }, { label: 'WhatsApp', href: 'https://wa.me/593999999999' }] };

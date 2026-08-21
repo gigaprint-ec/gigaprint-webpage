@@ -1,4 +1,4 @@
-import { media } from './data/media';
+import { assetPath, media } from './data/media';
 import { estebanCatalogProducts, catalogCategories } from './catalog';
 
 export { media };
@@ -59,7 +59,7 @@ export const initialData = {
     { id: 'vinil', name: 'Vinil adhesivo', category: 'Gran formato', type: 'm2', calcType: 'm2', price: 12, unit: 'm²', image: media.vinil, description: 'Ideal para vitrinas, paredes, vehículos y señalización.', featured: true, specs: ['Corte opcional', 'Interior / exterior', 'Aplicación profesional'] },
     { id: 'corporeo', name: 'Letras corpóreas', category: 'Rótulos', type: 'unit', price: 18, unit: 'unidad', image: media.letrero, description: 'Volumen y presencia para que tu logo destaque.', featured: true, specs: ['Acrílico, PVC o MDF', 'Color personalizado', 'Instalación disponible'] },
     { id: 'neon', name: 'Neón LED personalizado', category: 'Personalizados', type: 'unit', price: 95, unit: 'desde', image: media.laser, description: 'Tu frase o logo convertido en una pieza luminosa.', featured: false, specs: ['Base acrílica', 'Fuente incluida', 'Diseño a medida'] },
-    { id: 'rollup', name: 'Roll up 85 × 200 cm', category: 'Gran formato', type: 'unit', price: 64, unit: 'unidad', image: '/images/gigaprint/pendones_rollup.png', description: 'Tu comunicación lista para eventos y puntos de venta.', featured: false, specs: ['Estructura portátil', 'Gráfico reemplazable', 'Bolso incluido'] },
+    { id: 'rollup', name: 'Roll up 85 × 200 cm', category: 'Gran formato', type: 'unit', price: 64, unit: 'unidad', image: assetPath('/images/gigaprint/pendones_rollup.png'), description: 'Tu comunicación lista para eventos y puntos de venta.', featured: false, specs: ['Estructura portátil', 'Gráfico reemplazable', 'Bolso incluido'] },
     { id: 'stickers', name: 'Stickers personalizados', category: 'Imprenta', type: 'unit', price: 0.35, unit: 'unidad', image: media.stickers, description: 'Pequeños formatos, gran recordación de marca.', featured: false, specs: ['Vinil adhesivo', 'Corte personalizado', 'Pedidos desde 50 unidades'] },
   ].concat(estebanCatalogProducts),
   promotions: [
