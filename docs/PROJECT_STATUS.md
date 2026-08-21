@@ -32,7 +32,8 @@ El panel admin publicado está disponible en `https://gigaprint-ec.github.io/gig
 - Buscador Ctrl/Cmd+K.
 - Modo claro/oscuro.
 - Menú contextual personalizado con clic derecho y pulsación larga en móvil.
-- Temas `default`, `navidad` y `milagro`, aplicables desde `/admin/temas`.
+- Temas `default`, `navidad`, `milagro`, `black-friday`, `independencia` y `verano`, aplicables desde `/admin/temas` con un botón. El naranja oficial de marca es `#ea580c`.
+- Identidad instalada: `public/favicon.svg`, `public/manifest.webmanifest` y logotipo real en el panel admin.
 - Animaciones premium en hero, navegación, secciones, tarjetas, botones, menú, footer y decoraciones.
 - Soporte para `prefers-reduced-motion`.
 - Biblioteca de marca optimizada desde `Recursos (no borrar)`: 55 copias web, WebP para raster y SVG conservados para logos.

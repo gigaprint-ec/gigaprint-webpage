@@ -16,7 +16,7 @@ Lee este archivo antes de modificar el proyecto. Es el mapa rápido de la aplica
 - Nunca guardes tokens de GitHub, contraseñas de Supabase, service-role keys ni secretos en el código, Markdown, commits o variables `VITE_*` salvo la publishable/anon key.
 - El token de GitHub y la contraseña de base de datos compartidos durante la configuración deben revocarse/rotarse antes de producción.
 - No uses el acceso admin demo en producción. Actualmente la contraseña demo es `gigaprint` y existe solo para desarrollo local/prototipo.
-- La aplicación todavía usa `localStorage`; Supabase Auth y el adaptador remoto aún deben conectarse.
+- `localStorage` queda como fallback; Supabase Auth, lectura remota, persistencia admin, RLS y Storage ya están conectados en el código.
 
 ## Comandos principales
 
@@ -34,11 +34,11 @@ El build de GitHub Pages se ejecuta automáticamente con `.github/workflows/depl
 - `src/components.jsx`: Header, Footer, shells públicos/admin, tarjetas, carrito, buscador y menú contextual.
 - `src/store.jsx`: estado local/fallback, carrito, solicitudes, tema claro/oscuro y tema de temporada; sincroniza con Supabase cuando hay sesión admin.
 - `src/lib/supabase.js` y `src/lib/siteRepository.js`: cliente, lectura pública, Auth/roles, persistencia CMS y Storage.
-- `src/data.js`: contenido inicial, productos manuales, promociones y temas.
+- `src/data.js`: contenido inicial, productos manuales, promociones y seis temas visuales activables.
 - `src/catalog.js`: normalización del catálogo de Esteban y reglas m²/unidad/lotes/volumen.
 - `src/data/estebanCatalog.json`: 849 filas de tarifas importadas y agrupadas en familias editables.
 - `src/components/studio/`: Block Builder, editor TipTap, medios WebP, galerías, calendario, formularios, pickers y Chrome UI.
-- `src/theme.css`: animaciones premium, temas estacionales, menú contextual y accesibilidad de movimiento.
+- `src/theme.css`: animaciones premium, temas estacionales, menú contextual y accesibilidad de movimiento. La identidad naranja usa `#ea580c`.
 - `supabase/schema.sql`: esquema remoto inicial.
 - `supabase/migrations/20260821010000_auth_storage_admin.sql`: perfiles, roles, RLS de escritura y buckets.
 - `scripts/seed-supabase.mjs`: migración del catálogo/contenido local a Supabase.
@@ -62,7 +62,7 @@ El build de GitHub Pages se ejecuta automáticamente con `.github/workflows/depl
 
 ## Siguiente trabajo recomendado
 
-1. Crear el primer usuario Auth y promoverlo a `profiles.role = 'admin'`.
+1. Crear el primer usuario Auth y promoverlo a `profiles.role = 'admin'`; es el único paso manual que sigue bloqueando el acceso admin global.
 2. Completar el uploader visual para enviar archivos a `gigaprint-media`/`gigaprint-private`.
 3. Añadir Edge Function para WhatsApp Business/correo y guardar estados de solicitudes.
 4. Añadir dominio propio/Vercel, SEO, analítica, legales y backups.
