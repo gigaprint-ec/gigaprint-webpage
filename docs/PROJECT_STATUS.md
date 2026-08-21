@@ -10,6 +10,8 @@ https://gigaprint-ec.github.io/gigaprint-webpage/
 
 El repositorio está en la rama `main`. GitHub Actions compila y publica automáticamente después de cada push.
 
+El panel admin publicado está disponible en `https://gigaprint-ec.github.io/gigaprint-webpage/admin`. El acceso demo funciona y permite editar las páginas públicas desde `/admin/contenido` y `/admin/editor`, además de productos, promociones y temas. En este momento los cambios son locales al navegador hasta conectar el adaptador Supabase.
+
 ## Funcionalidades terminadas
 
 - Inicio comercial con hero, servicios, proceso, productos destacados y bloques editables.

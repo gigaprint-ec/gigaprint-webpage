@@ -4,8 +4,16 @@
 
 - Repositorio: https://github.com/gigaprint-ec/gigaprint-webpage
 - GitHub Pages: https://gigaprint-ec.github.io/gigaprint-webpage/
+- Panel admin demo: https://gigaprint-ec.github.io/gigaprint-webpage/admin
 - Supabase project ref: `ihifnhibzlgxotywbeji`
 - Supabase URL: `https://ihifnhibzlgxotywbeji.supabase.co`
+
+## Acceso admin actual
+
+- Usuario: no aplica en el prototipo.
+- Contraseña demo: `gigaprint`.
+- El acceso actual se guarda en `localStorage` del navegador y permite editar contenido, bloques, productos, promociones, temas y solicitudes de ese dispositivo.
+- Para producción hay que sustituirlo por Supabase Auth; no se debe usar esta contraseña demo públicamente.
 
 ## Variables esperadas
 
