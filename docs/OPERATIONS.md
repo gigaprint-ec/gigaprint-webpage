@@ -12,7 +12,7 @@
 ## Acceso admin actual
 
 - Producción: Supabase Auth con correo y contraseña.
-- El primer usuario debe crearse en Supabase Dashboard → Authentication → Users y luego promoverse con `update public.profiles set role = 'admin' where id = '<UUID>';`.
+- El usuario admin de producción `ecgigaprint@gmail.com` ya existe y tiene `profiles.role = 'admin'`. Para nuevos usuarios, créalos en Supabase Dashboard → Authentication → Users y luego promueve su perfil con `update public.profiles set role = 'admin' where id = '<UUID>';`.
 - El modo demo `gigaprint` solo existe cuando faltan las variables `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`; no debe usarse en producción.
 
 ## Variables esperadas
@@ -73,7 +73,7 @@ No pongas la contraseña real en este archivo. Si la conexión directa `db.<proj
 
 ## Estado de la integración
 
-La aplicación ya usa `src/lib/siteRepository.js` y `src/lib/supabase.js`. El seed se puede repetir con `scripts/seed-supabase.mjs`; la verificación de conteos se ejecuta con `scripts/check-supabase.mjs`. El primer usuario admin es el único paso manual pendiente para activar escrituras globales desde el panel.
+La aplicación ya usa `src/lib/siteRepository.js` y `src/lib/supabase.js`. El seed se puede repetir con `scripts/seed-supabase.mjs`; la verificación de conteos se ejecuta con `scripts/check-supabase.mjs`. El usuario admin de producción ya está activo para habilitar escrituras globales desde el panel.
 
 La preparación de recursos se repite con `node scripts/optimize-resources.mjs`. Los originales de `Recursos (no borrar)` están excluidos de Git; las copias optimizadas sí se publican.
 

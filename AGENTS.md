@@ -62,7 +62,7 @@ El build de GitHub Pages se ejecuta automáticamente con `.github/workflows/depl
 
 ## Siguiente trabajo recomendado
 
-1. Crear el primer usuario Auth y promoverlo a `profiles.role = 'admin'`; es el único paso manual que sigue bloqueando el acceso admin global.
+1. El usuario Auth `ecgigaprint@gmail.com` ya fue creado y promovido a `profiles.role = 'admin'`. Para agregar más administradores, crear el usuario desde Supabase Auth y actualizar su perfil con RLS.
 2. Completar el uploader visual para enviar archivos a `gigaprint-media`/`gigaprint-private`.
 3. Añadir Edge Function para WhatsApp Business/correo y guardar estados de solicitudes.
 4. Añadir dominio propio/Vercel, SEO, analítica, legales y backups.

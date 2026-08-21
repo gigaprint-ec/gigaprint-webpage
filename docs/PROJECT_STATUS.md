@@ -79,7 +79,7 @@ La migración `supabase/migrations/20260821010000_auth_storage_admin.sql` ya est
 
 ### Prioridad alta
 
-- Crear el primer usuario en Supabase Auth y cambiar su fila de `profiles.role` a `admin`; la base ya está preparada, pero no se inventó un correo/contraseña.
+- El usuario `ecgigaprint@gmail.com` ya fue creado en Supabase Auth y su fila en `profiles` tiene rol `admin`.
 - Subir la biblioteca optimizada a `gigaprint-media` desde el panel cuando el uploader se conecte a la UI de Storage.
 - Reemplazar datos de contacto demo por datos reales.
 - Rotar los secretos compartidos durante la configuración.
