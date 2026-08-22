@@ -16,9 +16,32 @@ function load(key, fallback) {
   try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch { return fallback; }
 }
 
+export const normalizeAssets = (value, key = '') => {
+  if (Array.isArray(value)) return value.map((item) => normalizeAssets(item));
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([entryKey, entryValue]) => [entryKey, normalizeAssets(entryValue, entryKey)])
+    );
+  }
+  if (typeof value === 'string') {
+    if (
+      key === 'src' ||
+      key === 'poster' ||
+      key === 'image' ||
+      key === 'url' ||
+      key === 'logo' ||
+      key === 'icon' ||
+      /^\/?(?:media|images|brand)\//i.test(value)
+    ) {
+      return assetPath(value);
+    }
+  }
+  return value;
+};
+
 function loadSiteData() {
   const stored = load(DATA_KEY, null);
-  if (!stored) return initialData;
+  if (!stored) return normalizeAssets(initialData);
   const catalogIsCurrent = Number(stored.catalogVersion || 0) >= Number(initialData.catalogVersion || 1);
   const next = {
     ...initialData,
@@ -32,12 +55,7 @@ function loadSiteData() {
     homeBlocks: stored.homeBlocks?.length ? stored.homeBlocks : initialData.homeBlocks,
     calculatorSettings: { ...initialData.calculatorSettings, ...(stored.calculatorSettings || {}) },
   };
-  const normalize = (value, key = '') => {
-    if (Array.isArray(value)) return value.map((item) => normalize(item));
-    if (!value || typeof value !== 'object') return key === 'src' || key === 'poster' || key === 'image' ? assetPath(value) : value;
-    return Object.fromEntries(Object.entries(value).map(([entryKey, entryValue]) => [entryKey, normalize(entryValue, entryKey)]));
-  };
-  return { ...next, services: normalize(next.services), products: normalize(next.products), homeBlocks: normalize(next.homeBlocks) };
+  return normalizeAssets(next);
 }
 
 export function SiteProvider({ children }) {
@@ -67,7 +85,14 @@ export function SiteProvider({ children }) {
     fetchSiteData()
       .then((remote) => {
         if (!active) return;
-        if (remote) setData((current) => ({ ...current, ...remote, settings: { ...current.settings, ...remote.settings } }));
+        if (remote) {
+          const normalized = normalizeAssets(remote);
+          setData((current) => ({
+            ...current,
+            ...normalized,
+            settings: { ...current.settings, ...(normalized.settings || {}) }
+          }));
+        }
         setRemoteReady(true);
       })
       .catch(() => setRemoteReady(true));

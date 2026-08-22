@@ -1,8 +1,9 @@
 export function assetPath(value) {
-  if (!value || /^(?:https?:|data:|blob:|#)/i.test(value)) return value;
+  if (!value || typeof value !== 'string' || /^(?:https?:|data:|blob:|#)/i.test(value)) return value;
   const base = import.meta.env?.BASE_URL || '/';
-  if (value.startsWith(base)) return value;
-  return `${base}${String(value).replace(/^\/+/, '')}`;
+  if (base !== '/' && value.startsWith(base)) return value;
+  const clean = value.replace(/^\/+/, '');
+  return base.endsWith('/') ? `${base}${clean}` : `${base}/${clean}`;
 }
 
 export const media = {

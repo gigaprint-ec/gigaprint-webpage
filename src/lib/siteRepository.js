@@ -14,7 +14,30 @@ const cleanAssets = (value) => Array.isArray(value)
     ? Object.fromEntries(Object.entries(value).map(([key, item]) => [key, cleanAssets(item)]))
     : assetStoragePath(value);
 
-const fromProduct = (row) => ({
+const normalizeRemoteAssets = (value, key = '') => {
+  if (Array.isArray(value)) return value.map((item) => normalizeRemoteAssets(item));
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([entryKey, entryValue]) => [entryKey, normalizeRemoteAssets(entryValue, entryKey)])
+    );
+  }
+  if (typeof value === 'string') {
+    if (
+      key === 'src' ||
+      key === 'poster' ||
+      key === 'image' ||
+      key === 'url' ||
+      key === 'logo' ||
+      key === 'icon' ||
+      /^\/?(?:media|images|brand)\//i.test(value)
+    ) {
+      return assetPath(value);
+    }
+  }
+  return value;
+};
+
+const fromProduct = (row) => normalizeRemoteAssets({
   ...row,
   calcType: row.calc_type,
   pricingMode: row.pricing_mode,
@@ -25,6 +48,7 @@ const fromProduct = (row) => ({
   quantityStep: row.quantity_step,
   isPublished: row.is_published,
   image: row.image ? assetPath(row.image) : row.image,
+  images: (row.images || []).map(assetPath),
 });
 
 const fromSettings = (row) => ({
@@ -56,10 +80,12 @@ export async function fetchSiteData() {
   const error = firstError([settings, services, products, promotions, inquiries, pages, blocks, calculatorSettings]);
   if (error) throw error;
   if (!settings.data && !products.data?.length) return null;
-  const homeBlocks = (blocks.data || []).map((row) => ({ id: row.id, type: row.block_type, visible: row.is_visible, ...(row.content || {}) }));
+  const rawHomeBlocks = (blocks.data || []).map((row) => ({ id: row.id, type: row.block_type, visible: row.is_visible, ...(row.content || {}) }));
+  const homeBlocks = normalizeRemoteAssets(rawHomeBlocks);
+  const rawServices = (services.data || []).map((row) => ({ ...row, isPublished: row.is_published, sortOrder: row.sort_order, image: row.image ? assetPath(row.image) : row.image }));
   return {
     settings: settings.data ? fromSettings(settings.data) : {},
-    services: (services.data || []).map((row) => ({ ...row, isPublished: row.is_published, sortOrder: row.sort_order, image: row.image ? assetPath(row.image) : row.image })),
+    services: normalizeRemoteAssets(rawServices),
     products: (products.data || []).map(fromProduct),
     promotions: (promotions.data || []).map((row) => ({ ...row, oldPrice: row.old_price, sortOrder: row.sort_order })),
     inquiries: inquiries.data || [],

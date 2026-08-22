@@ -1,7 +1,7 @@
 import { assetPath, media } from './data/media.js';
 import { estebanCatalogProducts, catalogCategories } from './catalog.js';
 
-export { media };
+export { assetPath, media };
 
 export const themePresets = [
   {

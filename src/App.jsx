@@ -1,7 +1,7 @@
 import React, { lazy, Suspense, useMemo, useState } from 'react';
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowRight, ArrowUpRight, BarChart3, Bell, Building2, Calculator, Check, ChevronDown, ChevronRight, ClipboardList, Clock, Edit3, ExternalLink, FileCheck, FileText, Image, LayoutDashboard, MessageCircle, Minus, Package, Palette, Pencil, Plus, RefreshCw, Save, Search, Settings2, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Truck, Users, X, Zap } from 'lucide-react';
-import { categories, initialData, media, money, themePresets } from './data';
+import { categories, initialData, media, money, themePresets, assetPath } from './data';
 import { calculateCatalogQuote, getProductCalcType, getPriceTiers, getTier, getVariantOptions, PARENT_CATEGORIES, getParentCategory, getLeadTimeEstimate } from './catalog';
 import { AuthProvider, useAuth, useSite } from './store';
 import { AdminHeader, AdminShell, Button, CartSummary, PageShell, ProductCard, SectionHeading, ServiceCard } from './components';
@@ -384,7 +384,7 @@ function SmartProductDetailPage() {
       <section className="section detail-section">
         <div className="container detail-grid">
           <div className="detail-image">
-            <img src={product.image} alt={product.name} />
+            <img src={assetPath(product.image)} alt={product.name} />
           </div>
           <div className="detail-copy">
             <span className="eyebrow orange">{product.category}</span>
@@ -769,7 +769,7 @@ function SmartQuotePage() {
                       onClick={() => chooseProduct(product)}
                       className={`picker-card ${selectedProduct?.id === product.id ? 'active' : ''}`}
                     >
-                      <img src={product.image} alt={product.name} />
+                      <img src={assetPath(product.image)} alt={product.name} />
                       <div>
                         <b>{product.name}</b>
                         <small>{product.category}</small>

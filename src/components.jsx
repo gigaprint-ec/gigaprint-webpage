@@ -22,7 +22,7 @@ import {
   X,
   Zap
 } from 'lucide-react';
-import { media, money, themePresets } from './data';
+import { media, money, themePresets, assetPath } from './data';
 import { resourceUrls } from './data/resourceManifest';
 import { getProductCalcType } from './catalog';
 import { useSite } from './store';
@@ -372,7 +372,7 @@ export function ServiceCard({ service, index = 0 }) {
   return (
     <article className={`service-card service-${index % 4}`}>
       <div className="service-card-image">
-        <img src={service.image} alt={service.name} />
+        <img src={assetPath(service.image)} alt={service.name} />
         <span>{service.tag}</span>
       </div>
       <div className="service-card-copy">
@@ -403,7 +403,7 @@ export function ProductCard({ product, onAdd }) {
   return (
     <article className="product-card">
       <Link to={`/tienda/${product.id}`} className="product-image">
-        <img src={product.image} alt={product.name} />
+        <img src={assetPath(product.image)} alt={product.name} />
         <span>{product.category}</span>
       </Link>
       <div className="product-copy">
@@ -454,7 +454,7 @@ export function CartSummary({ compact = false }) {
     <div className={compact ? 'cart-summary compact' : 'cart-summary'}>
       {cart.map((item) => (
         <div className="cart-row" key={item.cartId}>
-          <img src={item.image} alt="" />
+          <img src={assetPath(item.image)} alt="" />
           <div>
             <b>{item.name}</b>
             <small>{item.variant || 'Configuración estándar'}</small>
