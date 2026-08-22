@@ -189,6 +189,50 @@ export function getSavingsPercentage(product, quantity, selection = {}) {
   return Math.round(((basePrice - activePrice) / basePrice) * 100);
 }
 
+export const PARENT_CATEGORIES = [
+  'Todos',
+  'Gran formato',
+  'Rótulos y Fachadas',
+  'Imprenta y Papelería',
+  'Textil y Promocionales',
+  'Corte y Grabado Láser'
+];
+
+export function getParentCategory(category = '') {
+  const c = String(category).toLowerCase();
+  if (c.includes('gran formato') || c.includes('campana') || c.includes('lona') || c.includes('vinil') || c.includes('microperforado') || c.includes('panaflex') || c.includes('roll up') || c.includes('stand') || c.includes('banner')) {
+    return 'Gran formato';
+  }
+  if (c.includes('rótulo') || c.includes('rotulo') || c.includes('fachada') || c.includes('caja de luz') || c.includes('luminoso') || c.includes('neón') || c.includes('neon') || c.includes('corpóreo') || c.includes('corporeo')) {
+    return 'Rótulos y Fachadas';
+  }
+  if (c.includes('imprenta') || c.includes('tarjeta') || c.includes('volante') || c.includes('tríptico') || c.includes('carpeta') || c.includes('factura') || c.includes('radiografia') || c.includes('boutique') || c.includes('funda') || c.includes('credencial')) {
+    return 'Imprenta y Papelería';
+  }
+  if (c.includes('textil') || c.includes('camiseta') || c.includes('polo') || c.includes('gorra') || c.includes('taza') || c.includes('souvenir') || c.includes('almohada') || c.includes('bolso') || c.includes('mochila') || c.includes('regalo') || c.includes('promocional')) {
+    return 'Textil y Promocionales';
+  }
+  if (c.includes('láser') || c.includes('laser') || c.includes('grabado') || c.includes('corte') || c.includes('acrílico') || c.includes('acril') || c.includes('placa')) {
+    return 'Corte y Grabado Láser';
+  }
+  return 'Gran formato';
+}
+
+export function getLeadTimeEstimate(product) {
+  const mode = product?.pricingMode || (getProductCalcType(product) === 'm2' ? 'area' : 'unit');
+  const cat = String(product?.category || '').toLowerCase();
+  if (mode === 'area') {
+    return '24 a 48 horas hábiles';
+  }
+  if (mode === 'tier-total' || cat.includes('imprenta')) {
+    return '3 a 5 días hábiles';
+  }
+  if (cat.includes('rótulo') || cat.includes('neón') || cat.includes('luminoso') || cat.includes('corpóreo')) {
+    return '4 a 7 días hábiles';
+  }
+  return '24 a 72 horas hábiles';
+}
+
 export function calculateCatalogQuote(product, config = {}) {
   const mode = product?.pricingMode || (getProductCalcType(product) === 'm2' ? 'area' : 'unit');
   const quantity = Math.max(Number(product?.minQuantity || 1), Number(config.quantity) || 1);
@@ -213,6 +257,7 @@ export function calculateCatalogQuote(product, config = {}) {
   const total = subtotal + tax;
   const unitEffectivePrice = mode === 'tier-total' ? (total / Math.max(1, Number(tier.qty) || 1)) : (total / quantity);
   const savingsPercent = baseRate > rate ? Math.round(((baseRate - rate) / baseRate) * 100) : 0;
+  const leadTime = getLeadTimeEstimate(product);
 
   return {
     quantity,
@@ -236,5 +281,6 @@ export function calculateCatalogQuote(product, config = {}) {
     total,
     unitEffectivePrice,
     savingsPercent,
+    leadTime,
   };
 }

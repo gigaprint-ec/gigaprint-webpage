@@ -1,8 +1,8 @@
 import React, { lazy, Suspense, useMemo, useState } from 'react';
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowRight, BarChart3, Bell, Building2, Calculator, Check, ChevronDown, ClipboardList, Edit3, FileText, Image, LayoutDashboard, MessageCircle, Package, Palette, Pencil, Plus, Save, Search, Settings2, ShieldCheck, Sparkles, Trash2, Users, X } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, BarChart3, Bell, Building2, Calculator, Check, ChevronDown, ChevronRight, ClipboardList, Clock, Edit3, ExternalLink, FileCheck, FileText, Image, LayoutDashboard, MessageCircle, Minus, Package, Palette, Pencil, Plus, RefreshCw, Save, Search, Settings2, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Truck, Users, X, Zap } from 'lucide-react';
 import { categories, initialData, media, money, themePresets } from './data';
-import { calculateCatalogQuote, getProductCalcType, getPriceTiers, getTier, getVariantOptions } from './catalog';
+import { calculateCatalogQuote, getProductCalcType, getPriceTiers, getTier, getVariantOptions, PARENT_CATEGORIES, getParentCategory, getLeadTimeEstimate } from './catalog';
 import { AuthProvider, useAuth, useSite } from './store';
 import { AdminHeader, AdminShell, Button, CartSummary, PageShell, ProductCard, SectionHeading, ServiceCard } from './components';
 import { BlockRenderer } from './components/studio/BlockRenderer';
@@ -14,11 +14,310 @@ function HomePage() {
   return <PageShell><section className="hero"><div className="container hero-grid"><div className="hero-copy"><span className="eyebrow orange">{data.settings.heroKicker}</span><h1>{data.settings.heroTitle}<em> en grande.</em></h1><p>{data.settings.heroText}</p><div className="hero-buttons"><Button to="/cotizador">Cotiza tu proyecto</Button><Button to="/tienda" variant="ghost">Ver soluciones <ArrowRight size={16} /></Button></div><div className="hero-proof"><div className="avatar-stack"><span>G</span><span>+</span><span>∞</span></div><p><strong>Hecho para destacar</strong><br />Diseño, producción e instalación en un mismo equipo.</p></div></div><div className="hero-art"><div className="hero-orbit orbit-one"></div><div className="hero-orbit orbit-two"></div><div className="hero-card card-main"><img src={media.hero} alt="Impresión de gran formato" /><span className="hero-card-label">Producción propia</span></div><div className="hero-float float-top"><Sparkles size={16} /><span><b>+100</b><small>ideas producidas</small></span></div><div className="hero-float float-bottom"><span className="pulse-dot"></span><span><b>Tu marca</b><small>lista para verse</small></span></div><span className="hero-sticker">IDEAS<br />QUE<br /><b>CRECEN</b></span></div></div></section><div className="marquee"><div>RÓTULOS <span>✦</span> IMPRESIÓN <span>✦</span> NEONES <span>✦</span> LÁSER <span>✦</span> VINILES <span>✦</span> DISEÑO <span>✦</span> </div></div><section className="section"><div className="container"><SectionHeading eyebrow="Todo lo que tu marca necesita" title="Una idea. Muchas formas de hacerla visible." text="Nos encargamos de la parte que hace que una marca pase de verse bien a quedarse en la cabeza." action={<Button to="/gigaprint" variant="link">Conoce Gigaprint <ArrowRight size={15} /></Button>} /><div className="services-grid">{data.services.map((service, index) => <ServiceCard key={service.id} service={service} index={index} />)}</div></div></section><section className="section dark-section"><div className="container process-section"><SectionHeading eyebrow="Así trabajamos" title="Del primer mensaje a la instalación." text="Un proceso claro, sin vueltas y con acompañamiento en cada decisión." /><div className="process-grid"><div className="process-intro"><span className="big-number">01</span><h3>Cuéntanos qué tienes en mente.</h3><p>Puede ser un boceto, una foto de referencia o solo una idea. Nosotros la aterrizamos.</p><Button to="/contacto" variant="outline">Hablar con el equipo</Button></div><div className="process-steps"><div><b>02</b><span><strong>Te proponemos</strong><small>Materiales, medidas y una solución que sí funciona para tu presupuesto.</small></span></div><div><b>03</b><span><strong>Lo producimos</strong><small>Diseño, fabricación y acabados con atención al detalle.</small></span></div><div><b>04</b><span><strong>Lo instalamos</strong><small>Te entregamos una pieza lista para ser protagonista.</small></span></div></div></div></div></section><section className="section"><div className="container"><SectionHeading eyebrow="Lo más pedido" title="Soluciones que ya están listas para despegar." action={<Button to="/tienda" variant="link">Ver toda la tienda <ArrowRight size={15} /></Button>} /><div className="product-grid">{data.products.filter((product) => product.featured).map((product) => <ProductCard key={product.id} product={product} onAdd={(item) => addToCart({ ...item, cartId: `${item.id}-${Date.now()}` })} />)}</div></div></section><section className="section editable-home-section"><div className="container"><BlockRenderer blocks={data.homeBlocks || []} /></div></section><section className="cta-section"><div className="container cta-card"><div><span className="eyebrow">No tienes que llegar con todo resuelto</span><h2>Tu próxima gran idea<br /><em>empieza aquí.</em></h2></div><Button to="/cotizador">Empezar cotización</Button></div></section></PageShell>;
 }
 
-function AboutPage() { return <PageShell><section className="inner-hero"><div className="container inner-hero-grid"><div><span className="eyebrow orange">Gigaprint / quiénes somos</span><h1>Tu marca no necesita gritar.<br /><em>Necesita presencia.</em></h1><p>Somos un taller creativo y de producción visual que convierte ideas en piezas que la gente puede ver, tocar y recordar.</p></div><div className="inner-hero-mark"><span>G</span><small>+<br />ideas<br />visibles</small></div></div></section><section className="section"><div className="container about-grid"><div className="about-statement"><span className="eyebrow">Nuestra forma de ver las cosas</span><h2>La publicidad empieza mucho antes de imprimir.</h2></div><div className="about-copy"><p>Empieza entendiendo qué quieres provocar. Una fachada que invite a entrar. Un empaque que se quiera llevar. Un rótulo que se reconozca desde la otra esquina.</p><p>Por eso en Gigaprint juntamos estrategia, diseño y producción. Para que la idea no se pierda entre el archivo y el resultado final.</p><div className="about-points"><span><Check size={16} /> Trato cercano</span><span><Check size={16} /> Producción responsable</span><span><Check size={16} /> Soluciones a medida</span></div></div></div></section><section className="section image-split"><div className="container"><div className="split-card"><img src={media.workspace} alt="Equipo de Gigaprint trabajando" /><div><span className="eyebrow orange">Hecho con intención</span><h2>Materiales que trabajan por tu marca.</h2><p>Desde el vinil más sencillo hasta un letrero luminoso completo, elegimos cada material por cómo va a vivir en el mundo real.</p><Button to="/contacto">Cuéntanos tu proyecto</Button></div></div></div></section></PageShell>; }
+function AboutPage() {
+  return (
+    <PageShell>
+      <section className="inner-hero">
+        <div className="container inner-hero-grid">
+          <div>
+            <span className="eyebrow orange">Gigaprint / quiénes somos</span>
+            <h1>Tu marca no necesita gritar.<br /><em>Necesita presencia.</em></h1>
+            <p>Somos un taller creativo y de producción visual en Quito que convierte ideas en piezas que la gente puede ver, tocar y recordar.</p>
+          </div>
+          <div className="inner-hero-mark">
+            <span>G</span>
+            <small>+<br />ideas<br />visibles</small>
+          </div>
+        </div>
+      </section>
 
-function PromotionsPage() { const { data } = useSite(); return <PageShell><section className="inner-hero promo-hero"><div className="container"><span className="eyebrow orange">Promociones activas</span><h1>Más visibilidad.<br /><em>Más valor para tu inversión.</em></h1><p>Paquetes pensados para que empieces con lo esencial y no tengas que elegir entre verte profesional o cuidar tu presupuesto.</p></div></section><section className="section"><div className="container promo-grid">{data.promotions.filter((promo) => promo.active).map((promo) => <article className="promo-card" key={promo.id}><div className="promo-card-top"><span>{promo.eyebrow}</span><b>{promo.badge}</b></div><h2>{promo.title}</h2><p>{promo.description}</p><div className="promo-price"><strong>{money(promo.price)}</strong><del>{money(promo.oldPrice)}</del></div><Button to="/contacto" variant="dark">Quiero esta promo</Button></article>)}</div></section><section className="section promo-note"><div className="container"><div className="note-card"><div className="note-icon"><ShieldCheck /></div><div><h3>¿No sabes cuál te conviene?</h3><p>Escríbenos y te recomendamos una combinación basada en tu negocio, tus medidas y tu objetivo.</p></div><Button to="/cotizador" variant="outline">Recibir recomendación</Button></div></div></section></PageShell>; }
+      <section className="section">
+        <div className="container about-grid">
+          <div className="about-statement">
+            <span className="eyebrow">Nuestra forma de ver las cosas</span>
+            <h2>La publicidad empieza mucho antes de imprimir.</h2>
+          </div>
+          <div className="about-copy">
+            <p>Empieza entendiendo qué quieres provocar. Una fachada que invite a entrar. Un empaque que se quiera llevar. Un rótulo que se reconozca desde la otra esquina.</p>
+            <p>Por eso en Gigaprint juntamos estrategia, diseño, corte láser, confección y montaje. Para que la idea no se pierda entre el archivo y el resultado final.</p>
+            <div className="about-points">
+              <span><Check size={16} /> Trato cercano y asesoría</span>
+              <span><Check size={16} /> Producción propia en taller</span>
+              <span><Check size={16} /> Facturación electrónica SRI</span>
+              <span><Check size={16} /> Envíos a todo el Ecuador</span>
+            </div>
+          </div>
+        </div>
+      </section>
 
-function StorePage() { const { data, addToCart } = useSite(); const [searchParams, setSearchParams] = useSearchParams(); const [search, setSearch] = useState(''); const activeCategory = searchParams.get('categoria') || 'Todos'; const filtered = data.products.filter((p) => (activeCategory === 'Todos' || p.category === activeCategory) && `${p.name} ${p.description}`.toLowerCase().includes(search.toLowerCase())); const add = (item) => addToCart({ ...item, cartId: `${item.id}-${Date.now()}` }); return <PageShell><section className="inner-hero store-hero"><div className="container store-hero-grid"><div><span className="eyebrow orange">Tienda Gigaprint</span><h1>Elige una base.<br /><em>Hazla tuya.</em></h1><p>Productos listos para personalizar, producir y llevar tu comunicación al siguiente nivel.</p></div><div className="store-badge"><span>CATÁLOGO<br /><b>2026</b></span></div></div></section><section className="section store-section"><div className="container"><div className="store-toolbar"><div className="category-tabs">{categories.map((category) => <button key={category} className={activeCategory === category ? 'active' : ''} onClick={() => setSearchParams(category === 'Todos' ? {} : { categoria: category })}>{category}</button>)}</div><label className="search-box"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Busca una solución" /></label></div><div className="store-layout"><div className="product-grid full">{filtered.map((product) => <ProductCard key={product.id} product={product} onAdd={add} />)}</div><aside className="store-aside"><div><span className="eyebrow">¿Necesitas algo especial?</span><h3>Si no lo ves, probablemente también lo hacemos.</h3><p>Trabajamos proyectos a medida, desde un solo ejemplar hasta producciones grandes.</p><Button to="/contacto" variant="outline">Pedir algo a medida</Button></div><img src={media.laser} alt="Corte láser" /></aside></div></div></section></PageShell>; }
+      <section className="section trust-pillars-section">
+        <div className="container">
+          <div className="trust-pillar-grid">
+            <div className="trust-pillar-card">
+              <div className="pillar-icon"><Building2 /></div>
+              <h3>Taller Propio en Quito</h3>
+              <p>Equipos industriales de gran formato, mesa láser y área de confección sin intermediarios.</p>
+            </div>
+            <div className="trust-pillar-card">
+              <div className="pillar-icon"><ShieldCheck /></div>
+              <h3>Garantía y SRI / RIMPE</h3>
+              <p>Facturación electrónica transparente con desglose oficial de IVA para empresas y personas.</p>
+            </div>
+            <div className="trust-pillar-card">
+              <div className="pillar-icon"><Truck /></div>
+              <h3>Entregas e Instalación</h3>
+              <p>Envíos seguros a nivel nacional e instalación profesional de rótulos en Pichincha y alrededores.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="section image-split">
+        <div className="container">
+          <div className="split-card">
+            <img src={media.workspace} alt="Equipo de Gigaprint trabajando en taller" />
+            <div>
+              <span className="eyebrow orange">Hecho con intención</span>
+              <h2>Materiales que trabajan por tu marca.</h2>
+              <p>Desde el vinil más sencillo hasta un letrero luminoso completo, elegimos cada material por cómo va a vivir en el mundo real.</p>
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '16px' }}>
+                <Button to="/cotizador">Cotizar un proyecto</Button>
+                <Button to="/contacto" variant="outline">Hablar con un asesor</Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </PageShell>
+  );
+}
+
+function PromotionsPage() {
+  const { data } = useSite();
+  const whatsappNumber = data.settings?.whatsapp || '593999999999';
+
+  return (
+    <PageShell>
+      <section className="inner-hero promo-hero">
+        <div className="container">
+          <span className="eyebrow orange">Promociones activas</span>
+          <h1>Más visibilidad.<br /><em>Más valor para tu inversión.</em></h1>
+          <p>Paquetes pensados para que empieces con lo esencial y no tengas que elegir entre verte profesional o cuidar tu presupuesto.</p>
+        </div>
+      </section>
+
+      <section className="section">
+        <div className="container promo-grid">
+          {data.promotions.filter((promo) => promo.active).map((promo) => {
+            const promoWhatsappMessage = encodeURIComponent(
+              `¡Hola Gigaprint! Me interesa la promoción *"${promo.title}"* (${money(promo.price)}). ¿Podrían brindarme más información y disponibilidad?`
+            );
+
+            return (
+              <article className="promo-card" key={promo.id}>
+                <div className="promo-card-top">
+                  <span>{promo.eyebrow}</span>
+                  <b>{promo.badge}</b>
+                </div>
+                <h2>{promo.title}</h2>
+                <p>{promo.description}</p>
+                <div className="promo-price">
+                  <strong>{money(promo.price)}</strong>
+                  <del>{money(promo.oldPrice)}</del>
+                </div>
+                <div className="promo-actions" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '16px' }}>
+                  <Button to={`/contacto?promo=${encodeURIComponent(promo.title)}`} variant="dark">
+                    Quiero esta promo
+                  </Button>
+                  <a
+                    href={`https://wa.me/${whatsappNumber}?text=${promoWhatsappMessage}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="whatsapp-action-btn promo-whatsapp-btn"
+                  >
+                    <MessageCircle size={15} /> Pedir por WhatsApp
+                  </a>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="section promo-note">
+        <div className="container">
+          <div className="note-card">
+            <div className="note-icon"><ShieldCheck /></div>
+            <div>
+              <h3>¿No sabes cuál te conviene?</h3>
+              <p>Escríbenos y te recomendamos una combinación basada en tu negocio, tus medidas y tu objetivo.</p>
+            </div>
+            <Button to="/cotizador" variant="outline">Recibir recomendación</Button>
+          </div>
+        </div>
+      </section>
+    </PageShell>
+  );
+}
+
+function StorePage() {
+  const { data, addToCart } = useSite();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState('featured');
+
+  const activeParent = searchParams.get('familia') || 'Todos';
+  const activeSub = searchParams.get('categoria') || '';
+
+  // Get available subcategories for active parent family
+  const availableSubCategories = useMemo(() => {
+    if (activeParent === 'Todos') return [];
+    const items = data.products.filter((p) => getParentCategory(p.category) === activeParent);
+    return Array.from(new Set(items.map((p) => p.category))).filter(Boolean);
+  }, [data.products, activeParent]);
+
+  // Filter products by parent family, subcategory, and text search
+  const filtered = useMemo(() => {
+    return data.products.filter((product) => {
+      const parent = getParentCategory(product.category);
+      const matchParent = activeParent === 'Todos' || parent === activeParent;
+      const matchSub = !activeSub || product.category === activeSub;
+      const term = search.toLowerCase();
+      const matchSearch = !term || `${product.name} ${product.category} ${product.description}`.toLowerCase().includes(term);
+      return matchParent && matchSub && matchSearch;
+    }).sort((a, b) => {
+      if (sortBy === 'price-asc') return (Number(a.price) || 0) - (Number(b.price) || 0);
+      if (sortBy === 'price-desc') return (Number(b.price) || 0) - (Number(a.price) || 0);
+      if (sortBy === 'name') return a.name.localeCompare(b.name);
+      return (b.featured ? 1 : 0) - (a.featured ? 1 : 0);
+    });
+  }, [data.products, activeParent, activeSub, search, sortBy]);
+
+  const setParentFilter = (parent) => {
+    const next = new URLSearchParams();
+    if (parent !== 'Todos') next.set('familia', parent);
+    setSearchParams(next);
+  };
+
+  const setSubFilter = (sub) => {
+    const next = new URLSearchParams(searchParams);
+    if (sub) next.set('categoria', sub);
+    else next.delete('categoria');
+    setSearchParams(next);
+  };
+
+  const add = (item) => addToCart({ ...item, cartId: `${item.id}-${Date.now()}` });
+
+  return (
+    <PageShell>
+      <section className="inner-hero store-hero">
+        <div className="container store-hero-grid">
+          <div>
+            <span className="eyebrow orange">Tienda Gigaprint</span>
+            <h1>Elige una base.<br /><em>Hazla tuya.</em></h1>
+            <p>Catálogo completo con precios por m², unidad y lotes. Personaliza y cotiza al instante.</p>
+          </div>
+          <div className="store-badge">
+            <span>CATÁLOGO<br /><b>2026</b></span>
+          </div>
+        </div>
+      </section>
+
+      <section className="section store-section">
+        <div className="container">
+          {/* Main Parent Categories */}
+          <div className="parent-category-tabs">
+            {PARENT_CATEGORIES.map((category) => (
+              <button
+                key={category}
+                className={activeParent === category ? 'active' : ''}
+                onClick={() => setParentFilter(category)}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
+
+          {/* Secondary Subcategory Pills */}
+          {availableSubCategories.length > 1 && (
+            <div className="sub-category-pills">
+              <button
+                className={!activeSub ? 'active' : ''}
+                onClick={() => setSubFilter('')}
+              >
+                Todas las subcategorías
+              </button>
+              {availableSubCategories.map((sub) => (
+                <button
+                  key={sub}
+                  className={activeSub === sub ? 'active' : ''}
+                  onClick={() => setSubFilter(sub)}
+                >
+                  {sub}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Search & Sort Toolbar */}
+          <div className="store-toolbar" style={{ marginTop: '16px' }}>
+            <label className="search-box">
+              <Search size={16} />
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Busca por material, producto o medida..."
+              />
+            </label>
+            <div className="store-toolbar-actions">
+              <select
+                className="store-sorting-select"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                aria-label="Ordenar productos"
+              >
+                <option value="featured">Destacados primero</option>
+                <option value="price-asc">Precio: menor a mayor</option>
+                <option value="price-desc">Precio: mayor a menor</option>
+                <option value="name">Nombre: A — Z</option>
+              </select>
+              <span className="store-count-badge">{filtered.length} productos</span>
+            </div>
+          </div>
+
+          {/* Product Grid */}
+          <div className="store-layout">
+            <div className="product-grid full">
+              {filtered.map((product) => (
+                <ProductCard key={product.id} product={product} onAdd={add} />
+              ))}
+              {filtered.length === 0 && (
+                <div className="empty-catalog-state">
+                  <Package size={36} />
+                  <h3>No encontramos productos con esos filtros</h3>
+                  <p>Prueba con otros términos de búsqueda o selecciona otra categoría.</p>
+                  <button className="button button-ghost" onClick={() => { setSearch(''); setParentFilter('Todos'); }}>
+                    Restablecer filtros
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <aside className="store-aside">
+              <div>
+                <span className="eyebrow">¿Necesitas algo especial?</span>
+                <h3>Si no lo ves, probablemente también lo hacemos.</h3>
+                <p>Trabajamos proyectos a medida, desde un solo ejemplar hasta producciones corporativas grandes con instalación en sitio.</p>
+                <Button to="/contacto" variant="outline">Pedir algo a medida</Button>
+              </div>
+              <img src={media.laser} alt="Corte y grabado láser" />
+            </aside>
+          </div>
+        </div>
+      </section>
+    </PageShell>
+  );
+}
 
 function SmartProductDetailPage() {
   const { id } = useParams();
@@ -172,18 +471,37 @@ function SmartProductDetailPage() {
               ))}
             </ul>
 
+            <div className="lead-time-badge" style={{ marginBottom: '16px' }}>
+              <Clock size={15} /> Producción estimada: <b>{quote.leadTime}</b>
+            </div>
+
             <div className="detail-actions">
               <div className="qty large">
-                <button type="button" onClick={() => setQuantity(Math.max(minQty, effectiveQty - 1))}><X size={16} /></button>
+                <button type="button" onClick={() => setQuantity(Math.max(minQty, effectiveQty - 1))} aria-label="Disminuir cantidad">
+                  <Minus size={16} />
+                </button>
                 <span>{effectiveQty}</span>
-                <button type="button" onClick={() => setQuantity(effectiveQty + 1)}><Plus size={16} /></button>
+                <button type="button" onClick={() => setQuantity(effectiveQty + 1)} aria-label="Aumentar cantidad">
+                  <Plus size={16} />
+                </button>
               </div>
               <Button onClick={add}>Agregar a cotización ({money(quote.total)})</Button>
             </div>
 
-            <Link to={`/cotizador`} className="detail-link">
-              ¿Quieres personalizar con acabados, instalación o diseño? Abrir cotizador completo <ArrowRight size={14} />
-            </Link>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
+              <a
+                href={`https://wa.me/${data.settings?.whatsapp || '593999999999'}?text=${encodeURIComponent(`¡Hola Gigaprint! Deseo cotizar *${product.name}*:\n• Detalle: ${readableVariant}\n• Total con IVA estimado: ${money(quote.total)}\n¿Tienen disponibilidad y entrega en Quito / Ecuador?`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="whatsapp-action-btn"
+              >
+                <MessageCircle size={16} /> Cotizar este producto por WhatsApp
+              </a>
+
+              <Link to={`/cotizador`} className="detail-link">
+                ¿Quieres personalizar con acabados, instalación o diseño? Abrir cotizador completo <ArrowRight size={14} />
+              </Link>
+            </div>
           </div>
         </div>
       </section>
@@ -193,8 +511,12 @@ function SmartProductDetailPage() {
 
 function SmartQuotePage() {
   const { data, addToCart } = useSite();
-  const [mode, setMode] = useState('medidas');
-  const [categoryFilter, setCategoryFilter] = useState('Todos');
+  const [searchParams] = useSearchParams();
+  const initialMode = searchParams.get('mode') || 'medidas';
+  const initialCategory = searchParams.get('categoria') || 'Todos';
+
+  const [mode, setMode] = useState(initialMode);
+  const [categoryFilter, setCategoryFilter] = useState(initialCategory);
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState('');
   const [widthCm, setWidthCm] = useState(100);
@@ -221,7 +543,8 @@ function SmartQuotePage() {
   const sourceProducts = mode === 'medidas' ? areaProducts : mode === 'lotes' ? lotProducts : unitProducts;
   
   const filteredProducts = sourceProducts.filter((product) => {
-    const matchCategory = categoryFilter === 'Todos' || product.category === categoryFilter ||
+    const parent = getParentCategory(product.category);
+    const matchCategory = categoryFilter === 'Todos' || product.category === categoryFilter || parent === categoryFilter ||
       (categoryFilter === 'Gran formato' && /lona|vinil|microperforado|banner/i.test(`${product.category} ${product.name}`)) ||
       (categoryFilter === 'Textil' && /camiseta|polo|body|sublimacion|dtf/i.test(`${product.category} ${product.name}`)) ||
       (categoryFilter === 'Imprenta' && /imprenta|tarjeta|volante|factura|carpeta|credencial/i.test(`${product.category} ${product.name}`)) ||
@@ -312,13 +635,21 @@ function SmartQuotePage() {
       ? 'Diseño profesional desde cero'
       : 'Arte listo del cliente';
 
+  const readableFinishing = finishing === 'esquinas'
+    ? 'Ojaletes en 4 esquinas'
+    : finishing === 'perimetral'
+      ? 'Ojaletes perimetrales cada 50 cm'
+      : finishing === 'bolsillo'
+        ? 'Bolsillo para tubo'
+        : 'Corte al ras / Sin ojaletes';
+
   const add = () => {
     if (!selectedProduct) return;
     const readableVariant = [
       selectionText,
       readableDimensions,
       designLevel !== 'none' ? readableDesign : '',
-      finishing !== 'none' ? `Acabado: ${finishing}` : '',
+      isArea && finishing !== 'none' ? `Acabado: ${readableFinishing}` : '',
       installation ? 'Instalación incluida' : ''
     ].filter(Boolean).join(' · ');
 
@@ -340,7 +671,7 @@ function SmartQuotePage() {
     (selectionText ? `• *Variante:* ${selectionText}\n` : '') +
     `• *Medidas / Cantidad:* ${readableDimensions}\n` +
     `• *Diseño:* ${readableDesign}\n` +
-    (finishing !== 'none' ? `• *Acabado:* ${finishing}\n` : '') +
+    (isArea && finishing !== 'none' ? `• *Acabado:* ${readableFinishing}\n` : '') +
     (installation ? `• *Instalación:* Sí\n` : '') +
     `• *Subtotal estimado:* ${money(quote.subtotal)}\n` +
     `• *Total con IVA:* ${money(quote.total)}\n\n` +
@@ -350,38 +681,43 @@ function SmartQuotePage() {
   return (
     <PageShell>
       <section className="inner-hero quote-hero">
-        <div className="container">
-          <span className="eyebrow orange">Cotizador Inteligente · Gigaprint</span>
-          <h1>Calcula tu proyecto<br /><em>en segundos y con precisión.</em></h1>
-          <p>Elige tu producto, variante, dimensiones o volumen. Tarifas automáticas con escalas reales y transparencia total.</p>
+        <div className="container quote-hero-grid">
+          <div>
+            <span className="eyebrow orange">Cotizador Inteligente</span>
+            <h1>Calcula tu proyecto<br /><em>en segundos y con precisión.</em></h1>
+            <p>Elige tu tipo de producto, define medidas o volumen y obtén de inmediato tarifas con IVA y desglose oficial.</p>
+          </div>
+          <div className="quote-badge">
+            <span>TARIFA SRI<br /><b>IVA 15%</b></span>
+          </div>
         </div>
       </section>
 
       <section className="section quote-section">
         <div className="container quote-layout">
-          <div className="quote-main">
-            {/* Mode Toggle */}
+          <div className="quote-form-card">
+            {/* Mode Switcher */}
             <div className="mode-toggle three-cols">
               <button
                 type="button"
                 className={mode === 'medidas' ? 'active' : ''}
                 onClick={() => chooseMode('medidas')}
               >
-                <Calculator size={17} /> Por medidas (m²)
+                📐 Por medidas (m²)
               </button>
               <button
                 type="button"
                 className={mode === 'unidades' ? 'active' : ''}
                 onClick={() => chooseMode('unidades')}
               >
-                <Package size={17} /> Por volumen / unidades
+                👕 Por volumen / unidades
               </button>
               <button
                 type="button"
                 className={mode === 'lotes' ? 'active' : ''}
                 onClick={() => chooseMode('lotes')}
               >
-                <Layers size={17} /> Por lotes / imprenta
+                📦 Por lotes / imprenta
               </button>
             </div>
 
@@ -389,9 +725,20 @@ function SmartQuotePage() {
             <div className="quote-step">
               <span>01</span>
               <div className="step-content">
-                <h3>Elige lo que vas a producir</h3>
-                <p>Filtra por categoría o busca directamente en nuestro catálogo.</p>
+                <div className="step-heading">
+                  <div>
+                    <h3>Selecciona el producto base</h3>
+                    <p>
+                      {mode === 'medidas'
+                        ? 'Lonas, viniles, microperforados y telas por metro cuadrado.'
+                        : mode === 'lotes'
+                          ? 'Papelería, tarjetas, volantes, carpetas y fundas por millar.'
+                          : 'Camisetas, gorras, tazas, souvenirs y rótulos con escala de volumen.'}
+                    </p>
+                  </div>
+                </div>
 
+                {/* Category Pills Filter */}
                 <div className="quote-category-pills">
                   {['Todos', 'Gran formato', 'Textil', 'Imprenta', 'Promocionales', 'Rótulos'].map((cat) => (
                     <button
@@ -405,30 +752,28 @@ function SmartQuotePage() {
                   ))}
                 </div>
 
-                <label className="search-box quote-search">
+                <label className="search-box" style={{ marginTop: '12px', marginBottom: '16px' }}>
                   <Search size={16} />
                   <input
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Buscar producto (ej. Lona, Camiseta, Tarjetas, Neón, Roll up...)"
+                    placeholder="Filtrar por nombre (ej. lona, camiseta, tarjeta)..."
                   />
                 </label>
 
-                <div className="quote-products">
-                  {filteredProducts.slice(0, 40).map((product) => (
+                <div className="quote-product-picker">
+                  {filteredProducts.map((product) => (
                     <button
                       key={product.id}
                       type="button"
-                      className={selectedProduct?.id === product.id ? 'quote-product active' : 'quote-product'}
                       onClick={() => chooseProduct(product)}
+                      className={`picker-card ${selectedProduct?.id === product.id ? 'active' : ''}`}
                     >
-                      <img src={product.image} alt="" />
-                      <span>
+                      <img src={product.image} alt={product.name} />
+                      <div>
                         <b>{product.name}</b>
-                        <small>
-                          {product.category} · {getProductCalcType(product) === 'm2' ? 'Precio por m²' : product.pricingMode === 'tier-total' ? 'Precio por lote' : 'Escala por volumen'}
-                        </small>
-                      </span>
+                        <small>{product.category}</small>
+                      </div>
                       {selectedProduct?.id === product.id && <Check size={17} />}
                     </button>
                   ))}
@@ -447,7 +792,6 @@ function SmartQuotePage() {
                 <span>02</span>
                 <div className="step-content">
                   <h3>Especificaciones del producto</h3>
-                  <p>Selecciona variante, tipo de tela, acabado o caras impresas.</p>
                   {variantOptions.map((option) => (
                     <label className="quote-option" key={option.key}>
                       <span>{option.label}</span>
@@ -471,7 +815,6 @@ function SmartQuotePage() {
                 <span>{variantOptions.length ? '03' : '02'}</span>
                 <div className="step-content">
                   <h3>Define las medidas exactas</h3>
-                  <p>Ingresa dimensiones en centímetros o elige un formato habitual.</p>
 
                   <div className="dimension-presets">
                     <span>Tamaños comunes:</span>
@@ -479,7 +822,6 @@ function SmartQuotePage() {
                     <button type="button" className="preset-chip" onClick={() => setDimensionPreset(200, 100)}>200 × 100 cm</button>
                     <button type="button" className="preset-chip" onClick={() => setDimensionPreset(300, 100)}>300 × 100 cm</button>
                     <button type="button" className="preset-chip" onClick={() => setDimensionPreset(200, 200)}>200 × 200 cm</button>
-                    <button type="button" className="preset-chip" onClick={() => setDimensionPreset(300, 200)}>300 × 200 cm</button>
                     <button type="button" className="preset-chip" onClick={() => setDimensionPreset(400, 150)}>400 × 150 cm</button>
                   </div>
 
@@ -489,7 +831,6 @@ function SmartQuotePage() {
                       <input
                         type="number"
                         min="1"
-                        step="1"
                         value={widthCm}
                         onChange={(event) => setWidthCm(Math.max(1, Number(event.target.value) || 1))}
                       />
@@ -499,11 +840,49 @@ function SmartQuotePage() {
                       <input
                         type="number"
                         min="1"
-                        step="1"
                         value={heightCm}
                         onChange={(event) => setHeightCm(Math.max(1, Number(event.target.value) || 1))}
                       />
                     </label>
+                  </div>
+
+                  {/* 2D Proportional Canvas Aspect Preview */}
+                  <div className="quote-proportional-canvas-wrap">
+                    <div className="canvas-header">
+                      <span><Sparkles size={14} /> Vista previa de proporción</span>
+                      <small>{widthCm > heightCm ? 'Formato Horizontal' : widthCm === heightCm ? 'Formato Cuadrado' : 'Formato Vertical'}</small>
+                    </div>
+                    <div className="canvas-viewport">
+                      <div
+                        className={`proportional-banner ${finishing === 'perimetral' ? 'with-perimeter' : finishing === 'esquinas' ? 'with-corners' : ''}`}
+                        style={{
+                          aspectRatio: `${Math.max(10, widthCm)} / ${Math.max(10, heightCm)}`,
+                          maxWidth: '100%',
+                          maxHeight: '160px'
+                        }}
+                      >
+                        {(finishing === 'esquinas' || finishing === 'perimetral') && (
+                          <>
+                            <span className="canvas-grommet top-left" />
+                            <span className="canvas-grommet top-right" />
+                            <span className="canvas-grommet bottom-left" />
+                            <span className="canvas-grommet bottom-right" />
+                          </>
+                        )}
+                        {finishing === 'perimetral' && (
+                          <>
+                            <span className="canvas-grommet top-mid" />
+                            <span className="canvas-grommet bottom-mid" />
+                            <span className="canvas-grommet mid-left" />
+                            <span className="canvas-grommet mid-right" />
+                          </>
+                        )}
+                        <div className="canvas-inner-label">
+                          <strong>{selectedProduct?.name}</strong>
+                          <span>{widthCm} × {heightCm} cm · {quote.area.toFixed(2)} m²</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="quote-insight">
@@ -550,10 +929,10 @@ function SmartQuotePage() {
                           onChange={() => setFinishing('esquinas')}
                         />
                         <div className="design-option-copy">
-                          <b>Ojaletes en las 4 esquinas</b>
-                          <small>Para templar en postes o vallas pequeñas.</small>
+                          <b>Ojaletes en 4 esquinas</b>
+                          <small>Ojaletes metálicos en esquinas para sujeción rápida.</small>
                         </div>
-                        <span className="design-option-price">+{money(calcSettings.eyeletSmallPrice || 1.50)}</span>
+                        <span className="design-option-price">+{money(Number(calcSettings.eyeletSmallPrice || 1.5))}</span>
                       </label>
 
                       <label className={`design-option-card ${finishing === 'perimetral' ? 'active' : ''}`}>
@@ -564,10 +943,10 @@ function SmartQuotePage() {
                           onChange={() => setFinishing('perimetral')}
                         />
                         <div className="design-option-copy">
-                          <b>Ojaletes perimetrales cada 50 cm</b>
-                          <small>Máxima resistencia al viento y tensión uniforme.</small>
+                          <b>Ojaletes perimetrales</b>
+                          <small>Distribuidos cada 50 cm en todo el perímetro.</small>
                         </div>
-                        <span className="design-option-price">+{money(calcSettings.eyeletLargePrice || 3.50)}</span>
+                        <span className="design-option-price">+{money(Number(calcSettings.eyeletLargePrice || 3.5))}</span>
                       </label>
 
                       <label className={`design-option-card ${finishing === 'bolsillo' ? 'active' : ''}`}>
@@ -578,24 +957,25 @@ function SmartQuotePage() {
                           onChange={() => setFinishing('bolsillo')}
                         />
                         <div className="design-option-copy">
-                          <b>Bolsillo superior e inferior para tubo</b>
-                          <small>Para colgar como pasacalle o banner colgante.</small>
+                          <b>Bolsillo para tubo</b>
+                          <small>Confección superior e inferior para colgar con tubo.</small>
                         </div>
                         <span className="design-option-price">+$4.00</span>
                       </label>
                     </div>
                   </div>
 
+                  {/* Installation Option */}
                   {selectedProduct?.price_inst && (
-                    <label className="check-option" style={{ marginTop: '14px' }}>
+                    <label className="check-option" style={{ marginTop: '16px' }}>
                       <input
                         type="checkbox"
                         checked={installation}
                         onChange={(event) => setInstallation(event.target.checked)}
                       />
                       <span>
-                        <b>Incluir servicio de instalación profesional</b>
-                        <small>Un equipo técnico de Gigaprint se encarga del montaje en sitio.</small>
+                        <b>Incluir instalación en sitio (Quito y alrededores)</b>
+                        <small>Personal técnico realiza el montaje en tu local o estructura.</small>
                       </span>
                     </label>
                   )}
@@ -606,25 +986,28 @@ function SmartQuotePage() {
                 <span>{variantOptions.length ? '03' : '02'}</span>
                 <div className="step-content">
                   <h3>Selecciona el tamaño del lote</h3>
-                  <p>En imprenta y empaques, los lotes mayores optimizan drásticamente el costo por unidad.</p>
-                  
-                  <div className="quote-tiers">
+                  <p>Precios por paquete cerrado de imprenta. A mayor tiraje, menor costo por unidad.</p>
+
+                  <div className="quote-tiers-grid">
                     {tiers.map((tier) => {
-                      const qty = Number(tier.qty) || 1000;
-                      const unitCost = Number(tier.price) / qty;
-                      const isActive = effectiveQuantity === qty;
+                      const isActive = activeTier.qty === tier.qty;
+                      const unitCost = Number(tier.price) / Math.max(1, Number(tier.qty));
                       return (
                         <button
                           key={tier.qty}
                           type="button"
-                          onClick={() => setQuantity(qty)}
-                          className={isActive ? 'active' : ''}
+                          className={`tier-card ${isActive ? 'active' : ''}`}
+                          onClick={() => setQuantity(Number(tier.qty))}
                         >
-                          <span>Lote de {qty.toLocaleString()} uds</span>
-                          <b>{money(tier.price)}</b>
-                          <small style={{ color: 'var(--muted)', fontSize: '10px' }}>
-                            ≈ {unitCost < 0.1 ? `$${unitCost.toFixed(3)}` : money(unitCost)} / u
-                          </small>
+                          <div className="tier-card-qty">
+                            <strong>{tier.qty}</strong>
+                            <span>unidades</span>
+                          </div>
+                          <div className="tier-card-pricing">
+                            <b>{money(tier.price)}</b>
+                            <small>{money(unitCost)} c/u</small>
+                          </div>
+                          {isActive && <span className="tier-badge">Seleccionado</span>}
                         </button>
                       );
                     })}
@@ -635,48 +1018,58 @@ function SmartQuotePage() {
               <div className="quote-step">
                 <span>{variantOptions.length ? '03' : '02'}</span>
                 <div className="step-content">
-                  <h3>¿Cuántas unidades necesitas?</h3>
-                  <p>A mayor volumen, obtienes mejores tarifas automáticas por escala.</p>
-
-                  <div className="quantity-picker">
-                    <button type="button" onClick={() => setQuantity(Math.max(minQuantity, effectiveQuantity - 1))}>
-                      <X size={16} />
-                    </button>
-                    <strong>{effectiveQuantity}</strong>
-                    <button type="button" onClick={() => setQuantity(effectiveQuantity + 1)}>
-                      <Plus size={16} />
-                    </button>
-                  </div>
+                  <h3>Cantidad y escalas de descuento</h3>
+                  <p>Escoge o escribe la cantidad deseada. Los descuentos por volumen aplican automáticamente.</p>
 
                   <div className="qty-quick-buttons">
-                    <button type="button" onClick={() => setQuantity(1)}>1</button>
-                    <button type="button" onClick={() => setQuantity(6)}>6</button>
-                    <button type="button" onClick={() => setQuantity(12)}>12</button>
-                    <button type="button" onClick={() => setQuantity(24)}>24</button>
-                    <button type="button" onClick={() => setQuantity(50)}>50</button>
-                    <button type="button" onClick={() => setQuantity(100)}>100</button>
+                    <span>Sugeridos:</span>
+                    {[1, 6, 12, 24, 50, 100].map((qtyVal) => (
+                      <button
+                        key={qtyVal}
+                        type="button"
+                        className={`preset-chip ${effectiveQuantity === qtyVal ? 'active' : ''}`}
+                        onClick={() => setQuantity(qtyVal)}
+                      >
+                        {qtyVal} {selectedProduct?.unit || 'uds'}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="fields two" style={{ marginTop: '12px' }}>
+                    <label>
+                      Cantidad ({selectedProduct?.unit || 'unidades'})
+                      <input
+                        type="number"
+                        min={minQuantity}
+                        value={effectiveQuantity}
+                        onChange={(event) => setQuantity(Math.max(minQuantity, Number(event.target.value) || 1))}
+                      />
+                    </label>
+                    <div className="quote-unit-feedback">
+                      <span>Tarifa unitaria aplicada</span>
+                      <strong>{money(quote.rate)} <small>/ {selectedProduct?.unit || 'u'}</small></strong>
+                      {quote.savingsPercent > 0 && (
+                        <span className="tier-discount-badge">¡Ahorras {quote.savingsPercent}% por volumen!</span>
+                      )}
+                    </div>
                   </div>
 
                   {tiers.length > 1 && (
-                    <div className="quote-tiers">
-                      {tiers.slice(0, 8).map((tier) => {
-                        const tierQty = Number(tier.qty);
-                        const isActive = effectiveQuantity >= tierQty && activeTier.qty === tier.qty;
-                        const basePrice = Number(tiers[0]?.price) || 0;
-                        const discount = basePrice > Number(tier.price) ? Math.round(((basePrice - Number(tier.price)) / basePrice) * 100) : 0;
-                        return (
+                    <div className="quote-tiers-table">
+                      <span>Tabla de precios por volumen:</span>
+                      <div className="tiers-pills">
+                        {tiers.map((tier) => (
                           <button
                             key={tier.qty}
                             type="button"
-                            onClick={() => setQuantity(Math.max(minQuantity, tierQty))}
-                            className={isActive ? 'active' : ''}
+                            className={`tier-pill ${activeTier.qty === tier.qty ? 'active' : ''}`}
+                            onClick={() => setQuantity(Number(tier.qty))}
                           >
-                            <span>Desde {tier.qty} {selectedProduct?.unit}</span>
-                            <b>{money(tier.price)} / u</b>
-                            {discount > 0 && <span className="tier-discount-badge">-{discount}% dto.</span>}
+                            <span>Desde {tier.qty} {selectedProduct?.unit || 'uds'}</span>
+                            <b>{money(tier.price)}/u</b>
                           </button>
-                        );
-                      })}
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -685,10 +1078,10 @@ function SmartQuotePage() {
 
             {/* Step 4: Design Services */}
             <div className="quote-step">
-              <span>{isArea || variantOptions.length ? '04' : '03'}</span>
+              <span>{variantOptions.length ? '04' : '03'}</span>
               <div className="step-content">
-                <h3>Servicio de Diseño Gráfico</h3>
-                <p>Garantiza que tus archivos tengan la resolución, sangría y perfil de color óptimos.</p>
+                <h3>Servicio de diseño y preparación de archivos</h3>
+                <p>Si ya tienes tu archivo listo, no cobramos preparación.</p>
 
                 <div className="design-options-grid">
                   <label className={`design-option-card ${designLevel === 'none' ? 'active' : ''}`}>
@@ -699,8 +1092,8 @@ function SmartQuotePage() {
                       onChange={() => setDesignLevel('none')}
                     />
                     <div className="design-option-copy">
-                      <b>Tengo mi arte listo para producción</b>
-                      <small>Revisión técnica de resolución y proporciones incluida sin costo.</small>
+                      <b>Tengo mi arte listo para imprimir</b>
+                      <small>Envías tu PDF, AI, CDR o imagen en alta resolución.</small>
                     </div>
                     <span className="design-option-price">$0</span>
                   </label>
@@ -713,10 +1106,10 @@ function SmartQuotePage() {
                       onChange={() => setDesignLevel('adaptation')}
                     />
                     <div className="design-option-copy">
-                      <b>Adaptación y retoque de archivo existente</b>
-                      <small>Ajustamos medidas, textos o formato de tu archivo previo.</small>
+                      <b>Adaptación / Ajuste de medidas</b>
+                      <small>Tienes logo e imágenes; nosotros armamos proporciones y sangrías.</small>
                     </div>
-                    <span className="design-option-price">+{money(calcSettings.designAdaptationPrice || 5)}</span>
+                    <span className="design-option-price">+{money(Number(calcSettings.designAdaptationPrice || 5))}</span>
                   </label>
 
                   <label className={`design-option-card ${designLevel === 'full' ? 'active' : ''}`}>
@@ -728,54 +1121,75 @@ function SmartQuotePage() {
                     />
                     <div className="design-option-copy">
                       <b>Diseño profesional desde cero</b>
-                      <small>Un diseñador de Gigaprint crea tu propuesta desde tu idea o referencia.</small>
+                      <small>Propuesta creativa completa con cambios y bocetos incluidos.</small>
                     </div>
-                    <span className="design-option-price">+{money(calcSettings.designFromScratchPrice || 15)}</span>
+                    <span className="design-option-price">+{money(Number(calcSettings.designFromScratchPrice || 15))}</span>
                   </label>
                 </div>
+
+                {designLevel === 'none' && (
+                  <div className="file-guidelines-box">
+                    <FileCheck size={16} />
+                    <div>
+                      <b>Recomendaciones de archivo:</b>
+                      <small>PDF / AI / CDR / JPG en modo de color CMYK, resolución mínima de 150 DPI y sangría de 2 cm.</small>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Sticky Summary Card */}
+          {/* Sticky Summary Sidebar */}
           <aside className="quote-summary-card">
-            <span className="eyebrow">Resumen de Cotización</span>
+            <span className="eyebrow orange">Resumen de cotización</span>
             <h2>{money(quote.total)}</h2>
-            <p>{calcSettings.disclaimer || 'Valores referenciales con IVA (15%) incluido.'}</p>
+            <p className="summary-tax-note">Precio final con IVA ({quote.taxRate}%) incluido</p>
+
+            <div className="lead-time-badge" style={{ marginBottom: '14px' }}>
+              <Clock size={15} /> Producción estimada: <b>{quote.leadTime}</b>
+            </div>
 
             {quote.savingsPercent > 0 && (
               <div className="savings-banner">
-                <Sparkles size={16} />
-                <span>¡Estás ahorrando {quote.savingsPercent}% por volumen!</span>
+                <Sparkles size={16} /> ¡Estás ahorrando un <b>{quote.savingsPercent}%</b> por escala de volumen!
               </div>
             )}
 
-            <div className="summary-line">
-              <span>Producto</span>
-              <b>{selectedProduct?.name}</b>
-            </div>
-
-            {selectionText && (
-              <div className="summary-line">
-                <span>Variante / Acabado</span>
-                <b>{selectionText}</b>
+            <div className="summary-breakdown">
+              <div className="summary-row">
+                <span>Producto</span>
+                <b>{selectedProduct?.name}</b>
               </div>
-            )}
 
-            <div className="summary-line">
-              <span>{isArea ? 'Medidas y cantidad' : 'Cantidad total'}</span>
-              <b>{readableDimensions}</b>
+              {selectionText && (
+                <div className="summary-row">
+                  <span>Variante</span>
+                  <b>{selectionText}</b>
+                </div>
+              )}
+
+              <div className="summary-row">
+                <span>{isArea ? 'Medidas' : 'Cantidad'}</span>
+                <b>{readableDimensions}</b>
+              </div>
+
+              {isArea && (
+                <div className="summary-row">
+                  <span>Área total</span>
+                  <b>{(quote.area * effectiveQuantity).toFixed(2)} m²</b>
+                </div>
+              )}
+
+              <div className="summary-row">
+                <span>Tarifa unitaria</span>
+                <b>{money(quote.rate)} {isArea ? '/ m²' : mode === 'lotes' ? '/ lote' : ` / ${selectedProduct?.unit || 'u'}`}</b>
+              </div>
             </div>
 
             <div className="summary-line">
-              <span>Tarifa aplicada</span>
-              <b>
-                {quote.mode === 'area'
-                  ? `${money(quote.rate)} / m²`
-                  : quote.mode === 'tier-total'
-                    ? `${money(quote.rate)} / lote`
-                    : `${money(quote.rate)} / unidad`}
-              </b>
+              <span>Material y producción</span>
+              <b>{money(quote.material)}</b>
             </div>
 
             {designCost > 0 && (
@@ -787,7 +1201,7 @@ function SmartQuotePage() {
 
             {finishingCost > 0 && (
               <div className="summary-line">
-                <span>Acabados / Ojaletes</span>
+                <span>Acabados</span>
                 <b>+{money(finishingCost)}</b>
               </div>
             )}
@@ -810,7 +1224,7 @@ function SmartQuotePage() {
             </div>
 
             <div className="summary-note">
-              <Check size={15} /> Cotización inmediata lista para producción o revisión.
+              <Check size={15} /> Factura electrónica oficial SRI con desglose completo.
             </div>
 
             <button
@@ -836,11 +1250,183 @@ function SmartQuotePage() {
           </aside>
         </div>
       </section>
+
+      {/* Mobile Sticky Bottom Bar */}
+      <div className="mobile-quote-sticky-bar">
+        <div className="mobile-sticky-info">
+          <small>Total con IVA</small>
+          <strong>{money(quote.total)}</strong>
+          {quote.savingsPercent > 0 && <span className="mobile-savings-tag">-{quote.savingsPercent}%</span>}
+        </div>
+        <div className="mobile-sticky-actions">
+          <button type="button" className="button button-primary compact-btn" onClick={add} title="Agregar al carrito">
+            <Plus size={16} /> Carrito
+          </button>
+          <a
+            href={`https://wa.me/${data.settings?.whatsapp || '593999999999'}?text=${whatsappMessage}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="whatsapp-sticky-btn"
+            aria-label="Cotizar por WhatsApp"
+          >
+            <MessageCircle size={18} /> WhatsApp
+          </a>
+        </div>
+      </div>
     </PageShell>
   );
 }
 
-function ContactPage() { const { data, cart, saveInquiry, saveQuoteRequest } = useSite(); const [sent, setSent] = useState(false); const [form, setForm] = useState({ name: '', company: '', email: '', phone: '', message: '' }); const update = (key) => (event) => setForm({ ...form, [key]: event.target.value }); const submit = async (event) => { event.preventDefault(); await saveInquiry(form); if (cart.length) { const total = cart.reduce((sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1), 0); const subtotal = cart.reduce((sum, item) => sum + (Number(item.quoteBreakdown?.subtotal ?? item.price) || 0) * (Number(item.quantity) || 1), 0); const taxAmount = Math.max(0, total - subtotal); await saveQuoteRequest({ customerName: form.name, customerCompany: form.company, customerEmail: form.email, customerPhone: form.phone, items: cart, subtotal, taxRate: Number(data.calculatorSettings?.taxRate) || 15, taxAmount, total, notes: form.message }); } setSent(true); }; return <PageShell><section className="inner-hero contact-hero"><div className="container"><span className="eyebrow orange">Contacto</span><h1>Hablemos de lo que<br /><em>quieres hacer visible.</em></h1><p>Cuéntanos un poco de tu idea. Si ya tienes medidas, referencias o un presupuesto en mente, mucho mejor.</p></div></section><section className="section contact-section"><div className="container contact-layout"><div className="contact-info"><span className="eyebrow">Resolvemos rápido</span><h2>Una conversación puede ahorrar muchos intentos.</h2><div className="contact-list"><a href={`https://wa.me/${data.settings.whatsapp}`}><MessageCircle /><span><b>WhatsApp</b><small>{data.settings.phone}</small></span></a><a href={`mailto:${data.settings.email}`}><FileText /><span><b>Correo</b><small>{data.settings.email}</small></span></a><div><Building2 /><span><b>Visítanos</b><small>{data.settings.address}</small></span></div></div><div className="contact-mini"><span>Horario de atención</span><b>Lun — Vie / 09:00 — 18:00</b></div></div><div className="contact-form-card">{sent ? <div className="success-state"><div className="success-icon"><Check /></div><h2>¡Gracias por escribirnos!</h2><p>Recibimos tu solicitud y te responderemos muy pronto con los siguientes pasos.</p><Button to="/">Volver al inicio</Button></div> : <form onSubmit={submit}><div className="form-heading"><span className="eyebrow orange">Cuéntanos</span><h2>¿Qué tienes en mente?</h2></div><div className="fields two"><label>Tu nombre<input required value={form.name} onChange={update('name')} placeholder="Nombre y apellido" /></label><label>Empresa (opcional)<input value={form.company} onChange={update('company')} placeholder="Nombre de tu marca" /></label></div><div className="fields two"><label>Correo<input required type="email" value={form.email} onChange={update('email')} placeholder="tu@correo.com" /></label><label>WhatsApp<input required value={form.phone} onChange={update('phone')} placeholder="+593..." /></label></div><label>Cuéntanos sobre el proyecto<textarea required value={form.message} onChange={update('message')} rows="5" placeholder="Quiero un rótulo para..." /></label><button type="submit" className="button button-primary">Enviar solicitud <ArrowRight size={16} /></button><small className="form-footnote">También puedes escribirnos directo por WhatsApp. Respondemos en horario laboral.</small></form>}</div></div></section></PageShell>; }
+function ContactPage() {
+  const { data, cart, saveInquiry, saveQuoteRequest } = useSite();
+  const [searchParams] = useSearchParams();
+  const promoParam = searchParams.get('promo');
+
+  const [sent, setSent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState({
+    name: '',
+    company: '',
+    email: '',
+    phone: '',
+    message: promoParam ? `Hola, deseo solicitar la promoción: "${promoParam}". ¿Podrían indicarme los pasos para coordinar el diseño y la entrega?` : ''
+  });
+
+  const update = (key) => (event) => setForm({ ...form, [key]: event.target.value });
+
+  const submit = async (event) => {
+    event.preventDefault();
+    setBusy(true);
+    try {
+      await saveInquiry(form);
+      if (cart.length) {
+        const total = cart.reduce((sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1), 0);
+        const subtotal = cart.reduce((sum, item) => sum + (Number(item.quoteBreakdown?.subtotal ?? item.price) || 0) * (Number(item.quantity) || 1), 0);
+        const taxAmount = Math.max(0, total - subtotal);
+        await saveQuoteRequest({
+          customerName: form.name,
+          customerCompany: form.company,
+          customerEmail: form.email,
+          customerPhone: form.phone,
+          items: cart,
+          subtotal,
+          taxRate: Number(data.calculatorSettings?.taxRate) || 15,
+          taxAmount,
+          total,
+          notes: form.message
+        });
+      }
+      setSent(true);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const cartTotal = cart.reduce((sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1), 0);
+
+  return (
+    <PageShell>
+      <section className="inner-hero contact-hero">
+        <div className="container">
+          <span className="eyebrow orange">Contacto</span>
+          <h1>Hablemos de lo que<br /><em>quieres hacer visible.</em></h1>
+          <p>Cuéntanos un poco de tu idea. Si ya tienes medidas, referencias o un presupuesto en mente, mucho mejor.</p>
+        </div>
+      </section>
+
+      <section className="section contact-section">
+        <div className="container contact-layout">
+          <div className="contact-info">
+            <span className="eyebrow">Resolvemos rápido</span>
+            <h2>Una conversación puede ahorrar muchos intentos.</h2>
+            <div className="contact-list">
+              <a href={`https://wa.me/${data.settings.whatsapp}`} target="_blank" rel="noopener noreferrer">
+                <MessageCircle />
+                <span><b>WhatsApp Directo</b><small>{data.settings.phone}</small></span>
+              </a>
+              <a href={`mailto:${data.settings.email}`}>
+                <FileText />
+                <span><b>Correo</b><small>{data.settings.email}</small></span>
+              </a>
+              <div>
+                <Building2 />
+                <span><b>Taller y Showroom</b><small>{data.settings.address}</small></span>
+              </div>
+            </div>
+            <div className="contact-mini">
+              <span>Horario de atención</span>
+              <b>Lun — Vie / 09:00 — 18:00</b>
+            </div>
+          </div>
+
+          <div className="contact-form-card">
+            {sent ? (
+              <div className="success-state">
+                <div className="success-icon"><Check /></div>
+                <h2>¡Gracias por escribirnos!</h2>
+                <p>Recibimos tu solicitud con todos los detalles. Nos comunicaremos contigo muy pronto para revisar muestras y coordinar.</p>
+                <Button to="/">Volver al inicio</Button>
+              </div>
+            ) : (
+              <form onSubmit={submit}>
+                <div className="form-heading">
+                  <span className="eyebrow orange">Cuéntanos</span>
+                  <h2>¿Qué tienes en mente?</h2>
+                </div>
+
+                {/* Embedded Cart Preview when arriving with items */}
+                {cart.length > 0 && (
+                  <div className="contact-cart-preview">
+                    <div className="contact-cart-preview-header">
+                      <span><Package size={16} /> Cotización adjunta ({cart.length} ítem{cart.length > 1 ? 's' : ''})</span>
+                      <b>{money(cartTotal)} con IVA</b>
+                    </div>
+                    <div className="contact-cart-list">
+                      {cart.map((item) => (
+                        <div key={item.cartId} className="contact-cart-item">
+                          <span>• <b>{item.name}</b> (x{item.quantity})</span>
+                          <small>{item.variant}</small>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="fields two">
+                  <label>Tu nombre
+                    <input required value={form.name} onChange={update('name')} placeholder="Nombre y apellido" />
+                  </label>
+                  <label>Empresa (opcional)
+                    <input value={form.company} onChange={update('company')} placeholder="Nombre de tu marca" />
+                  </label>
+                </div>
+
+                <div className="fields two">
+                  <label>Correo
+                    <input required type="email" value={form.email} onChange={update('email')} placeholder="tu@correo.com" />
+                  </label>
+                  <label>WhatsApp
+                    <input required value={form.phone} onChange={update('phone')} placeholder="+593..." />
+                  </label>
+                </div>
+
+                <label>Cuéntanos sobre el proyecto
+                  <textarea required value={form.message} onChange={update('message')} rows="4" placeholder="Quiero un rótulo para..." />
+                </label>
+
+                <button type="submit" className="button button-primary" disabled={busy}>
+                  {busy ? 'Enviando solicitud…' : 'Enviar solicitud'} {!busy && <ArrowRight size={16} />}
+                </button>
+
+                <small className="form-footnote">También puedes escribirnos directo por WhatsApp. Respondemos en horario laboral.</small>
+              </form>
+            )}
+          </div>
+        </div>
+      </section>
+    </PageShell>
+  );
+}
 
 function CartPage() { const { cart } = useSite(); return <PageShell><section className="inner-hero cart-hero"><div className="container"><span className="eyebrow orange">Carrito de cotizaciones</span><h1>Tus ideas, listas<br /><em>para conversar.</em></h1><p>Aquí guardamos lo que te interesa. Todavía no es una compra: revisamos contigo medidas, materiales y tiempos antes de confirmar.</p></div></section><section className="section"><div className="container cart-page-grid"><div><div className="cart-title-row"><h2>{cart.length ? `${cart.length} solución${cart.length > 1 ? 'es' : ''} guardada${cart.length > 1 ? 's' : ''}` : 'Tu selección'}</h2>{cart.length > 0 && <span>Estimación preliminar</span>}</div><CartSummary /></div><aside className="cart-aside"><div className="cart-aside-icon"><MessageCircle /></div><h3>¿Listo para darle forma?</h3><p>Envíanos tu selección y un asesor te ayudará a convertirla en una cotización final.</p><Button to="/contacto">Solicitar revisión</Button><Link to="/cotizador">Seguir cotizando</Link></aside></div></section></PageShell>; }
 

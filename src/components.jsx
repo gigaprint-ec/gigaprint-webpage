@@ -32,15 +32,130 @@ export function PageShell({ children, className = '' }) { const { toast, siteThe
 
 export function SectionHeading({ eyebrow, title, text, action }) { return <div className="section-heading"><div><span className="eyebrow">{eyebrow}</span><h2>{title}</h2></div><div className="section-heading-side">{text && <p>{text}</p>}{action}</div></div>; }
 
-export function ServiceCard({ service, index = 0 }) { return <article className={`service-card service-${index % 4}`}><div className="service-card-image"><img src={service.image} alt="" /><span>{service.tag}</span></div><div className="service-card-copy"><div className="service-number">0{index + 1}</div><h3>{service.name}</h3><p>{service.detail}</p><Link to="/cotizador">Cotizar servicio <ArrowUpRight size={15} /></Link></div></article>; }
+export function ServiceCard({ service, index = 0 }) {
+  const isArea = service.id === 'impresion' || service.id === 'rotulos';
+  const linkTarget = `/cotizador?categoria=${encodeURIComponent(service.name)}&mode=${isArea ? 'medidas' : 'unidades'}`;
+  return (
+    <article className={`service-card service-${index % 4}`}>
+      <div className="service-card-image">
+        <img src={service.image} alt={service.name} />
+        <span>{service.tag}</span>
+      </div>
+      <div className="service-card-copy">
+        <div className="service-number">0{index + 1}</div>
+        <h3>{service.name}</h3>
+        <p>{service.detail}</p>
+        <Link to={linkTarget}>Cotizar servicio <ArrowUpRight size={15} /></Link>
+      </div>
+    </article>
+  );
+}
 
-export function ProductCard({ product, onAdd }) { const calcType = getProductCalcType(product); const label = calcType === 'm2' ? 'Por medida' : product.pricingMode === 'tier-total' ? 'Por lote' : product.priceScales?.length ? 'Por volumen' : 'Personalizable'; return <article className="product-card"><Link to={`/tienda/${product.id}`} className="product-image"><img src={product.image} alt={product.name} /><span>{product.category}</span></Link><div className="product-copy"><div className="product-meta"><span>{label}</span>{product.featured && <span className="featured-dot">Destacado</span>}</div><h3>{product.name}</h3><p>{product.description}</p><div className="product-bottom"><strong>Desde {money(product.price)} <small>/ {product.unit}</small></strong><button className="icon-button" onClick={() => onAdd(product)} aria-label={`Agregar ${product.name}`}><Plus size={18} /></button></div></div></article>; }
+export function ProductCard({ product, onAdd }) {
+  const navigate = useNavigate();
+  const calcType = getProductCalcType(product);
+  const label = calcType === 'm2' ? 'Por medida' : product.pricingMode === 'tier-total' ? 'Por lote' : product.priceScales?.length ? 'Por volumen' : 'Personalizable';
+
+  const handleAddClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (calcType === 'm2') {
+      navigate(`/tienda/${product.id}`);
+    } else {
+      onAdd(product);
+    }
+  };
+
+  return (
+    <article className="product-card">
+      <Link to={`/tienda/${product.id}`} className="product-image">
+        <img src={product.image} alt={product.name} />
+        <span>{product.category}</span>
+      </Link>
+      <div className="product-copy">
+        <div className="product-meta">
+          <span>{label}</span>
+          {product.featured && <span className="featured-dot">Destacado</span>}
+        </div>
+        <h3>{product.name}</h3>
+        <p>{product.description}</p>
+        <div className="product-bottom">
+          <strong>Desde {money(product.price)} <small>/ {product.unit}</small></strong>
+          <button
+            className="icon-button"
+            onClick={handleAddClick}
+            aria-label={calcType === 'm2' ? `Configurar medidas de ${product.name}` : `Agregar ${product.name}`}
+            title={calcType === 'm2' ? 'Configurar medidas' : 'Agregar al carrito'}
+          >
+            {calcType === 'm2' ? <ArrowUpRight size={17} /> : <Plus size={18} />}
+          </button>
+        </div>
+      </div>
+    </article>
+  );
+}
 
 export function CartSummary({ compact = false }) {
-  const { cart, updateCartItem, removeCartItem } = useSite();
+  const { cart, updateCartItem, removeCartItem, data } = useSite();
   const total = cart.reduce((sum, item) => sum + (item.price || 0) * item.quantity, 0);
-  if (!cart.length) return <div className="empty-cart"><ShoppingBag size={30} /><h3>Tu carrito está esperando ideas</h3><p>Agrega productos o configura una pieza en el cotizador.</p><Button to="/tienda">Explorar tienda</Button></div>;
-  return <div className={compact ? 'cart-summary compact' : 'cart-summary'}>{cart.map((item) => <div className="cart-row" key={item.cartId}><img src={item.image} alt="" /><div><b>{item.name}</b><small>{item.variant || 'Configuración estándar'}</small><div className="qty"><button onClick={() => updateCartItem(item.cartId, item.quantity - 1)}><Minus size={13} /></button><span>{item.quantity}</span><button onClick={() => updateCartItem(item.cartId, item.quantity + 1)}><Plus size={13} /></button></div></div><strong>{money(item.price * item.quantity)}</strong><button className="remove-link" onClick={() => removeCartItem(item.cartId)} aria-label="Eliminar"><X size={14} /></button></div>)}<div className="cart-total"><span>Estimado desde</span><strong>{money(total)}</strong></div>{!compact && <Button to="/contacto">Solicitar cotización <ChevronRight size={16} /></Button>}</div>;
+  const subtotal = cart.reduce((sum, item) => sum + (Number(item.quoteBreakdown?.subtotal ?? item.price) || 0) * item.quantity, 0);
+  const whatsappNumber = data?.settings?.whatsapp || '593999999999';
+
+  if (!cart.length) return (
+    <div className="empty-cart">
+      <ShoppingBag size={30} />
+      <h3>Tu carrito está esperando ideas</h3>
+      <p>Agrega productos o configura una pieza en el cotizador.</p>
+      <Button to="/tienda">Explorar tienda</Button>
+    </div>
+  );
+
+  const whatsappCartMessage = encodeURIComponent([
+    '¡Hola Gigaprint! Deseo solicitar la cotización de los siguientes productos de mi carrito:\n',
+    ...cart.map((item, idx) => `${idx + 1}. *${item.name}* (x${item.quantity})\n   • Detalle: ${item.variant || 'Estándar'}\n   • Subtotal estimado: $${((item.price || 0) * item.quantity).toFixed(2)}`),
+    `\n*Total estimado con IVA (15%):* $${total.toFixed(2)}`,
+    '\n¿Podrían indicarme los tiempos de entrega y disponibilidad para confirmar?'
+  ].join('\n'));
+
+  return (
+    <div className={compact ? 'cart-summary compact' : 'cart-summary'}>
+      {cart.map((item) => (
+        <div className="cart-row" key={item.cartId}>
+          <img src={item.image} alt="" />
+          <div>
+            <b>{item.name}</b>
+            <small>{item.variant || 'Configuración estándar'}</small>
+            <div className="qty">
+              <button onClick={() => updateCartItem(item.cartId, item.quantity - 1)}><Minus size={13} /></button>
+              <span>{item.quantity}</span>
+              <button onClick={() => updateCartItem(item.cartId, item.quantity + 1)}><Plus size={13} /></button>
+            </div>
+          </div>
+          <strong>{money(item.price * item.quantity)}</strong>
+          <button className="remove-link" onClick={() => removeCartItem(item.cartId)} aria-label="Eliminar"><X size={14} /></button>
+        </div>
+      ))}
+      <div className="cart-total">
+        <span>Estimado con IVA</span>
+        <strong>{money(total)}</strong>
+      </div>
+      {!compact && (
+        <div className="cart-action-buttons">
+          <Button to="/contacto" className="cart-primary-action">
+            Enviar solicitud por formulario <ChevronRight size={16} />
+          </Button>
+          <a
+            href={`https://wa.me/${whatsappNumber}?text=${whatsappCartMessage}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="whatsapp-action-btn cart-whatsapp-action"
+          >
+            <MessageCircle size={17} /> Cotizar todo el carrito por WhatsApp
+          </a>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function AdminNav() { const location = useLocation(); const { theme, setTheme } = useSite(); const items = [['/admin','Resumen'],['/admin/editor','Editor visual'],['/admin/contenido','Contenido'],['/admin/productos','Productos'],['/admin/temas','Temas'],['/admin/promociones','Promociones'],['/admin/solicitudes','Solicitudes']]; return <aside className="admin-sidebar"><Brand compact /><div className="admin-nav-label">Panel Gigaprint</div><nav>{items.map(([path, label]) => <NavLink key={path} end={path === '/admin'} className={location.pathname === path ? 'active' : ''} to={path}>{label}</NavLink>)}</nav><div className="admin-sidebar-footer"><ThemeToggle theme={theme} onChange={setTheme} /><Link to="/" className="admin-back">← Volver al sitio</Link></div></aside>; }
