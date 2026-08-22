@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { X, Printer, MessageCircle, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export function POSReceiptModal({ order, items = [], advisor, isOpen, onClose }) {
@@ -11,7 +11,8 @@ export function POSReceiptModal({ order, items = [], advisor, isOpen, onClose })
   };
 
   const cleanPhone = (phone = '') => {
-    let p = phone.replace(/[^0-9]/g, '');
+    let p = (phone || '').replace(/[^0-9]/g, '');
+    if (!p) return '';
     if (p.startsWith('0')) p = '593' + p.substring(1);
     if (!p.startsWith('593')) p = '593' + p;
     return p;
@@ -31,7 +32,7 @@ export function POSReceiptModal({ order, items = [], advisor, isOpen, onClose })
     ];
 
     items.forEach((it, idx) => {
-      const dim = it.width_cm && it.height_cm ? ` (${it.width_cm}x${it.height_cm} cm)` : '';
+      const dim = it.width_cm && it.height_cm ? ` (${it.width_cm}x${it.height_cm} cm)` : it.widthCm && it.heightCm ? ` (${it.widthCm}x${it.heightCm} cm)` : '';
       const finish = it.finishing && it.finishing !== 'none' ? ` [${it.finishing}]` : '';
       lines.push(`${idx + 1}. ${it.product_name || it.productName}${dim} x${it.quantity || 1} -> ${money(it.total_price || it.totalPrice)}`);
     });
@@ -49,7 +50,11 @@ export function POSReceiptModal({ order, items = [], advisor, isOpen, onClose })
   const handleWhatsApp = () => {
     const phone = cleanPhone(order.customerPhone || '');
     const msg = getWhatsAppMessage();
-    window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
+    if (!phone || phone === '593') {
+      window.open(`https://wa.me/?text=${msg}`, '_blank');
+    } else {
+      window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
+    }
   };
 
   return (
