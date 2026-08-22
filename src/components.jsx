@@ -294,7 +294,10 @@ export function Footer() {
       </div>
       <div className="container footer-bottom">
         <span>© 2026 Gigaprint. Todos los derechos reservados.</span>
-        <Link to="/admin">Acceso admin</Link>
+        <div style={{ display: 'flex', gap: '16px' }}>
+          <Link to="/pos">🛒 Punto de Venta (POS)</Link>
+          <Link to="/admin">Panel admin</Link>
+        </div>
       </div>
     </footer>
   );
