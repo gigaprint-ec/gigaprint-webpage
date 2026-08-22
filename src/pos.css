@@ -1,54 +1,81 @@
-﻿/* ==========================================================================
-   GIGAPRINT POS & CRM SYSTEM STYLES (pos.css)
-   ========================================================================== */
+/* ==============================================================================
+   GIGAPRINT POS & CRM SYSTEM STYLES
+   ============================================================================== */
 
 .pos-container {
-  width: 100%;
+  padding: 24px;
   max-width: 1440px;
   margin: 0 auto;
-  padding: 24px 20px 80px;
-  display: grid;
-  gap: 24px;
+  font-family: inherit;
+  color: var(--ink);
 }
 
-/* POS Top Navigation Bar & Advisor Switcher */
+/* ------------------------------------------------------------------------------
+   TOP BAR & NAVIGATION
+   ------------------------------------------------------------------------------ */
 .pos-top-bar {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  padding: 16px 20px;
-  border-radius: 16px;
-  background: var(--paper);
-  border: 1px solid var(--line);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
-}
-
-.pos-brand-badge {
-  display: flex;
   align-items: center;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
 }
 
 .pos-brand-badge h1 {
-  font-size: 18px;
-  font-weight: 800;
   margin: 0;
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
   color: var(--ink);
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.pos-brand-badge span {
+.pos-role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
   font-size: 11px;
-  padding: 3px 8px;
-  border-radius: 6px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.pos-role-badge.admin {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.pos-role-badge.advisor {
   background: var(--orange-soft);
   color: var(--orange-dark);
-  font-weight: 700;
-  text-transform: uppercase;
+  border: 1px solid rgba(234, 88, 12, 0.3);
+}
+
+.pos-pin-quick-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(234, 88, 12, 0.4);
+  background: var(--orange-soft);
+  color: var(--orange-dark);
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pos-pin-quick-badge:hover {
+  background: var(--orange);
+  color: #fff;
 }
 
 .pos-top-actions {
@@ -61,17 +88,11 @@
 .pos-advisor-selector {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 14px;
+  gap: 6px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  padding: 6px 12px;
   border-radius: 10px;
-  border: 1.5px solid var(--line);
-  background: var(--bg);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.pos-advisor-selector:hover {
-  border-color: var(--orange);
 }
 
 .pos-advisor-selector select {
@@ -80,13 +101,58 @@
   font-size: 13px;
   font-weight: 700;
   color: var(--ink);
-  cursor: pointer;
   outline: none;
+  cursor: pointer;
+}
+
+.pos-shift-status-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid var(--line);
+}
+
+.pos-shift-status-btn.open {
+  background: #dcfce7;
+  color: #166534;
+  border-color: #86efac;
+}
+
+.pos-shift-status-btn.closed {
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #fca5a5;
+}
+
+.pos-lock-session-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pos-lock-session-btn:hover {
+  color: var(--ink);
+  border-color: var(--ink);
 }
 
 .pos-nav-tabs {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   background: var(--bg);
   padding: 4px;
   border-radius: 12px;
@@ -96,8 +162,8 @@
 .pos-nav-tab {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
+  gap: 6px;
+  padding: 8px 14px;
   border-radius: 8px;
   border: 0;
   background: transparent;
@@ -105,7 +171,7 @@
   font-weight: 700;
   color: var(--muted);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
 }
 
 .pos-nav-tab:hover {
@@ -115,26 +181,268 @@
 .pos-nav-tab.active {
   background: var(--paper);
   color: var(--orange-dark);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
 }
 
-/* ==========================================================================
-   MODULE 1: CASHIER & NEW ORDER LAYOUT (Grid 2 Columns)
-   ========================================================================== */
+/* ------------------------------------------------------------------------------
+   LOCK SCREEN & TOUCH KEYPAD
+   ------------------------------------------------------------------------------ */
+.pos-lock-screen-wrapper {
+  min-height: 85vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.pos-lock-modal-card {
+  background: var(--paper);
+  border: 1.5px solid var(--line);
+  border-radius: 24px;
+  width: 100%;
+  maxWidth: 480px;
+  padding: 28px;
+  box-shadow: 0 25px 60px rgba(0,0,0,0.12);
+  display: grid;
+  gap: 18px;
+}
+
+.pos-lock-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pos-lock-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pos-lock-logo-mark {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--orange);
+  color: #fff;
+  font-size: 20px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pos-lock-week-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: var(--orange-soft);
+  color: var(--orange-dark);
+  font-size: 12px;
+}
+
+.pos-lock-mode-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  background: var(--bg);
+  padding: 4px;
+  border-radius: 12px;
+}
+
+.pos-lock-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px;
+  border-radius: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pos-lock-tab.active {
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+}
+
+.pos-advisor-pills-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.pos-advisor-pill-card {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1.5px solid var(--line);
+  background: var(--bg);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pos-advisor-pill-card.active {
+  border-color: var(--orange);
+  background: var(--orange-soft);
+}
+
+.pos-advisor-pill-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--orange) 0%, var(--orange-dark) 100%);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pos-advisor-pill-card span {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.pos-selected-advisor-target {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  font-size: 13px;
+}
+
+.pos-pin-display-box {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--bg);
+  border: 1.5px solid var(--line);
+}
+
+.pos-pin-dots {
+  display: flex;
+  gap: 14px;
+}
+
+.pos-pin-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--line);
+  transition: all 0.15s ease;
+}
+
+.pos-pin-dot.filled {
+  background: var(--orange);
+  transform: scale(1.2);
+  box-shadow: 0 0 10px rgba(234, 88, 12, 0.4);
+}
+
+.pos-touch-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.pos-keypad-btn {
+  height: 52px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 20px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pos-keypad-btn:hover {
+  background: var(--bg);
+  border-color: var(--orange);
+  color: var(--orange-dark);
+}
+
+.pos-keypad-btn:active {
+  transform: scale(0.95);
+  background: var(--orange-soft);
+}
+
+.pos-keypad-btn.action {
+  font-size: 15px;
+  background: var(--bg);
+  color: var(--muted);
+}
+
+.pos-unlock-submit-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 0;
+  background: linear-gradient(135deg, var(--orange) 0%, var(--orange-dark) 100%);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 6px 18px rgba(234, 88, 12, 0.3);
+}
+
+.pos-unlock-submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.pos-lock-error-banner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #fee2e2;
+  color: #991b1b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* ------------------------------------------------------------------------------
+   CASHIER GRID & VISUAL CATALOG
+   ------------------------------------------------------------------------------ */
 .pos-cashier-grid {
   display: grid;
-  grid-template-columns: 1fr 440px;
-  gap: 24px;
+  grid-template-columns: 1fr 380px;
+  gap: 20px;
   align-items: start;
 }
 
-@media (max-width: 1080px) {
-  .pos-cashier-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* Left Column: Customer & Items Configuration */
 .pos-left-panel {
   display: grid;
   gap: 20px;
@@ -145,212 +453,187 @@
   border: 1px solid var(--line);
   border-radius: 16px;
   padding: 20px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.02);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.03);
 }
 
 .pos-card-title {
   display: flex;
-  align-items: center;
   justify-content: space-between;
+  align-items: center;
   margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--line);
 }
 
 .pos-card-title h3 {
-  font-size: 15px;
-  font-weight: 800;
   margin: 0;
+  font-size: 16px;
+  font-weight: 800;
   color: var(--ink);
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-/* Customer Selector Box */
-.pos-customer-selector-box {
-  display: grid;
-  gap: 12px;
-}
-
-.pos-customer-search-row {
-  display: flex;
-  gap: 10px;
-}
-
-.pos-search-input-wrap {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  border-radius: 10px;
-  border: 1.5px solid var(--line);
-  background: var(--bg);
-}
-
-.pos-search-input-wrap input {
-  width: 100%;
-  border: 0;
-  outline: none;
-  background: transparent;
-  font-size: 14px;
-  color: var(--ink);
-}
-
-.pos-selected-customer-pill {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  border-radius: 10px;
-  background: var(--orange-soft);
-  border: 1px solid rgba(234, 88, 12, 0.2);
-}
-
-.pos-customer-info strong {
-  display: block;
-  font-size: 14px;
-  color: var(--ink);
-}
-
-.pos-customer-info small {
-  color: var(--muted);
-  font-size: 12px;
-}
-
-/* Add Item & Catalog Selector */
-.pos-catalog-fast-selector {
-  display: grid;
-  gap: 16px;
-}
-
-.pos-catalog-quick-chips {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.pos-quick-product-btn {
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--line);
-  background: var(--bg);
-  color: var(--ink);
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.pos-quick-product-btn:hover {
-  border-color: var(--orange);
-  color: var(--orange-dark);
-  background: var(--orange-soft);
-}
-
-/* Custom Live Item Configurator Form */
-.pos-item-form-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  gap: 12px;
-  padding: 16px;
-  background: var(--bg);
-  border-radius: 12px;
-  border: 1px dashed var(--line);
 }
 
 .pos-form-group {
   display: grid;
-  gap: 4px;
+  gap: 6px;
 }
 
 .pos-form-group label {
-  font-size: 11px;
-  font-weight: 800;
+  font-size: 12px;
+  font-weight: 700;
   color: var(--muted);
-  text-transform: uppercase;
 }
 
 .pos-form-group input,
-.pos-form-group select {
-  width: 100%;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1.5px solid var(--line);
-  background: var(--paper);
-  color: var(--ink);
+.pos-form-group select,
+.pos-form-group textarea {
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg);
   font-size: 13px;
-  font-weight: 600;
+  color: var(--ink);
   outline: none;
+  font-family: inherit;
 }
 
 .pos-form-group input:focus,
-.pos-form-group select:focus {
+.pos-form-group select:focus,
+.pos-form-group textarea:focus {
+  border-color: var(--orange);
+  box-shadow: 0 0 0 3px var(--orange-soft);
+}
+
+/* Visual Catalog Tiles */
+.pos-catalog-category-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+}
+
+.pos-catalog-cat-pill {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.pos-catalog-cat-pill.active {
+  background: var(--orange-soft);
+  color: var(--orange-dark);
   border-color: var(--orange);
 }
 
-/* Current Cart Items Table (Live editable prices) */
-.pos-cart-items-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 12px;
+.pos-catalog-tiles-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 10px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding-right: 4px;
+  margin-bottom: 16px;
 }
 
-.pos-cart-items-table th {
+.pos-product-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 8px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  cursor: pointer;
   text-align: left;
+  transition: all 0.15s ease;
+}
+
+.pos-product-tile:hover {
+  border-color: var(--orange);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+}
+
+.pos-product-tile.selected {
+  border-color: var(--orange);
+  background: var(--orange-soft);
+  box-shadow: 0 0 0 2px var(--orange);
+}
+
+.pos-tile-img-wrap {
+  width: 100%;
+  height: 60px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+  margin-bottom: 6px;
+}
+
+.pos-tile-img-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pos-tile-info strong {
+  display: block;
   font-size: 11px;
   font-weight: 800;
-  text-transform: uppercase;
-  color: var(--muted);
-  padding: 10px;
-  border-bottom: 1.5px solid var(--line);
-}
-
-.pos-cart-items-table td {
-  padding: 12px 10px;
-  border-bottom: 1px solid var(--line);
-  font-size: 13px;
-  vertical-align: middle;
-}
-
-.pos-inline-edit-input {
-  width: 75px;
-  padding: 6px 8px;
-  border-radius: 6px;
-  border: 1px solid var(--line);
-  background: var(--paper);
   color: var(--ink);
-  font-size: 13px;
+  line-height: 1.2;
+  margin-bottom: 2px;
+}
+
+.pos-tile-info span {
+  font-size: 10px;
+  color: var(--orange-dark);
   font-weight: 700;
-  text-align: right;
-  outline: none;
 }
 
-.pos-inline-edit-input:focus {
-  border-color: var(--orange);
+.pos-item-customizer-box {
   background: var(--bg);
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
 }
 
-/* ==========================================================================
-   RIGHT COLUMN: BILLING & PAYMENT SUMMARY
-   ========================================================================== */
+.pos-item-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 10px;
+}
+
+/* Multi-Tender Payment Rows */
+.pos-split-payment-row {
+  background: var(--bg);
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+}
+
 .pos-order-summary-card {
-  position: sticky;
-  top: 90px;
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: 16px;
-  padding: 24px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.05);
+  padding: 20px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+  position: sticky;
+  top: 80px;
   display: grid;
   gap: 16px;
 }
 
 .pos-totals-display {
-  padding: 16px;
-  border-radius: 12px;
   background: var(--bg);
+  padding: 14px;
+  border-radius: 12px;
   border: 1px solid var(--line);
   display: grid;
   gap: 8px;
@@ -358,269 +641,162 @@
 
 .pos-totals-row {
   display: flex;
-  align-items: center;
   justify-content: space-between;
+  align-items: center;
   font-size: 13px;
-  color: var(--muted);
 }
 
 .pos-totals-row.grand-total {
-  font-size: 18px;
-  font-weight: 800;
-  color: var(--ink);
-  border-top: 1.5px dashed var(--line);
   padding-top: 8px;
-  margin-top: 4px;
-}
-
-.pos-totals-row.grand-total b {
-  color: var(--orange-dark);
-  font-size: 24px;
-  font-family: 'Space Grotesk', sans-serif;
-}
-
-/* Payment & Balance Box */
-.pos-payment-methods-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-}
-
-.pos-payment-method-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px;
-  border-radius: 8px;
-  border: 1.5px solid var(--line);
-  background: var(--paper);
-  color: var(--ink);
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.pos-payment-method-btn.active {
-  border-color: var(--orange);
-  background: var(--orange-soft);
+  border-top: 1px dashed var(--line);
+  font-size: 16px;
+  font-weight: 900;
   color: var(--orange-dark);
 }
 
 .pos-balance-status-box {
-  padding: 12px 16px;
-  border-radius: 10px;
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
   display: flex;
-  align-items: center;
   justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  border-radius: 10px;
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #86efac;
 }
 
 .pos-balance-status-box.has-balance {
-  background: #fffbeb;
+  background: #fef3c7;
+  color: #92400e;
   border-color: #fde68a;
 }
 
-.pos-balance-status-box strong {
-  font-size: 15px;
-  font-weight: 800;
-  color: #166534;
-}
-
-.pos-balance-status-box.has-balance strong {
-  color: #92400e;
-}
-
 .pos-submit-order-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   width: 100%;
-  padding: 16px;
+  padding: 14px;
   border-radius: 12px;
   border: 0;
   background: linear-gradient(135deg, var(--orange) 0%, var(--orange-dark) 100%);
   color: #fff;
-  font-size: 16px;
-  font-weight: 800;
+  font-size: 14px;
+  font-weight: 900;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  box-shadow: 0 8px 24px rgba(234, 88, 12, 0.3);
+  box-shadow: 0 6px 18px rgba(234, 88, 12, 0.3);
   transition: all 0.2s ease;
 }
 
-.pos-submit-order-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 28px rgba(234, 88, 12, 0.4);
+.pos-submit-order-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
-/* ==========================================================================
-   MODULE 2 & 3: DAILY CASH CLOSE & WEEKLY BALANCE TABLE (EXCEL FORMAT)
-   ========================================================================== */
+/* ------------------------------------------------------------------------------
+   DATA TABLES (EXCEL IDÉNTICO & CRM)
+   ------------------------------------------------------------------------------ */
 .pos-daily-excel-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
-  background: var(--paper);
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.02);
+  text-align: right;
 }
 
 .pos-daily-excel-table th {
-  background: var(--ink);
-  color: #fff;
-  padding: 12px 14px;
+  background: var(--bg);
+  padding: 10px 12px;
   font-weight: 800;
-  text-transform: uppercase;
   font-size: 11px;
-  letter-spacing: 0.04em;
-  text-align: right;
-}
-
-.pos-daily-excel-table th:first-child,
-.pos-daily-excel-table td:first-child {
-  text-align: left;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 2px solid var(--line);
 }
 
 .pos-daily-excel-table td {
-  padding: 12px 14px;
+  padding: 10px 12px;
   border-bottom: 1px solid var(--line);
   color: var(--ink);
-  text-align: right;
-  font-weight: 600;
 }
 
-.pos-daily-excel-table tr.total-row {
+.pos-daily-excel-table tr:hover td {
   background: var(--bg);
-  font-weight: 800;
-  border-top: 2px solid var(--ink);
 }
 
 .pos-daily-excel-table tr.total-row td {
-  color: var(--ink);
-  font-size: 14px;
+  background: var(--orange-soft);
+  font-weight: 900;
+  border-top: 2px solid var(--orange);
+  border-bottom: 2px solid var(--orange);
 }
 
-.pos-highlight-cash { color: #16a34a !important; font-weight: 800; }
-.pos-highlight-transfer { color: #2563eb !important; font-weight: 800; }
-.pos-highlight-check { color: #9333ea !important; font-weight: 800; }
-.pos-highlight-balance { color: #dc2626 !important; font-weight: 800; }
-
-/* Progress Goal Bar */
-.pos-goal-tracker-card {
-  background: var(--paper);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 20px;
-  display: grid;
-  gap: 12px;
+.pos-highlight-cash {
+  color: #16a34a;
+  font-weight: 800;
 }
 
-.pos-goal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.pos-goal-progress-track {
-  width: 100%;
-  height: 12px;
-  background: var(--line);
-  border-radius: 999px;
-  overflow: hidden;
-  position: relative;
-}
-
-.pos-goal-progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--orange) 0%, #16a34a 100%);
-  border-radius: 999px;
-  transition: width 0.5s ease;
-}
-
-/* ==========================================================================
-   MODULE 4: CRM ORDERS LIST & KANBAN
-   ========================================================================== */
-.pos-orders-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
+.pos-highlight-balance {
+  color: #dc2626;
+  font-weight: 800;
 }
 
 .pos-badge-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  border-radius: 6px;
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 999px;
   font-size: 11px;
   font-weight: 800;
-  text-transform: uppercase;
+  text-align: center;
 }
 
-.pos-badge-pill.paid { background: #dcfce7; color: #166534; }
-.pos-badge-pill.pending { background: #fef9c3; color: #854d0e; }
-.pos-badge-pill.production { background: #e0e7ff; color: #3730a3; }
-.pos-badge-pill.ready { background: #f3e8ff; color: #6b21a8; }
-.pos-badge-pill.delivered { background: #dbeafe; color: #1e40af; }
-
-/* ==========================================================================
-   PRINTABLE RECEIPT STYLES (@media print)
-   ========================================================================== */
-@media print {
-  body * {
-    visibility: hidden;
-  }
-  .pos-printable-receipt,
-  .pos-printable-receipt * {
-    visibility: visible;
-  }
-  .pos-printable-receipt {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 80mm;
-    padding: 10px;
-    font-family: monospace;
-    font-size: 12px;
-    color: #000;
-    background: #fff;
-  }
+.pos-badge-pill.paid {
+  background: #dcfce7;
+  color: #166534;
 }
 
-/* Dark Mode Specific Overrides */
-[data-theme="dark"] .pos-top-bar,
-[data-theme="dark"] .pos-card,
-[data-theme="dark"] .pos-order-summary-card,
-[data-theme="dark"] .pos-daily-excel-table,
-[data-theme="dark"] .pos-goal-tracker-card {
-  background: #18181b;
-  border-color: rgba(245, 242, 233, 0.12);
+.pos-badge-pill.pending {
+  background: #fee2e2;
+  color: #991b1b;
 }
 
-[data-theme="dark"] .pos-daily-excel-table th {
-  background: #27272a;
+.pos-cart-items-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
 }
 
-[data-theme="dark"] .pos-daily-excel-table td {
-  border-color: rgba(245, 242, 233, 0.08);
+.pos-cart-items-table th {
+  padding: 6px 8px;
+  border-bottom: 1.5px solid var(--line);
+  text-align: left;
+  color: var(--muted);
+  font-weight: 800;
 }
 
-[data-theme="dark"] .pos-totals-display,
-[data-theme="dark"] .pos-item-form-grid {
-  background: #121214;
+.pos-cart-items-table td {
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
 }
 
-[data-theme="dark"] .pos-balance-status-box {
-  background: rgba(22, 101, 52, 0.15);
-  border-color: rgba(22, 101, 52, 0.3);
+.pos-inline-edit-input {
+  width: 70px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  text-align: right;
+  font-weight: 800;
+  color: var(--orange-dark);
 }
 
-[data-theme="dark"] .pos-balance-status-box.has-balance {
-  background: rgba(146, 64, 14, 0.15);
-  border-color: rgba(146, 64, 14, 0.3);
+/* Animations */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+
+.shake {
+  animation: shake 0.4s ease-in-out;
 }

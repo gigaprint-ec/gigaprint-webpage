@@ -25,7 +25,15 @@ import {
   Key,
   Copy,
   Check,
-  ShieldCheck
+  ShieldCheck,
+  Lock,
+  LogOut,
+  Wallet,
+  Coins,
+  Store,
+  RefreshCw,
+  TrendingUp,
+  Tag
 } from 'lucide-react';
 import {
   loadPOSStore,
@@ -36,20 +44,43 @@ import {
   getISOWeekCode,
   generateOrderNumber,
   calculateWeeklyBalance,
-  calculateDailyReconciliation
+  calculateDailyReconciliation,
+  getPOSSession,
+  savePOSSession,
+  logoutPOSSession,
+  getActiveCashShift,
+  openCashShift,
+  closeCashShift
 } from '../../lib/posStore';
+import { POSLockScreen } from './POSLockScreen';
 import { POSReceiptModal } from './POSReceiptModal';
 import { initialData as siteCatalogData } from '../../data';
 import { getProductCalcType } from '../../catalog';
 
 export function POSPage() {
   const [store, setStore] = useState(loadPOSStore);
-  const [activeTab, setActiveTab] = useState('cashier'); // 'cashier', 'orders', 'daily_close', 'expenses'
+  const [session, setSession] = useState(getPOSSession);
+  const [activeTab, setActiveTab] = useState('cashier'); // 'cashier', 'orders', 'daily_close', 'shift', 'expenses'
 
-  // Active Advisor
+  // If no session, show Lock Screen
+  if (!session) {
+    return (
+      <POSLockScreen
+        advisors={store.advisors}
+        onAuthenticated={(sess) => setSession(sess)}
+      />
+    );
+  }
+
+  const isAdmin = session.role === 'admin';
+
+  // Active Advisor Resolution
   const activeAdvisor = useMemo(() => {
+    if (!isAdmin && session.advisorId) {
+      return store.advisors.find((a) => a.id === session.advisorId) || store.advisors[0];
+    }
     return store.advisors.find((a) => a.id === store.activeAdvisorId) || store.advisors[0];
-  }, [store.advisors, store.activeAdvisorId]);
+  }, [store.advisors, store.activeAdvisorId, session, isAdmin]);
 
   const money = (val) => `$${(Number(val) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -67,6 +98,10 @@ export function POSPage() {
     d.setDate(d.getDate() + 2);
     return toISODate(d);
   });
+
+  // Category filter for visual catalog grid
+  const [catalogCategory, setCatalogCategory] = useState('Todos');
+  const [catalogSearch, setCatalogSearch] = useState('');
 
   // Customer selection
   const [customerSearch, setCustomerSearch] = useState('');
@@ -95,13 +130,22 @@ export function POSPage() {
     customDetails: ''
   });
 
-  // Billing & Payments
+  // Billing & Multi-Tender Payments
   const [includeTax, setIncludeTax] = useState(false);
   const [shippingCost, setShippingCost] = useState(0);
-  const [depositInput, setDepositInput] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('transfer'); // 'cash', 'transfer', 'check', 'card'
-  const [paymentRef, setPaymentRef] = useState('');
-  const [paymentBank, setPaymentBank] = useState('Pichincha');
+  const [splitPayments, setSplitPayments] = useState([
+    { id: 'split-1', method: 'transfer', amount: '', bank: 'Pichincha', ref: '' }
+  ]);
+
+  // Cash Register Shift (Arqueo de Caja)
+  const activeShift = useMemo(() => {
+    return getActiveCashShift(store.shifts, activeAdvisor.id, toISODate());
+  }, [store.shifts, activeAdvisor.id]);
+
+  const [openingCashInput, setOpeningCashInput] = useState('20.00');
+  const [closingCashInput, setClosingCashInput] = useState('');
+  const [shiftNotes, setShiftNotes] = useState('');
+  const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
 
   // Receipt Modal State
   const [receiptOrder, setReceiptOrder] = useState(null);
@@ -120,13 +164,35 @@ export function POSPage() {
   // CRM Orders Filter State
   const [crmSearch, setCrmSearch] = useState('');
   const [crmStatusFilter, setCrmStatusFilter] = useState('all');
+  const [crmAdvisorFilter, setCrmAdvisorFilter] = useState(isAdmin ? 'all' : activeAdvisor.id);
 
-  // Switch Active Advisor
+  // Logout / Lock Handler
+  const handleLockSession = () => {
+    logoutPOSSession();
+    setSession(null);
+  };
+
+  // Switch Active Advisor (Admin only)
   const handleAdvisorChange = (advId) => {
     const nextState = { ...store, activeAdvisorId: advId };
     setStore(nextState);
     savePOSStore(nextState);
   };
+
+  // Filtered Catalog Products
+  const visibleCatalogProducts = useMemo(() => {
+    return siteCatalogData.products.filter((p) => {
+      const matchCat = catalogCategory === 'Todos' || p.category?.toLowerCase() === catalogCategory.toLowerCase();
+      const matchSearch = !catalogSearch.trim() || p.name.toLowerCase().includes(catalogSearch.toLowerCase());
+      return matchCat && matchSearch;
+    });
+  }, [catalogCategory, catalogSearch]);
+
+  // Unique Categories from Catalog
+  const catalogCategories = useMemo(() => {
+    const set = new Set(siteCatalogData.products.map((p) => p.category).filter(Boolean));
+    return ['Todos', ...Array.from(set)];
+  }, []);
 
   // Filtered Customers
   const filteredCustomers = useMemo(() => {
@@ -139,7 +205,7 @@ export function POSPage() {
     ).slice(0, 5);
   }, [store.customers, customerSearch]);
 
-  // Handle Catalog Quick Chip Selection
+  // Handle Quick Product Selection
   const handleQuickProduct = (prod) => {
     const calcType = getProductCalcType(prod);
     const price = Number(prod.price) || 5.0;
@@ -231,8 +297,30 @@ export function POSPage() {
 
   const taxAmount = includeTax ? subtotal * 0.15 : 0;
   const totalAmount = subtotal + taxAmount + (Number(shippingCost) || 0);
-  const depositAmount = depositInput === '' ? totalAmount : Math.min(totalAmount, Number(depositInput) || 0);
-  const balanceDue = Math.max(0, totalAmount - depositAmount);
+
+  // Multi-Tender Splits Total
+  const totalDepositPaid = useMemo(() => {
+    return splitPayments.reduce((sum, sp) => sum + (Number(sp.amount) || 0), 0);
+  }, [splitPayments]);
+
+  const balanceDue = Math.max(0, totalAmount - totalDepositPaid);
+
+  // Split Payments helper
+  const addSplitPayment = () => {
+    setSplitPayments([
+      ...splitPayments,
+      { id: `split-${Date.now()}`, method: 'cash', amount: balanceDue > 0 ? balanceDue.toFixed(2) : '', bank: 'Pichincha', ref: '' }
+    ]);
+  };
+
+  const removeSplitPayment = (id) => {
+    if (splitPayments.length <= 1) return;
+    setSplitPayments(splitPayments.filter((p) => p.id !== id));
+  };
+
+  const updateSplit = (id, patch) => {
+    setSplitPayments(splitPayments.map((p) => p.id === id ? { ...p, ...patch } : p));
+  };
 
   // Save New Customer Modal
   const handleSaveNewCustomer = (e) => {
@@ -277,39 +365,42 @@ export function POSPage() {
       deliveryDate,
       dayOfWeek: dayName,
       status: 'en_produccion',
-      paymentStatus: balanceDue === 0 ? 'pagado' : depositAmount > 0 ? 'con_saldo' : 'sin_abono',
+      paymentStatus: balanceDue === 0 ? 'pagado' : totalDepositPaid > 0 ? 'con_saldo' : 'sin_abono',
       subtotal,
       taxRate: includeTax ? 15 : 0,
       taxAmount,
       shippingCost: Number(shippingCost) || 0,
       discountAmount: 0,
       totalAmount,
-      depositAmount,
+      depositAmount: totalDepositPaid,
       balanceDue,
       notes: ''
     };
 
-    const newPayment = depositAmount > 0 ? {
-      id: `pay-${Date.now()}`,
-      orderId: newOrder.id,
-      advisorId: activeAdvisor.id,
-      paymentDate: orderDate,
-      paymentMethod,
-      amount: depositAmount,
-      bankName: paymentMethod === 'transfer' || paymentMethod === 'check' ? paymentBank : null,
-      referenceNumber: paymentRef || null,
-      notes: 'Abono inicial de venta'
-    } : null;
+    // Generate payment records for splits
+    const newPayments = splitPayments
+      .filter((sp) => Number(sp.amount) > 0)
+      .map((sp, idx) => ({
+        id: `pay-${Date.now()}-${idx}`,
+        orderId: newOrder.id,
+        advisorId: activeAdvisor.id,
+        paymentDate: orderDate,
+        paymentMethod: sp.method,
+        amount: Number(sp.amount),
+        bankName: sp.method === 'transfer' || sp.method === 'check' ? sp.bank : null,
+        referenceNumber: sp.ref || null,
+        notes: `Abono (${sp.method})`
+      }));
 
     const nextOrders = [newOrder, ...store.orders];
     const nextOrderItems = [...cartItems.map((it) => ({ ...it, order_id: newOrder.id })), ...store.orderItems];
-    const nextPayments = newPayment ? [newPayment, ...store.payments] : store.payments;
+    const nextPaymentsList = [...newPayments, ...store.payments];
 
     const nextState = {
       ...store,
       orders: nextOrders,
       orderItems: nextOrderItems,
-      payments: nextPayments
+      payments: nextPaymentsList
     };
 
     setStore(nextState);
@@ -325,8 +416,7 @@ export function POSPage() {
     setJobName('');
     setSelectedCustomer(null);
     setCustomerSearch('');
-    setDepositInput('');
-    setPaymentRef('');
+    setSplitPayments([{ id: 'split-1', method: 'transfer', amount: '', bank: 'Pichincha', ref: '' }]);
     setOrderNumber(generateOrderNumber(nextOrders));
   };
 
@@ -370,6 +460,23 @@ export function POSPage() {
     savePOSStore(nextState);
   };
 
+  // Cash Register Shift Actions
+  const handleOpenShift = (e) => {
+    e.preventDefault();
+    const res = openCashShift(store, activeAdvisor.id, openingCashInput);
+    setStore(res.state);
+    setIsShiftModalOpen(false);
+  };
+
+  const handleCloseShift = (e) => {
+    e.preventDefault();
+    if (!activeShift) return;
+    const res = closeCashShift(store, activeShift.id, closingCashInput, shiftNotes);
+    setStore(res.state);
+    setIsShiftModalOpen(false);
+    alert(`Turno cerrado con éxito.\nEfectivo esperado: ${money(res.shift.expectedCash)}\nContado: ${money(res.shift.closingCash)}\nDiferencia: ${money(res.shift.difference)}`);
+  };
+
   // Add Daily Expense
   const handleAddExpense = (e) => {
     e.preventDefault();
@@ -404,7 +511,7 @@ export function POSPage() {
     savePOSStore(nextState);
   };
 
-  // Weekly Balance calculations for active advisor
+  // Weekly Balance calculations for active advisor or all
   const weeklyData = useMemo(() => {
     const monday = getMondayOfWeek();
     return calculateWeeklyBalance(store.orders, store.payments, store.expenses, activeAdvisor, monday);
@@ -413,6 +520,8 @@ export function POSPage() {
   // CRM Filtered Orders
   const crmOrders = useMemo(() => {
     return store.orders.filter((o) => {
+      const matchAdvisor =
+        crmAdvisorFilter === 'all' || o.advisorId === crmAdvisorFilter;
       const matchSearch =
         o.orderNumber.includes(crmSearch) ||
         o.customerName.toLowerCase().includes(crmSearch.toLowerCase()) ||
@@ -422,12 +531,12 @@ export function POSPage() {
         (crmStatusFilter === 'con_saldo' && o.paymentStatus === 'con_saldo') ||
         (crmStatusFilter === 'pagado' && o.paymentStatus === 'pagado') ||
         o.status === crmStatusFilter;
-      return matchSearch && matchStatus;
+      return matchAdvisor && matchSearch && matchStatus;
     });
-  }, [store.orders, crmSearch, crmStatusFilter]);
+  }, [store.orders, crmSearch, crmStatusFilter, crmAdvisorFilter]);
 
   const copyMyCreds = () => {
-    const text = `🔑 Mi Credencial Gigaprint (${currentWeekCode})\n👤 Asesora: ${activeAdvisor.name}\n🔢 PIN de Caja: ${activeAdvisor.weeklyPin || activeAdvisor.pin}\n🔐 Clave: ${activeAdvisor.weeklyPassword}\n🌐 Acceso: https://gigaprint-ec.github.io/gigaprint-webpage/#/admin/pos`;
+    const text = `🔑 Credencial Gigaprint (${currentWeekCode})\n👤 Asesora: ${activeAdvisor.name}\n🔢 PIN: ${activeAdvisor.weeklyPin || activeAdvisor.pin}\n🔐 Clave: ${activeAdvisor.weeklyPassword}\n🌐 Acceso: https://gigaprint-ec.github.io/gigaprint-webpage/admin/pos`;
     navigator.clipboard.writeText(text);
     setCopiedCreds(true);
     setTimeout(() => setCopiedCreds(false), 2500);
@@ -442,25 +551,23 @@ export function POSPage() {
             <ShoppingCart size={22} style={{ color: 'var(--orange)' }} />
             Punto de Venta & CRM
           </h1>
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span>Asesora: <b>{activeAdvisor?.name}</b></span>
+            {isAdmin ? (
+              <span className="pos-role-badge admin">
+                <ShieldCheck size={13} /> Modo Administrador General
+              </span>
+            ) : (
+              <span className="pos-role-badge advisor">
+                <User size={13} /> Asesora: <b>{activeAdvisor?.name}</b>
+              </span>
+            )}
+
             <button
               type="button"
               onClick={() => setShowCredsModal(true)}
-              title="Ver mi PIN y clave semanal"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
-                padding: '2px 8px',
-                borderRadius: '6px',
-                border: '1px solid rgba(234, 88, 12, 0.4)',
-                background: 'var(--orange-soft)',
-                color: 'var(--orange-dark)',
-                fontSize: '11px',
-                fontWeight: 800,
-                cursor: 'pointer'
-              }}
+              title="Ver mi credencial semanal"
+              className="pos-pin-quick-badge"
             >
               <Key size={12} /> PIN: {activeAdvisor?.weeklyPin || activeAdvisor?.pin || '1234'}
             </button>
@@ -468,21 +575,45 @@ export function POSPage() {
         </div>
 
         <div className="pos-top-actions">
-          {/* Advisor Quick Switcher */}
-          <div className="pos-advisor-selector">
-            <User size={15} style={{ color: 'var(--orange)' }} />
-            <select
-              value={activeAdvisor?.id}
-              onChange={(e) => handleAdvisorChange(e.target.value)}
-              aria-label="Seleccionar Asesora Activa"
-            >
-              {store.advisors.map((adv) => (
-                <option key={adv.id} value={adv.id}>
-                  {adv.name} (PIN: {adv.weeklyPin || adv.pin || '1234'})
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Admin Switcher */}
+          {isAdmin && (
+            <div className="pos-advisor-selector">
+              <User size={15} style={{ color: 'var(--orange)' }} />
+              <select
+                value={activeAdvisor?.id}
+                onChange={(e) => handleAdvisorChange(e.target.value)}
+                aria-label="Cambiar Asesora de Trabajo"
+              >
+                {store.advisors.map((adv) => (
+                  <option key={adv.id} value={adv.id}>
+                    {adv.name} (PIN: {adv.weeklyPin || adv.pin || '1234'})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Cash Register Shift Button */}
+          <button
+            type="button"
+            className={`pos-shift-status-btn ${activeShift ? 'open' : 'closed'}`}
+            onClick={() => setIsShiftModalOpen(true)}
+            title="Arqueo y control de caja"
+          >
+            <Wallet size={14} />
+            <span>{activeShift ? 'Caja Abierta' : 'Abrir Caja'}</span>
+          </button>
+
+          {/* Lock / Logout Button */}
+          <button
+            type="button"
+            className="pos-lock-session-btn"
+            onClick={handleLockSession}
+            title="Bloquear terminal o cambiar de asesora"
+          >
+            <Lock size={14} />
+            <span>Bloquear</span>
+          </button>
 
           {/* POS Navigation Tabs */}
           <div className="pos-nav-tabs">
@@ -491,21 +622,21 @@ export function POSPage() {
               className={`pos-nav-tab ${activeTab === 'cashier' ? 'active' : ''}`}
               onClick={() => setActiveTab('cashier')}
             >
-              <ShoppingCart size={15} /> Nueva Venta
+              <ShoppingCart size={15} /> Cajero
             </button>
             <button
               type="button"
               className={`pos-nav-tab ${activeTab === 'orders' ? 'active' : ''}`}
               onClick={() => setActiveTab('orders')}
             >
-              <FileText size={15} /> Pedidos & Cartera ({store.orders.length})
+              <FileText size={15} /> Pedidos ({store.orders.length})
             </button>
             <button
               type="button"
               className={`pos-nav-tab ${activeTab === 'daily_close' ? 'active' : ''}`}
               onClick={() => setActiveTab('daily_close')}
             >
-              <Receipt size={15} /> Mi Cuadre Semanal
+              <Receipt size={15} /> Cuadre Semanal
             </button>
             <button
               type="button"
@@ -523,7 +654,7 @@ export function POSPage() {
           ========================================================================= */}
       {activeTab === 'cashier' && (
         <div className="pos-cashier-grid">
-          {/* Left Column: Customer & Products */}
+          {/* Left Column: Visual Catalog & Product Builder */}
           <div className="pos-left-panel">
             {/* Order Info & Customer Box */}
             <div className="pos-card">
@@ -667,42 +798,70 @@ export function POSPage() {
               </div>
             </div>
 
-            {/* Catalog Fast Item Builder */}
+            {/* Visual Fast Catalog Matrix */}
             <div className="pos-card">
               <div className="pos-card-title">
                 <h3>
                   <Layers size={18} style={{ color: 'var(--orange)' }} />
-                  Configurador de Producto / Ítem
+                  Catálogo Visual de Productos
                 </h3>
-                <span>Precios editables en caliente</span>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    placeholder="Filtrar catálogo..."
+                    value={catalogSearch}
+                    onChange={(e) => setCatalogSearch(e.target.value)}
+                    style={{ padding: '4px 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid var(--line)' }}
+                  />
+                </div>
               </div>
 
-              {/* Quick Products Chips */}
-              <div className="pos-catalog-fast-selector">
-                <div className="pos-catalog-quick-chips">
-                  {siteCatalogData.products.slice(0, 10).map((prod) => (
-                    <button
-                      key={prod.id}
-                      type="button"
-                      className={`pos-quick-product-btn ${itemForm.productId === prod.id ? 'active' : ''}`}
-                      onClick={() => handleQuickProduct(prod)}
-                    >
-                      {prod.name}
-                    </button>
-                  ))}
+              {/* Category Filter Tabs */}
+              <div className="pos-catalog-category-tabs">
+                {catalogCategories.slice(0, 6).map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    className={`pos-catalog-cat-pill ${catalogCategory === cat ? 'active' : ''}`}
+                    onClick={() => setCatalogCategory(cat)}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+
+              {/* Visual Product Grid */}
+              <div className="pos-catalog-tiles-grid">
+                {visibleCatalogProducts.slice(0, 12).map((prod) => (
+                  <button
+                    key={prod.id}
+                    type="button"
+                    className={`pos-product-tile ${itemForm.productId === prod.id ? 'selected' : ''}`}
+                    onClick={() => handleQuickProduct(prod)}
+                  >
+                    <div className="pos-tile-img-wrap">
+                      <img src={prod.image} alt={prod.name} />
+                    </div>
+                    <div className="pos-tile-info">
+                      <strong>{prod.name}</strong>
+                      <span>Desde {money(prod.price)} / {prod.unit}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Dynamic Item Customizer */}
+              <div className="pos-item-customizer-box">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--orange-dark)' }}>
+                    📐 Personalizar: {itemForm.productName}
+                  </span>
+                  <span style={{ fontSize: '11px', color: 'var(--muted)' }}>
+                    Precios editables en caliente
+                  </span>
                 </div>
 
-                {/* Live Item Form */}
                 <div className="pos-item-form-grid">
-                  <div className="pos-form-group" style={{ gridColumn: 'span 2' }}>
-                    <label>Nombre del Producto / Descripción</label>
-                    <input
-                      type="text"
-                      value={itemForm.productName}
-                      onChange={(e) => setItemForm({ ...itemForm, productName: e.target.value })}
-                    />
-                  </div>
-
                   <div className="pos-form-group">
                     <label>Tipo de Cobro</label>
                     <select
@@ -711,7 +870,7 @@ export function POSPage() {
                     >
                       <option value="m2">Por Metro Cuadrado (m²)</option>
                       <option value="unit">Por Unidad / Pieza</option>
-                      <option value="lot">Por Lote</option>
+                      <option value="lot">Por Lote Total</option>
                     </select>
                   </div>
 
@@ -789,7 +948,7 @@ export function POSPage() {
                   )}
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
                   <button
                     type="button"
                     className="pos-submit-order-btn"
@@ -871,7 +1030,7 @@ export function POSPage() {
             </div>
           </div>
 
-          {/* Right Column: Billing & Order Summary */}
+          {/* Right Column: Billing & Multi-Tender Payment Summary */}
           <aside className="pos-order-summary-card">
             <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: 'var(--ink)' }}>
               Liquidación Financiera
@@ -913,72 +1072,84 @@ export function POSPage() {
               </div>
             </div>
 
-            {/* Payment Breakdown & Abono */}
+            {/* Multi-Tender Split Payments */}
             <div style={{ display: 'grid', gap: '10px' }}>
-              <label style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--muted)' }}>
-                Método de Pago
-              </label>
-              <div className="pos-payment-methods-grid">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--muted)' }}>
+                  Abonos & Medios de Pago
+                </label>
                 <button
                   type="button"
-                  className={`pos-payment-method-btn ${paymentMethod === 'transfer' ? 'active' : ''}`}
-                  onClick={() => setPaymentMethod('transfer')}
+                  onClick={addSplitPayment}
+                  style={{
+                    border: 0,
+                    background: 'var(--orange-soft)',
+                    color: 'var(--orange-dark)',
+                    padding: '2px 8px',
+                    borderRadius: '6px',
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    cursor: 'pointer'
+                  }}
                 >
-                  🏦 Transferencia
-                </button>
-                <button
-                  type="button"
-                  className={`pos-payment-method-btn ${paymentMethod === 'cash' ? 'active' : ''}`}
-                  onClick={() => setPaymentMethod('cash')}
-                >
-                  💵 Efectivo
-                </button>
-                <button
-                  type="button"
-                  className={`pos-payment-method-btn ${paymentMethod === 'check' ? 'active' : ''}`}
-                  onClick={() => setPaymentMethod('check')}
-                >
-                  📜 Cheque
-                </button>
-                <button
-                  type="button"
-                  className={`pos-payment-method-btn ${paymentMethod === 'card' ? 'active' : ''}`}
-                  onClick={() => setPaymentMethod('card')}
-                >
-                  💳 Tarjeta
+                  + Dividir Pago
                 </button>
               </div>
 
-              {(paymentMethod === 'transfer' || paymentMethod === 'check') && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                  <input
-                    type="text"
-                    placeholder="Banco (Pichincha, Guayaquil...)"
-                    value={paymentBank}
-                    onChange={(e) => setPaymentBank(e.target.value)}
-                    style={{ padding: '8px', borderRadius: '8px', border: '1px solid var(--line)', fontSize: '12px' }}
-                  />
-                  <input
-                    type="text"
-                    placeholder="Nro. Comprobante / Cheque"
-                    value={paymentRef}
-                    onChange={(e) => setPaymentRef(e.target.value)}
-                    style={{ padding: '8px', borderRadius: '8px', border: '1px solid var(--line)', fontSize: '12px' }}
-                  />
+              {splitPayments.map((split, idx) => (
+                <div key={split.id} className="pos-split-payment-row">
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    <select
+                      value={split.method}
+                      onChange={(e) => updateSplit(split.id, { method: e.target.value })}
+                      style={{ padding: '6px', borderRadius: '6px', border: '1px solid var(--line)', fontSize: '12px', flex: 1 }}
+                    >
+                      <option value="transfer">🏦 Transferencia</option>
+                      <option value="cash">💵 Efectivo</option>
+                      <option value="check">📜 Cheque</option>
+                      <option value="card">💳 Tarjeta</option>
+                    </select>
+
+                    <input
+                      type="number"
+                      step="0.50"
+                      placeholder="Monto $"
+                      value={split.amount}
+                      onChange={(e) => updateSplit(split.id, { amount: e.target.value })}
+                      style={{ width: '85px', padding: '6px', borderRadius: '6px', border: '1px solid var(--line)', fontWeight: 800, color: '#16a34a', textAlign: 'right' }}
+                    />
+
+                    {splitPayments.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeSplitPayment(split.id)}
+                        style={{ border: 0, background: 'transparent', cursor: 'pointer', color: '#dc2626' }}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
+
+                  {(split.method === 'transfer' || split.method === 'check') && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginTop: '4px' }}>
+                      <input
+                        type="text"
+                        placeholder="Banco (Pichincha...)"
+                        value={split.bank}
+                        onChange={(e) => updateSplit(split.id, { bank: e.target.value })}
+                        style={{ padding: '4px 6px', borderRadius: '4px', border: '1px solid var(--line)', fontSize: '11px' }}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Nro. Comprobante"
+                        value={split.ref}
+                        onChange={(e) => updateSplit(split.id, { ref: e.target.value })}
+                        style={{ padding: '4px 6px', borderRadius: '4px', border: '1px solid var(--line)', fontSize: '11px' }}
+                      />
+                    </div>
+                  )}
                 </div>
-              )}
-
-              <div className="pos-form-group">
-                <label>Abono de Entrada ($)</label>
-                <input
-                  type="number"
-                  step="0.50"
-                  placeholder={`Ej. ${totalAmount.toFixed(2)} (Total)`}
-                  value={depositInput}
-                  onChange={(e) => setDepositInput(e.target.value)}
-                  style={{ fontSize: '16px', fontWeight: 800, color: '#16a34a' }}
-                />
-              </div>
+              ))}
 
               <div className={`pos-balance-status-box ${balanceDue > 0 ? 'has-balance' : ''}`}>
                 <div>
@@ -1013,16 +1184,30 @@ export function POSPage() {
               <FileText size={18} style={{ color: 'var(--orange)' }} />
               Directorio de Pedidos & Cuentas por Cobrar
             </h3>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <div className="pos-search-input-wrap" style={{ width: '280px' }}>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+              {isAdmin && (
+                <select
+                  value={crmAdvisorFilter}
+                  onChange={(e) => setCrmAdvisorFilter(e.target.value)}
+                  style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--line)', fontSize: '12px' }}
+                >
+                  <option value="all">Todas las Asesoras</option>
+                  {store.advisors.map((a) => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
+              )}
+
+              <div className="pos-search-input-wrap" style={{ width: '240px' }}>
                 <Search size={15} style={{ color: 'var(--muted)' }} />
                 <input
                   type="text"
-                  placeholder="Buscar por cliente, nro venta o trabajo..."
+                  placeholder="Buscar cliente o trabajo..."
                   value={crmSearch}
                   onChange={(e) => setCrmSearch(e.target.value)}
                 />
               </div>
+
               <select
                 value={crmStatusFilter}
                 onChange={(e) => setCrmStatusFilter(e.target.value)}
@@ -1043,6 +1228,7 @@ export function POSPage() {
               <thead>
                 <tr>
                   <th style={{ textAlign: 'left' }}>Nro</th>
+                  {isAdmin && <th style={{ textAlign: 'left' }}>Asesora</th>}
                   <th style={{ textAlign: 'left' }}>Cliente & Trabajo</th>
                   <th>Fecha Compra</th>
                   <th>Entrega</th>
@@ -1056,16 +1242,24 @@ export function POSPage() {
               <tbody>
                 {crmOrders.length === 0 ? (
                   <tr>
-                    <td colSpan={9} style={{ textAlign: 'center', padding: '30px', color: 'var(--muted)' }}>
+                    <td colSpan={isAdmin ? 10 : 9} style={{ textAlign: 'center', padding: '30px', color: 'var(--muted)' }}>
                       No se encontraron pedidos con los filtros aplicados.
                     </td>
                   </tr>
                 ) : (
                   crmOrders.map((order) => {
                     const orderItemsList = store.orderItems.filter((it) => it.order_id === order.id || it.orderId === order.id);
+                    const adv = store.advisors.find((a) => a.id === order.advisorId);
                     return (
                       <tr key={order.id}>
                         <td style={{ textAlign: 'left', fontWeight: 800 }}>#{order.orderNumber}</td>
+                        {isAdmin && (
+                          <td style={{ textAlign: 'left' }}>
+                            <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--orange-dark)' }}>
+                              {adv?.name || 'Asesora'}
+                            </span>
+                          </td>
+                        )}
                         <td style={{ textAlign: 'left' }}>
                           <strong style={{ display: 'block', color: 'var(--ink)' }}>{order.customerName}</strong>
                           <span style={{ fontSize: '11px', color: 'var(--muted)' }}>{order.jobName}</span>
@@ -1144,7 +1338,7 @@ export function POSPage() {
             <div className="pos-goal-header">
               <div>
                 <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase' }}>
-                  Meta de Ventas Semanal · Asesora {activeAdvisor?.name}
+                  Meta de Ventas Semanal · {activeAdvisor?.name}
                 </span>
                 <h3 style={{ margin: '4px 0 0', fontSize: '20px', fontWeight: 800, color: 'var(--ink)' }}>
                   {money(weeklyData.totals.totalSales)} / <small style={{ color: 'var(--muted)' }}>{money(weeklyData.weeklyGoal)}</small>
@@ -1344,8 +1538,127 @@ export function POSPage() {
       )}
 
       {/* =========================================================================
-          MODALS: NEW CUSTOMER & CREDENTIALS QUICK VIEW
+          MODALS: CASH SHIFT (ARQUEO), NEW CUSTOMER & CREDENTIALS
           ========================================================================= */}
+      {isShiftModalOpen && (
+        <div className="pos-modal-overlay" style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.65)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px'
+        }}>
+          <div className="pos-modal-content" style={{
+            background: 'var(--paper)',
+            borderRadius: '20px',
+            width: '100%',
+            maxWidth: '460px',
+            border: '1px solid var(--line)',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
+            padding: '24px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 900, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Wallet size={18} style={{ color: 'var(--orange)' }} />
+                {activeShift ? 'Arqueo & Cierre de Caja' : 'Apertura de Turno de Caja'}
+              </h3>
+              <button type="button" onClick={() => setIsShiftModalOpen(false)} style={{ border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--muted)' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            {activeShift ? (
+              <form onSubmit={handleCloseShift} style={{ display: 'grid', gap: '12px' }}>
+                <div style={{ background: 'var(--bg)', padding: '12px', borderRadius: '10px', fontSize: '13px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <span>Fondo Inicial:</span>
+                    <b>{money(activeShift.openingCash)}</b>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <span>Asesora:</span>
+                    <b>{activeAdvisor.name}</b>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Fecha:</span>
+                    <b>{activeShift.date}</b>
+                  </div>
+                </div>
+
+                <div className="pos-form-group">
+                  <label>Efectivo Físico Contado en Caja ($) *</label>
+                  <input
+                    type="number"
+                    step="0.05"
+                    required
+                    placeholder="0.00"
+                    value={closingCashInput}
+                    onChange={(e) => setClosingCashInput(e.target.value)}
+                    style={{ fontSize: '18px', fontWeight: 800, color: 'var(--orange-dark)' }}
+                  />
+                </div>
+
+                <div className="pos-form-group">
+                  <label>Observaciones / Novedades</label>
+                  <textarea
+                    rows={2}
+                    placeholder="ej. Todo cuadrado sin novedades..."
+                    value={shiftNotes}
+                    onChange={(e) => setShiftNotes(e.target.value)}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsShiftModalOpen(false)}
+                    style={{ flex: 1, padding: '12px', borderRadius: '10px', border: '1px solid var(--line)', background: 'var(--bg)' }}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="pos-submit-order-btn"
+                    style={{ flex: 1, padding: '12px', fontSize: '13px' }}
+                  >
+                    Cerrar Caja
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={handleOpenShift} style={{ display: 'grid', gap: '12px' }}>
+                <p style={{ margin: 0, fontSize: '13px', color: 'var(--muted)' }}>
+                  Ingresa el monto de fondo inicial en efectivo (cambio) para iniciar el turno de <b>{activeAdvisor.name}</b>:
+                </p>
+
+                <div className="pos-form-group">
+                  <label>Fondo de Caja Inicial ($) *</label>
+                  <input
+                    type="number"
+                    step="1.00"
+                    required
+                    placeholder="20.00"
+                    value={openingCashInput}
+                    onChange={(e) => setOpeningCashInput(e.target.value)}
+                    style={{ fontSize: '18px', fontWeight: 800, color: '#16a34a' }}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="pos-submit-order-btn"
+                  style={{ padding: '12px', fontSize: '13px', marginTop: '8px' }}
+                >
+                  <CheckCircle2 size={16} /> Iniciar Turno de Caja
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
       {showCredsModal && (
         <div className="pos-modal-overlay" style={{
           position: 'fixed',

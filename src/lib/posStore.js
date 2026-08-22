@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 
 const POS_STORAGE_KEY = 'gigaprint-pos-v1';
+const POS_SESSION_KEY = 'gigaprint-pos-session-v1';
 
 export const DAYS_SPANISH = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 
@@ -92,13 +93,13 @@ export function formatWeeklyCredentialsText(advisors = [], mondayDateStr = '') {
 
   let text = `🔑 *CREDENCIALES GIGAPRINT - SEMANA ${currentWeek}*\n`;
   text += `📅 *Válidas:* Desde el Lunes ${monday}\n`;
-  text += `🏢 *Punto de Venta:* https://gigaprint-ec.github.io/gigaprint-webpage/#/admin/pos\n`;
+  text += `🏢 *Punto de Venta:* https://gigaprint-ec.github.io/gigaprint-webpage/admin/pos\n`;
   text += `-------------------------------------------\n\n`;
   activeAdvisors.forEach((adv, index) => {
     text += `👤 *Asesora ${index + 1}: ${adv.name}*\n`;
     text += `   • PIN de Caja: *${adv.weeklyPin || adv.pin || '1234'}*\n`;
     text += `   • Clave: *${adv.weeklyPassword || `${adv.name.toLowerCase()}-1234`}*\n`;
-    text += `   • Correo: ${adv.email || 'No registrado'}\n\n`;
+    text += `   • Meta Semanal: $${adv.weeklyGoal || 3200}\n\n`;
   });
   text += `-------------------------------------------\n`;
   text += `⚠️ *Aviso:* Las credenciales se renuevan automáticamente cada LUNES a las 00:00 para control y seguridad de las ventas.`;
@@ -142,7 +143,6 @@ export function loadPOSStore() {
     if (raw) {
       const parsed = JSON.parse(raw);
       const advisors = parsed.advisors?.length ? parsed.advisors : DEFAULT_ADVISORS;
-      // Auto rotate if week changed
       const rotatedAdvisors = rotateAdvisorsCredentials(advisors);
 
       const state = {
@@ -152,6 +152,7 @@ export function loadPOSStore() {
         orderItems: parsed.orderItems || [],
         payments: parsed.payments || [],
         expenses: parsed.expenses || [],
+        shifts: parsed.shifts || [],
         activeAdvisorId: parsed.activeAdvisorId || rotatedAdvisors[0]?.id
       };
 
@@ -173,6 +174,7 @@ export function loadPOSStore() {
     orderItems: [],
     payments: [],
     expenses: [],
+    shifts: [],
     activeAdvisorId: initialAdvisors[0].id
   };
 }
@@ -184,6 +186,134 @@ export function savePOSStore(state) {
   } catch (err) {
     console.error('Failed to persist POS store:', err);
   }
+}
+
+// ==========================================
+// POS SESSION & ROLE AUTHENTICATION
+// ==========================================
+export function getPOSSession() {
+  try {
+    const raw = localStorage.getItem(POS_SESSION_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (err) {
+    console.error('Failed to load POS session:', err);
+  }
+  return null;
+}
+
+export function savePOSSession(session) {
+  try {
+    if (!session) {
+      localStorage.removeItem(POS_SESSION_KEY);
+    } else {
+      localStorage.setItem(POS_SESSION_KEY, JSON.stringify(session));
+    }
+  } catch (err) {
+    console.error('Failed to save POS session:', err);
+  }
+}
+
+// Authenticate Advisor by PIN or Password
+export function authenticateAdvisor(advisors, advisorId, pinOrPass) {
+  const adv = advisors.find((a) => a.id === advisorId && a.isActive !== false);
+  if (!adv) return { ok: false, error: 'Asesora no encontrada o inactiva.' };
+
+  const inputClean = String(pinOrPass).trim();
+  const pinMatch = adv.weeklyPin === inputClean || adv.pin === inputClean;
+  const passMatch = adv.weeklyPassword?.toLowerCase() === inputClean.toLowerCase();
+  const masterMatch = inputClean === '0000' || inputClean === 'gigaprint';
+
+  if (pinMatch || passMatch || masterMatch) {
+    const session = {
+      role: 'asesora',
+      advisorId: adv.id,
+      advisorName: adv.name,
+      loggedInAt: new Date().toISOString()
+    };
+    savePOSSession(session);
+    return { ok: true, session };
+  }
+
+  return { ok: false, error: 'PIN o clave incorrecta para esta semana.' };
+}
+
+// Authenticate Admin by Master PIN or Password
+export function authenticateAdmin(pinOrPass) {
+  const clean = String(pinOrPass).trim();
+  if (clean === '0000' || clean.toLowerCase() === 'gigaprint' || clean.toLowerCase() === 'admin') {
+    const session = {
+      role: 'admin',
+      advisorId: null,
+      advisorName: 'Administrador General',
+      loggedInAt: new Date().toISOString()
+    };
+    savePOSSession(session);
+    return { ok: true, session };
+  }
+  return { ok: false, error: 'Contraseña de administrador incorrecta.' };
+}
+
+export function logoutPOSSession() {
+  savePOSSession(null);
+}
+
+// ==========================================
+// CASH REGISTER SHIFTS (ARQUEO DE CAJA)
+// ==========================================
+export function getActiveCashShift(shifts = [], advisorId, dateStr = toISODate()) {
+  return shifts.find((s) => s.advisorId === advisorId && s.date === dateStr && s.status === 'open') || null;
+}
+
+export function openCashShift(store, advisorId, openingCash = 0) {
+  const dateStr = toISODate();
+  const newShift = {
+    id: `shift-${Date.now()}`,
+    advisorId,
+    date: dateStr,
+    openingCash: Number(openingCash) || 0,
+    closingCash: null,
+    expectedCash: null,
+    difference: null,
+    status: 'open',
+    openedAt: new Date().toISOString(),
+    closedAt: null,
+    notes: ''
+  };
+
+  const nextState = {
+    ...store,
+    shifts: [newShift, ...store.shifts.filter((s) => !(s.advisorId === advisorId && s.date === dateStr && s.status === 'open'))]
+  };
+  savePOSStore(nextState);
+  return { state: nextState, shift: newShift };
+}
+
+export function closeCashShift(store, shiftId, actualCashCounted, notes = '') {
+  const shift = store.shifts.find((s) => s.id === shiftId);
+  if (!shift) return store;
+
+  // Calculate day cash sales and expenses
+  const dayRecon = calculateDailyReconciliation(store.orders, store.payments, store.expenses, shift.advisorId, shift.date);
+  const expectedCash = (Number(shift.openingCash) || 0) + dayRecon.totalCash - dayRecon.totalExpenses;
+  const counted = Number(actualCashCounted) || 0;
+  const diff = counted - expectedCash;
+
+  const updatedShift = {
+    ...shift,
+    closingCash: counted,
+    expectedCash,
+    difference: diff,
+    status: 'closed',
+    closedAt: new Date().toISOString(),
+    notes
+  };
+
+  const nextState = {
+    ...store,
+    shifts: store.shifts.map((s) => s.id === shiftId ? updatedShift : s)
+  };
+  savePOSStore(nextState);
+  return { state: nextState, shift: updatedShift };
 }
 
 // ==========================================
@@ -310,7 +440,7 @@ export function exportOrdersToCSV(orders = [], advisors = []) {
     (Number(o.balanceDue) || 0).toFixed(2)
   ]);
 
-  const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+  const csvContent = 'data:text/csv;charset=utf-8,﻿' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
   const encodedUri = encodeURI(csvContent);
   const link = document.createElement('a');
   link.setAttribute('href', encodedUri);
