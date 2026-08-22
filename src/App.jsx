@@ -1,6 +1,6 @@
 import React, { lazy, Suspense, useMemo, useState } from 'react';
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowRight, ArrowUpRight, BarChart3, Bell, Building2, Calculator, Check, ChevronDown, ChevronRight, ChevronUp, ClipboardList, Clock, Edit3, ExternalLink, FileCheck, FileText, Grid, Image, LayoutDashboard, List, MessageCircle, Minus, Package, Palette, Pencil, Plus, RefreshCw, Save, Search, Settings2, ShieldCheck, SlidersHorizontal, Sparkles, Tag, Trash2, Truck, Users, X, Zap } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, BarChart3, Bell, Building2, Calculator, Check, ChevronDown, ChevronRight, ChevronUp, ClipboardList, Clock, Edit3, ExternalLink, FileCheck, FileText, Filter, Grid, Image, LayoutDashboard, List, MessageCircle, Minus, Package, Palette, Pencil, Plus, RefreshCw, Save, Scissors, Search, Settings2, ShieldCheck, ShoppingCart, SlidersHorizontal, Sparkles, Tag, Trash2, Truck, Users, X, Zap } from 'lucide-react';
 import { categories, initialData, media, money, themePresets, assetPath } from './data';
 import { calculateCatalogQuote, getProductCalcType, getPriceTiers, getTier, getVariantOptions, PARENT_CATEGORIES, getParentCategory, getLeadTimeEstimate } from './catalog';
 import { AuthProvider, useAuth, useSite } from './store';
