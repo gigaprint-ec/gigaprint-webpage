@@ -1,6 +1,6 @@
 import React, { lazy, Suspense, useMemo, useState } from 'react';
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowRight, ArrowUpRight, BarChart3, Bell, Building2, Calculator, Check, ChevronDown, ChevronRight, ClipboardList, Clock, Edit3, ExternalLink, FileCheck, FileText, Image, LayoutDashboard, MessageCircle, Minus, Package, Palette, Pencil, Plus, RefreshCw, Save, Search, Settings2, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Truck, Users, X, Zap } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, BarChart3, Bell, Building2, Calculator, Check, ChevronDown, ChevronRight, ChevronUp, ClipboardList, Clock, Edit3, ExternalLink, FileCheck, FileText, Image, LayoutDashboard, MessageCircle, Minus, Package, Palette, Pencil, Plus, RefreshCw, Save, Search, Settings2, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Truck, Users, X, Zap } from 'lucide-react';
 import { categories, initialData, media, money, themePresets, assetPath } from './data';
 import { calculateCatalogQuote, getProductCalcType, getPriceTiers, getTier, getVariantOptions, PARENT_CATEGORIES, getParentCategory, getLeadTimeEstimate } from './catalog';
 import { AuthProvider, useAuth, useSite } from './store';
@@ -519,6 +519,7 @@ function SmartQuotePage() {
   const [categoryFilter, setCategoryFilter] = useState(initialCategory);
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState('');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [widthCm, setWidthCm] = useState(100);
   const [heightCm, setHeightCm] = useState(100);
   const [quantity, setQuantity] = useState(1);
@@ -608,6 +609,7 @@ function SmartQuotePage() {
     setSelectedId('');
     setCategoryFilter('Todos');
     setSelection({});
+    setIsDropdownOpen(false);
     setQuantity(nextMode === 'medidas' ? 1 : nextMode === 'lotes' ? 1000 : 12);
   };
 
@@ -618,6 +620,7 @@ function SmartQuotePage() {
     setDesignLevel('none');
     setFinishing('none');
     setInstallation(false);
+    setIsDropdownOpen(false);
   };
 
   const setDimensionPreset = (w, h) => {
@@ -727,59 +730,145 @@ function SmartQuotePage() {
               <div className="step-content">
                 <div className="step-heading">
                   <div>
-                    <h3>Selecciona el producto base</h3>
+                    <h3>Producto base del cotizador</h3>
                     <p>
                       {mode === 'medidas'
-                        ? 'Lonas, viniles, microperforados y telas por metro cuadrado.'
+                        ? 'Lonas, viniles, rótulos y displays calculados por metro cuadrado.'
                         : mode === 'lotes'
                           ? 'Papelería, tarjetas, volantes, carpetas y fundas por millar.'
-                          : 'Camisetas, gorras, tazas, souvenirs y rótulos con escala de volumen.'}
+                          : 'Textiles, gorras, tazas, souvenirs y productos con escala por volumen.'}
                     </p>
                   </div>
                 </div>
 
-                {/* Category Pills Filter */}
-                <div className="quote-category-pills">
-                  {['Todos', 'Gran formato', 'Textil', 'Imprenta', 'Promocionales', 'Rótulos'].map((cat) => (
-                    <button
-                      key={cat}
-                      type="button"
-                      className={categoryFilter === cat ? 'active' : ''}
-                      onClick={() => setCategoryFilter(cat)}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                </div>
-
-                <label className="search-box" style={{ marginTop: '12px', marginBottom: '16px' }}>
-                  <Search size={16} />
-                  <input
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Filtrar por nombre (ej. lona, camiseta, tarjeta)..."
-                  />
-                </label>
-
-                <div className="quote-product-picker">
-                  {filteredProducts.map((product) => (
-                    <button
-                      key={product.id}
-                      type="button"
-                      onClick={() => chooseProduct(product)}
-                      className={`picker-card ${selectedProduct?.id === product.id ? 'active' : ''}`}
-                    >
-                      <img src={assetPath(product.image)} alt={product.name} />
-                      <div>
-                        <b>{product.name}</b>
-                        <small>{product.category}</small>
+                <div className="smart-product-selector">
+                  {/* Selected Product Showcase Card */}
+                  {selectedProduct && (
+                    <div className="selected-product-showcase">
+                      <div className="showcase-media">
+                        <img src={assetPath(selectedProduct.image)} alt={selectedProduct.name} />
+                        <span className="showcase-badge">
+                          {isArea ? 'Por m²' : selectedProduct.pricingMode === 'tier-total' ? 'Por lote' : 'Por volumen'}
+                        </span>
                       </div>
-                      {selectedProduct?.id === product.id && <Check size={17} />}
-                    </button>
-                  ))}
-                  {filteredProducts.length === 0 && (
-                    <div className="smart-empty" style={{ gridColumn: '1 / -1' }}>
-                      No encontramos productos con ese filtro. Prueba otra categoría o término de búsqueda.
+                      <div className="showcase-info">
+                        <div className="showcase-header">
+                          <span className="showcase-category">{selectedProduct.category}</span>
+                        </div>
+                        <h4 className="showcase-title">{selectedProduct.name}</h4>
+                        <p className="showcase-desc">{selectedProduct.description}</p>
+                        <div className="showcase-meta">
+                          <span className="showcase-price-tag">
+                            Desde {money(selectedProduct.price)} <small>/ {selectedProduct.unit}</small>
+                          </span>
+                          {selectedProduct.specs?.slice(0, 2).map((spec, i) => (
+                            <span key={i} className="showcase-spec-pill">{spec}</span>
+                          ))}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="showcase-change-btn"
+                        onClick={() => setIsDropdownOpen((prev) => !prev)}
+                        aria-expanded={isDropdownOpen}
+                      >
+                        {isDropdownOpen ? (
+                          <>Cerrar lista <ChevronUp size={15} /></>
+                        ) : (
+                          <>Cambiar producto <ChevronDown size={15} /></>
+                        )}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Smart Dropdown Panel / Search Combobox */}
+                  {isDropdownOpen && (
+                    <div className="smart-dropdown-panel">
+                      <div className="dropdown-header-bar">
+                        <h4>Selecciona un producto del catálogo ({filteredProducts.length})</h4>
+                        <button
+                          type="button"
+                          className="dropdown-close-btn"
+                          onClick={() => setIsDropdownOpen(false)}
+                          aria-label="Cerrar lista"
+                        >
+                          <X size={17} />
+                        </button>
+                      </div>
+
+                      {/* Category Pills Filter */}
+                      <div className="quote-category-pills">
+                        {['Todos', 'Gran formato', 'Textil', 'Imprenta', 'Promocionales', 'Rótulos'].map((cat) => (
+                          <button
+                            key={cat}
+                            type="button"
+                            className={categoryFilter === cat ? 'active' : ''}
+                            onClick={() => setCategoryFilter(cat)}
+                          >
+                            {cat}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Live Search Input */}
+                      <div className="dropdown-search-wrap">
+                        <Search size={16} />
+                        <input
+                          autoFocus
+                          value={search}
+                          onChange={(event) => setSearch(event.target.value)}
+                          placeholder="Buscar producto por nombre o material (ej. lona, camiseta, tarjeta, jarro)..."
+                          className="dropdown-search-input"
+                        />
+                        {search && (
+                          <button
+                            type="button"
+                            className="dropdown-search-clear"
+                            onClick={() => setSearch('')}
+                            aria-label="Limpiar búsqueda"
+                          >
+                            <X size={14} />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Compact Scrollable List */}
+                      <div className="dropdown-items-scroll">
+                        {filteredProducts.map((product) => {
+                          const isSelected = selectedProduct?.id === product.id;
+                          return (
+                            <button
+                              key={product.id}
+                              type="button"
+                              onClick={() => chooseProduct(product)}
+                              className={`dropdown-item-row ${isSelected ? 'active' : ''}`}
+                            >
+                              <img className="dropdown-item-thumb" src={assetPath(product.image)} alt="" />
+                              <div className="dropdown-item-info">
+                                <span className="dropdown-item-title">{product.name}</span>
+                                <span className="dropdown-item-cat">{product.category}</span>
+                              </div>
+                              <div className="dropdown-item-right">
+                                <span className="dropdown-item-price">Desde {money(product.price)}</span>
+                                {isSelected && <Check size={16} className="dropdown-item-check" />}
+                              </div>
+                            </button>
+                          );
+                        })}
+                        {filteredProducts.length === 0 && (
+                          <div className="smart-empty" style={{ padding: '24px 12px', textAlign: 'center' }}>
+                            <p>No encontramos productos que coincidan con tu búsqueda.</p>
+                            <button
+                              type="button"
+                              className="button button-outline"
+                              style={{ marginTop: '10px' }}
+                              onClick={() => { setSearch(''); setCategoryFilter('Todos'); }}
+                            >
+                              Restablecer filtros
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
