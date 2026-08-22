@@ -27,7 +27,12 @@ import {
   PauseCircle,
   PlayCircle,
   Truck,
-  UploadCloud
+  UploadCloud,
+  Minus,
+  Sparkles,
+  ArrowRight,
+  Hash,
+  FileCheck
 } from 'lucide-react';
 import {
   loadPOSStore,
@@ -89,6 +94,10 @@ export function POSPage() {
   const [discountPercent, setDiscountPercent] = useState(0);
   const [discountReason, setDiscountReason] = useState('');
   const [notes, setNotes] = useState('');
+
+  // Product Category & Search in Configurator
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [productSearch, setProductSearch] = useState('');
 
   // Cart & Line Items
   const [cartItems, setCartItems] = useState([]);
@@ -165,10 +174,34 @@ export function POSPage() {
     });
   }, [store.orders, orderSearchTerm, orderPaymentFilter, orderStageFilter]);
 
+  // Unique product categories
+  const productCategories = useMemo(() => {
+    const set = new Set();
+    (store.products || []).forEach((p) => {
+      if (p.category && p.isActive !== false) set.add(p.category);
+    });
+    return ['all', ...Array.from(set)];
+  }, [store.products]);
+
+  // Filtered products for dropdown
+  const filteredProductOptions = useMemo(() => {
+    const q = productSearch.toLowerCase().trim();
+    return (store.products || []).filter((p) => {
+      if (p.isActive === false) return false;
+      const matchCat = selectedCategory === 'all' || p.category === selectedCategory;
+      const matchSearch = !q || p.name.toLowerCase().includes(q) || (p.category && p.category.toLowerCase().includes(q));
+      return matchCat && matchSearch;
+    });
+  }, [store.products, selectedCategory, productSearch]);
+
   // Selected Product Reference
   const selectedProduct = useMemo(() => {
-    return (store.products || []).find((p) => p.id === selectedProductId) || (store.products || [])[0] || null;
-  }, [store.products, selectedProductId]);
+    if (selectedProductId) {
+      const found = (store.products || []).find((p) => p.id === selectedProductId);
+      if (found) return found;
+    }
+    return filteredProductOptions[0] || (store.products || [])[0] || null;
+  }, [store.products, selectedProductId, filteredProductOptions]);
 
   // Calculation of Single Line Item
   const computedItem = useMemo(() => {
@@ -260,6 +293,15 @@ export function POSPage() {
   }, [payments]);
 
   const balanceDue = Number(Math.max(0, totalAmount - totalDeposited).toFixed(2));
+  const changeDue = Number(Math.max(0, totalDeposited - totalAmount).toFixed(2));
+
+  // Quick cash amount helper
+  const handleQuickCash = (amount) => {
+    const updated = [...payments];
+    updated[0].method = 'cash';
+    updated[0].amount = String(amount);
+    setPayments(updated);
+  };
 
   // Auto-fill customer details from CRM suggestion
   const handleSelectCustomerSuggestion = (cust) => {
@@ -404,231 +446,213 @@ export function POSPage() {
   }
 
   return (
-    <div className="pos-container" style={{ display: 'grid', gap: '16px' }}>
-      {/* Top Header Bar */}
-      <div className="pos-top-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div className="pos-brand-badge">
-            <span style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'var(--orange)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '18px' }}>G</span>
-            <div>
-              <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 900, color: 'var(--ink)' }}>
-                Gigaprint POS & CRM
-              </h1>
-              <small style={{ color: 'var(--orange-dark)', fontWeight: 800, textTransform: 'uppercase', fontSize: '11px' }}>
-                Asesora: {session.name} ({session.role})
-              </small>
+    <div className="pos-container">
+      {/* ----------------------------------------------------------------------
+          TOP HEADER BAR
+          ---------------------------------------------------------------------- */}
+      <header className="pos-top-bar">
+        <div className="pos-brand-badge">
+          <div className="pos-brand-logo-mark">G</div>
+          <div>
+            <h1 className="pos-brand-title">
+              Gigaprint POS <span style={{ color: 'var(--pos-primary)', fontWeight: 400 }}>&</span> CRM
+            </h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span className="pos-advisor-pill">
+                <Users size={12} /> {session.name} ({session.role})
+              </span>
+              <div className={`pos-sync-pill ${syncStatus}`}>
+                <span className="pos-pulse-dot" />
+                <span>{syncStatus === 'synced' ? 'Nube Sincronizada' : (syncStatus === 'syncing' ? 'Sincronizando...' : 'Modo Local')}</span>
+              </div>
             </div>
-          </div>
-
-          <div style={{
-            padding: '4px 10px',
-            borderRadius: '999px',
-            background: syncStatus === 'synced' ? '#dcfce7' : (syncStatus === 'syncing' ? '#fef3c7' : '#fee2e2'),
-            color: syncStatus === 'synced' ? '#166534' : (syncStatus === 'syncing' ? '#b45309' : '#991b1b'),
-            fontSize: '11px',
-            fontWeight: 800,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px'
-          }}>
-            <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'currentColor' }} />
-            <span>{syncStatus === 'synced' ? 'Nube Sincronizada' : (syncStatus === 'syncing' ? 'Sincronizando...' : 'Modo Local')}</span>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="pos-top-actions">
           {activeShift ? (
             <button
               type="button"
-              className="pos-nav-tab"
+              className="pos-shift-btn open"
               onClick={() => { setShiftAction('close'); setIsShiftModalOpen(true); }}
-              style={{ background: '#dcfce7', color: '#166534', fontWeight: 800, border: '1px solid #bbf7d0', padding: '6px 12px', fontSize: '12px' }}
+              title="Arqueo y cierre de caja"
             >
-              <DollarSign size={14} /> Turno Abierto (Arqueo)
+              <DollarSign size={15} /> Turno Abierto (Arqueo)
             </button>
           ) : (
             <button
               type="button"
-              className="pos-nav-tab"
+              className="pos-shift-btn closed"
               onClick={() => { setShiftAction('open'); setIsShiftModalOpen(true); }}
-              style={{ background: '#fee2e2', color: '#dc2626', fontWeight: 800, border: '1px solid #fca5a5', padding: '6px 12px', fontSize: '12px' }}
+              title="Abrir nuevo turno"
             >
-              <DollarSign size={14} /> Abrir Turno de Caja
+              <DollarSign size={15} /> Abrir Turno de Caja
             </button>
           )}
 
           <button
             type="button"
-            className="pos-nav-tab"
+            className="pos-lock-btn"
             onClick={() => { logoutPOSSession(); setSession(null); }}
-            style={{ padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}
+            title="Bloquear terminal o cambiar de asesora"
           >
             <Lock size={14} /> Bloquear
           </button>
         </div>
-      </div>
+      </header>
 
-      {/* Due Date Alert Banner */}
+      {/* ----------------------------------------------------------------------
+          DUE DATE ALERT BANNER
+          ---------------------------------------------------------------------- */}
       {(dueAlerts.overdueCount > 0 || dueAlerts.dueTodayCount > 0) && (
-        <div style={{
-          padding: '12px 16px',
-          borderRadius: '12px',
-          background: dueAlerts.overdueCount > 0 ? '#fef2f2' : '#fffbeb',
-          border: `1px solid ${dueAlerts.overdueCount > 0 ? '#fca5a5' : '#fde68a'}`,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '8px'
-        }}>
+        <div className={`pos-alert-banner ${dueAlerts.overdueCount > 0 ? 'urgent' : 'warning'}`}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <AlertCircle size={20} style={{ color: dueAlerts.overdueCount > 0 ? '#dc2626' : '#d97706' }} />
-            <span style={{ fontSize: '13px', fontWeight: 800, color: dueAlerts.overdueCount > 0 ? '#991b1b' : '#92400e' }}>
+            <AlertCircle size={20} />
+            <span style={{ fontSize: '13px', fontWeight: 800 }}>
               {dueAlerts.overdueCount > 0 ? `⚠️ ¡Atención! Hay ${dueAlerts.overdueCount} trabajo(s) vencido(s) en taller.` : ''}
               {dueAlerts.dueTodayCount > 0 ? ` 📦 ${dueAlerts.dueTodayCount} trabajo(s) con entrega programada para hoy.` : ''}
             </span>
           </div>
           <button
             type="button"
+            className="pos-alert-btn"
             onClick={() => setActiveTab('kanban')}
-            style={{ padding: '4px 10px', borderRadius: '8px', border: 'none', background: 'var(--orange)', color: '#fff', fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}
           >
-            Ver en Tablero ➔
+            Ver en Tablero Kanban ➔
           </button>
         </div>
       )}
 
-      {/* Main Navigation Tabs */}
-      <div className="pos-nav-tabs" style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
-        <button
-          type="button"
-          className={`pos-nav-tab ${activeTab === 'cashier' ? 'active' : ''}`}
-          onClick={() => setActiveTab('cashier')}
-        >
-          <ShoppingBag size={15} /> Cajero POS
-        </button>
-        <button
-          type="button"
-          className={`pos-nav-tab ${activeTab === 'kanban' ? 'active' : ''}`}
-          onClick={() => setActiveTab('kanban')}
-        >
-          <Layers size={15} /> Tablero de Taller (Kanban)
-        </button>
-        <button
-          type="button"
-          className={`pos-nav-tab ${activeTab === 'crm' ? 'active' : ''}`}
-          onClick={() => setActiveTab('crm')}
-        >
-          <Users size={15} /> Clientes & CRM 360°
-        </button>
-        <button
-          type="button"
-          className={`pos-nav-tab ${activeTab === 'products' ? 'active' : ''}`}
-          onClick={() => setActiveTab('products')}
-        >
-          <Package size={15} /> Productos & Tarifas
-        </button>
-        <button
-          type="button"
-          className={`pos-nav-tab ${activeTab === 'orders' ? 'active' : ''}`}
-          onClick={() => setActiveTab('orders')}
-        >
-          <FileText size={15} /> Cartera & Pedidos ({store.orders?.length || 0})
-        </button>
-        <button
-          type="button"
-          className={`pos-nav-tab ${activeTab === 'inventory' ? 'active' : ''}`}
-          onClick={() => setActiveTab('inventory')}
-        >
-          <Layers size={15} /> Inventario Sustratos
-        </button>
-        <button
-          type="button"
-          className={`pos-nav-tab ${activeTab === 'purchases' ? 'active' : ''}`}
-          onClick={() => setActiveTab('purchases')}
-        >
-          <Truck size={15} /> Órdenes de Compra (PO)
-        </button>
-        <button
-          type="button"
-          className={`pos-nav-tab ${activeTab === 'weekly' ? 'active' : ''}`}
-          onClick={() => setActiveTab('weekly')}
-        >
-          <Calendar size={15} /> Cuadre Semanal (Excel)
-        </button>
-        <button
-          type="button"
-          className={`pos-nav-tab ${activeTab === 'expenses' ? 'active' : ''}`}
-          onClick={() => setActiveTab('expenses')}
-        >
-          <DollarSign size={15} /> Caja Chica
-        </button>
+      {/* ----------------------------------------------------------------------
+          SEGMENTED NAVIGATION TABS
+          ---------------------------------------------------------------------- */}
+      <div className="pos-nav-tabs-wrapper">
+        <nav className="pos-nav-tabs">
+          <button
+            type="button"
+            className={`pos-nav-tab ${activeTab === 'cashier' ? 'active' : ''}`}
+            onClick={() => setActiveTab('cashier')}
+          >
+            <ShoppingBag size={16} /> Cajero POS
+          </button>
+          <button
+            type="button"
+            className={`pos-nav-tab ${activeTab === 'kanban' ? 'active' : ''}`}
+            onClick={() => setActiveTab('kanban')}
+          >
+            <Layers size={16} /> Tablero de Taller (Kanban)
+          </button>
+          <button
+            type="button"
+            className={`pos-nav-tab ${activeTab === 'crm' ? 'active' : ''}`}
+            onClick={() => setActiveTab('crm')}
+          >
+            <Users size={16} /> Clientes & CRM 360°
+          </button>
+          <button
+            type="button"
+            className={`pos-nav-tab ${activeTab === 'products' ? 'active' : ''}`}
+            onClick={() => setActiveTab('products')}
+          >
+            <Package size={16} /> Productos & Tarifas
+          </button>
+          <button
+            type="button"
+            className={`pos-nav-tab ${activeTab === 'orders' ? 'active' : ''}`}
+            onClick={() => setActiveTab('orders')}
+          >
+            <FileText size={16} /> Cartera & Pedidos
+            <span className="pos-nav-badge">{store.orders?.length || 0}</span>
+          </button>
+          <button
+            type="button"
+            className={`pos-nav-tab ${activeTab === 'inventory' ? 'active' : ''}`}
+            onClick={() => setActiveTab('inventory')}
+          >
+            <Layers size={16} /> Inventario Sustratos
+          </button>
+          <button
+            type="button"
+            className={`pos-nav-tab ${activeTab === 'purchases' ? 'active' : ''}`}
+            onClick={() => setActiveTab('purchases')}
+          >
+            <Truck size={16} /> Órdenes de Compra (PO)
+          </button>
+          <button
+            type="button"
+            className={`pos-nav-tab ${activeTab === 'weekly' ? 'active' : ''}`}
+            onClick={() => setActiveTab('weekly')}
+          >
+            <Calendar size={16} /> Cuadre Semanal (Excel)
+          </button>
+          <button
+            type="button"
+            className={`pos-nav-tab ${activeTab === 'expenses' ? 'active' : ''}`}
+            onClick={() => setActiveTab('expenses')}
+          >
+            <DollarSign size={16} /> Caja Chica
+          </button>
+        </nav>
       </div>
 
-      {/* TAB 1: CASHIER POS */}
+      {/* ----------------------------------------------------------------------
+          TAB 1: CASHIER POS
+          ---------------------------------------------------------------------- */}
       {activeTab === 'cashier' && (
         <div style={{ display: 'grid', gap: '16px' }}>
           {/* Parked Sales Bar */}
           {store.parkedSales?.length > 0 && (
-            <div style={{ padding: '10px 14px', background: '#eff6ff', borderRadius: '12px', border: '1px solid #bfdbfe', display: 'flex', alignItems: 'center', gap: '10px', overflowX: 'auto' }}>
-              <span style={{ fontSize: '12px', fontWeight: 800, color: '#1e40af', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
-                <PauseCircle size={14} /> Ventas en Espera:
+            <div className="pos-parked-strip">
+              <span className="pos-parked-title">
+                <PauseCircle size={15} /> Ventas en Espera ({store.parkedSales.length}):
               </span>
               {store.parkedSales.map((p) => (
                 <button
                   key={p.id}
                   type="button"
                   onClick={() => handleRestoreParkedSale(p)}
-                  style={{
-                    padding: '4px 10px',
-                    borderRadius: '8px',
-                    border: '1px solid #93c5fd',
-                    background: '#fff',
-                    color: '#1e3a8a',
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
+                  className="pos-parked-pill"
                 >
-                  <PlayCircle size={12} color="#2563eb" /> {p.customerName} (${Number(p.totalAmount).toFixed(2)})
+                  <PlayCircle size={13} style={{ color: 'var(--pos-blue)' }} />
+                  <span>{p.customerName}</span>
+                  <strong style={{ color: 'var(--pos-primary)' }}>${Number(p.totalAmount).toFixed(2)}</strong>
                 </button>
               ))}
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 1.2fr) minmax(320px, 0.8fr)', gap: '20px' }}>
-            {/* Left Column: Customer & Product Configurator */}
+          <div className="pos-cashier-grid">
+            {/* ----------------- LEFT COLUMN: Customer & Product Configurator ----------------- */}
             <div style={{ display: 'grid', gap: '16px' }}>
-              {/* Customer Card */}
-              <div className="pos-card" style={{ display: 'grid', gap: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Users size={16} style={{ color: 'var(--orange)' }} /> Datos del Cliente & Trabajo
+              {/* Card 1: Customer & Job Information */}
+              <div className="pos-card">
+                <div className="pos-card-header">
+                  <h3 className="pos-card-title">
+                    <Users size={17} /> Datos del Cliente & Trabajo
                   </h3>
                   {customerId && (
-                    <span style={{ fontSize: '11px', fontWeight: 800, color: '#16a34a', background: '#dcfce7', padding: '2px 8px', borderRadius: '999px' }}>
-                      Cliente CRM Vinculado
+                    <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--pos-success-dark)', background: 'var(--pos-success-soft)', padding: '3px 10px', borderRadius: '999px', border: '1px solid var(--pos-success-border)' }}>
+                      ✓ Cliente CRM Vinculado
                     </span>
                   )}
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '10px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: '12px' }}>
                   <div>
-                    <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--muted)' }}>Nombre / Empresa *</label>
-                    <input
-                      type="text"
-                      className="pos-input"
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      placeholder="Escribe para buscar o ingresar nuevo..."
-                    />
-                    {/* Quick Suggestions from CRM */}
+                    <label className="pos-label required">Nombre / Empresa</label>
+                    <div className="pos-input-group">
+                      <div className="pos-input-icon-left"><Users size={14} /></div>
+                      <input
+                        type="text"
+                        className="pos-input pos-input-with-icon"
+                        value={customerName}
+                        onChange={(e) => setCustomerName(e.target.value)}
+                        placeholder="Escribe para buscar o nuevo cliente..."
+                      />
+                    </div>
+                    {/* Quick CRM Auto-suggestions */}
                     {customerName.length > 1 && !customerId && (
-                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '4px' }}>
+                      <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginTop: '6px' }}>
                         {(store.customers || [])
                           .filter((c) => c.name.toLowerCase().includes(customerName.toLowerCase()))
                           .slice(0, 3)
@@ -637,7 +661,8 @@ export function POSPage() {
                               key={c.id}
                               type="button"
                               onClick={() => handleSelectCustomerSuggestion(c)}
-                              style={{ padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--line)', background: 'var(--bg)', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
+                              className="pos-cat-pill"
+                              style={{ padding: '3px 8px', fontSize: '11px' }}
                             >
                               + {c.name}
                             </button>
@@ -647,48 +672,60 @@ export function POSPage() {
                   </div>
 
                   <div>
-                    <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--muted)' }}>RUC / Cédula</label>
-                    <input
-                      type="text"
-                      className="pos-input"
-                      value={customerIdentification}
-                      onChange={(e) => setCustomerIdentification(e.target.value)}
-                      placeholder="17..."
-                    />
+                    <label className="pos-label">RUC / Cédula</label>
+                    <div className="pos-input-group">
+                      <div className="pos-input-icon-left"><Hash size={14} /></div>
+                      <input
+                        type="text"
+                        className="pos-input pos-input-with-icon"
+                        value={customerIdentification}
+                        onChange={(e) => setCustomerIdentification(e.target.value)}
+                        placeholder="17..."
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
-                    <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--muted)' }}>WhatsApp *</label>
-                    <input
-                      type="text"
-                      className="pos-input"
-                      value={customerPhone}
-                      onChange={(e) => setCustomerPhone(e.target.value)}
-                      placeholder="099..."
-                    />
+                    <label className="pos-label required">WhatsApp de Contacto</label>
+                    <div className="pos-input-group">
+                      <div className="pos-input-icon-left"><Phone size={14} /></div>
+                      <input
+                        type="text"
+                        className="pos-input pos-input-with-icon"
+                        value={customerPhone}
+                        onChange={(e) => setCustomerPhone(e.target.value)}
+                        placeholder="099... o +593"
+                      />
+                    </div>
                   </div>
                   <div>
-                    <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--muted)' }}>Fecha Entrega</label>
-                    <input
-                      type="date"
-                      className="pos-input"
-                      value={deliveryDate}
-                      onChange={(e) => setDeliveryDate(e.target.value)}
-                    />
+                    <label className="pos-label">Fecha de Entrega</label>
+                    <div className="pos-input-group">
+                      <div className="pos-input-icon-left"><Calendar size={14} /></div>
+                      <input
+                        type="date"
+                        className="pos-input pos-input-with-icon"
+                        value={deliveryDate}
+                        onChange={(e) => setDeliveryDate(e.target.value)}
+                      />
+                    </div>
                   </div>
                 </div>
 
                 <div>
-                  <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--muted)' }}>Descripción del Trabajo</label>
-                  <input
-                    type="text"
-                    className="pos-input"
-                    value={jobName}
-                    onChange={(e) => setJobName(e.target.value)}
-                    placeholder="Ej. Lona 3x2m para inauguración farmacia"
-                  />
+                  <label className="pos-label">Descripción del Trabajo / Rótulo</label>
+                  <div className="pos-input-group">
+                    <div className="pos-input-icon-left"><FileText size={14} /></div>
+                    <input
+                      type="text"
+                      className="pos-input pos-input-with-icon"
+                      value={jobName}
+                      onChange={(e) => setJobName(e.target.value)}
+                      placeholder="Ej. Lona 3x2m para inauguración farmacia con ojales"
+                    />
+                  </div>
                 </div>
 
                 {/* Cloud File Uploader for Artwork */}
@@ -696,14 +733,15 @@ export function POSPage() {
                   <button
                     type="button"
                     onClick={() => setShowUploader(!showUploader)}
-                    className="pos-nav-tab"
-                    style={{ fontSize: '11px', padding: '6px 10px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                    className="pos-cat-pill"
+                    style={{ padding: '8px 14px', display: 'inline-flex', alignItems: 'center', gap: '7px', fontSize: '12px' }}
                   >
-                    <UploadCloud size={13} /> {artUrl ? '✓ Archivo Adjunto (Cambiar)' : '+ Adjuntar Arte / Vector PDF/AI'}
+                    <UploadCloud size={14} />
+                    {artUrl ? '✓ Archivo Adjunto (Clic para cambiar)' : '+ Adjuntar Arte / Vector PDF / AI'}
                   </button>
 
                   {showUploader && (
-                    <div style={{ marginTop: '8px' }}>
+                    <div style={{ marginTop: '10px' }}>
                       <SupabaseFileUploader
                         onUploadComplete={(url) => {
                           setArtUrl(url);
@@ -715,20 +753,40 @@ export function POSPage() {
                 </div>
               </div>
 
-              {/* Product Configurator Card */}
-              <div className="pos-card" style={{ display: 'grid', gap: '12px' }}>
-                <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Package size={16} style={{ color: 'var(--orange)' }} /> Agregar Producto / Sustrato
-                </h3>
+              {/* Card 2: Product & Substrate Configurator */}
+              <div className="pos-card">
+                <div className="pos-card-header">
+                  <h3 className="pos-card-title">
+                    <Package size={17} /> Agregar Producto / Sustrato
+                  </h3>
+                </div>
 
+                {/* Category Pills Filter */}
                 <div>
-                  <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--muted)' }}>Seleccionar Producto</label>
+                  <label className="pos-label">Filtrar por Categoría</label>
+                  <div className="pos-cat-pills-row">
+                    {productCategories.map((cat) => (
+                      <button
+                        key={cat}
+                        type="button"
+                        className={`pos-cat-pill ${selectedCategory === cat ? 'active' : ''}`}
+                        onClick={() => setSelectedCategory(cat)}
+                      >
+                        {cat === 'all' ? '✦ Todos' : cat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Product Dropdown Selector */}
+                <div>
+                  <label className="pos-label required">Seleccionar Producto</label>
                   <select
-                    className="pos-input"
-                    value={selectedProductId}
+                    className="pos-select"
+                    value={selectedProductId || selectedProduct?.id || ''}
                     onChange={(e) => setSelectedProductId(e.target.value)}
                   >
-                    {(store.products || []).filter((p) => p.isActive !== false).map((p) => (
+                    {filteredProductOptions.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.name} — ${Number(p.basePrice).toFixed(2)}/{p.unit} ({p.category})
                       </option>
@@ -736,52 +794,104 @@ export function POSPage() {
                   </select>
                 </div>
 
+                {/* Dimension Inputs (When calcType === 'area') */}
                 {selectedProduct?.calcType === 'area' && (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
-                    <div>
-                      <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--muted)' }}>Ancho (cm) *</label>
-                      <input
-                        type="number"
-                        className="pos-input"
-                        placeholder="Ej. 300"
-                        value={itemWidthCm}
-                        onChange={(e) => setItemWidthCm(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--muted)' }}>Alto (cm) *</label>
-                      <input
-                        type="number"
-                        className="pos-input"
-                        placeholder="Ej. 200"
-                        value={itemHeightCm}
-                        onChange={(e) => setItemHeightCm(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--muted)' }}>Superficie</label>
-                      <div style={{ padding: '10px', background: 'var(--bg)', borderRadius: '8px', fontWeight: 900, fontSize: '13px', textAlign: 'center' }}>
-                        {computedItem.areaM2} m²
+                  <div style={{ display: 'grid', gap: '10px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.2fr', gap: '12px', alignItems: 'end' }}>
+                      <div>
+                        <label className="pos-label required">Ancho (cm)</label>
+                        <div className="pos-input-group">
+                          <input
+                            type="number"
+                            className="pos-input"
+                            placeholder="Ej. 300"
+                            value={itemWidthCm}
+                            onChange={(e) => setItemWidthCm(e.target.value)}
+                          />
+                          <span className="pos-input-suffix">cm</span>
+                        </div>
                       </div>
+                      <div>
+                        <label className="pos-label required">Alto (cm)</label>
+                        <div className="pos-input-group">
+                          <input
+                            type="number"
+                            className="pos-input"
+                            placeholder="Ej. 200"
+                            value={itemHeightCm}
+                            onChange={(e) => setItemHeightCm(e.target.value)}
+                          />
+                          <span className="pos-input-suffix">cm</span>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="pos-label">Superficie Total</label>
+                        <div className="pos-calc-box">
+                          <span style={{ fontSize: '11.5px', color: 'var(--pos-text-muted)', fontWeight: 700 }}>Área:</span>
+                          <span className="pos-calc-badge">{computedItem.areaM2} m²</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Quick Presets */}
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--pos-text-subtle)', fontWeight: 800 }}>Medidas Frecuentes:</span>
+                      {[
+                        { label: '1x1 m', w: 100, h: 100 },
+                        { label: '2x1 m', w: 200, h: 100 },
+                        { label: '3x2 m', w: 300, h: 200 },
+                        { label: '0.8x1.2 m', w: 80, h: 120 }
+                      ].map((preset) => (
+                        <button
+                          key={preset.label}
+                          type="button"
+                          className="pos-cat-pill"
+                          style={{ padding: '3px 8px', fontSize: '11px' }}
+                          onClick={() => {
+                            setItemWidthCm(preset.w);
+                            setItemHeightCm(preset.h);
+                          }}
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
                     </div>
                   </div>
                 )}
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                {/* Quantity, Finishings & Unit Price Override */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.3fr 1fr', gap: '12px', alignItems: 'end' }}>
                   <div>
-                    <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--muted)' }}>Cantidad</label>
-                    <input
-                      type="number"
-                      min={1}
-                      className="pos-input"
-                      value={itemQuantity}
-                      onChange={(e) => setItemQuantity(Math.max(1, Number(e.target.value)))}
-                    />
+                    <label className="pos-label">Cantidad</label>
+                    <div className="pos-stepper">
+                      <button
+                        type="button"
+                        className="pos-stepper-btn"
+                        onClick={() => setItemQuantity(Math.max(1, itemQuantity - 1))}
+                      >
+                        <Minus size={13} />
+                      </button>
+                      <input
+                        type="number"
+                        min={1}
+                        className="pos-stepper-input"
+                        value={itemQuantity}
+                        onChange={(e) => setItemQuantity(Math.max(1, Number(e.target.value)))}
+                      />
+                      <button
+                        type="button"
+                        className="pos-stepper-btn"
+                        onClick={() => setItemQuantity(itemQuantity + 1)}
+                      >
+                        <Plus size={13} />
+                      </button>
+                    </div>
                   </div>
+
                   <div>
-                    <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--muted)' }}>Acabados</label>
+                    <label className="pos-label">Acabados / Confección</label>
                     <select
-                      className="pos-input"
+                      className="pos-select"
                       value={itemFinishing}
                       onChange={(e) => setItemFinishing(e.target.value)}
                     >
@@ -791,8 +901,9 @@ export function POSPage() {
                       <option value="bolsillo">Bolsillo Tubo ($4.00)</option>
                     </select>
                   </div>
+
                   <div>
-                    <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--muted)' }}>Precio Unit. ($)</label>
+                    <label className="pos-label">Precio Unit. ($)</label>
                     <input
                       type="number"
                       step="0.01"
@@ -804,9 +915,10 @@ export function POSPage() {
                   </div>
                 </div>
 
+                {/* Eyelet Quantity Adjuster */}
                 {itemFinishing.includes('ojales') && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--muted)' }}>Cantidad de Ojales:</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#f8fafc', padding: '10px 14px', borderRadius: '11px', border: '1px solid var(--pos-border)' }}>
+                    <label className="pos-label" style={{ margin: 0 }}>Cantidad de Ojales:</label>
                     <input
                       type="number"
                       min={1}
@@ -815,76 +927,69 @@ export function POSPage() {
                       value={itemEyeletCount}
                       onChange={(e) => setItemEyeletCount(Number(e.target.value))}
                     />
-                    <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--orange-dark)' }}>
-                      Extra: +${((Number(itemEyeletCount) || 4) * (itemFinishing === 'ojales_grandes' ? 0.50 : 0.30)).toFixed(2)}
+                    <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--pos-primary)' }}>
+                      Recargo Acabado: +${((Number(itemEyeletCount) || 4) * (itemFinishing === 'ojales_grandes' ? 0.50 : 0.30)).toFixed(2)}
                     </span>
                   </div>
                 )}
 
                 <button
                   type="button"
-                  className="pos-submit-order-btn"
+                  className="pos-add-cart-btn"
                   onClick={handleAddToCart}
-                  style={{ width: '100%', marginTop: '4px' }}
                 >
-                  <Plus size={16} /> Agregar al Carrito — ${computedItem.totalPrice.toFixed(2)}
+                  <Plus size={17} /> Agregar al Carrito — ${computedItem.totalPrice.toFixed(2)}
                 </button>
               </div>
             </div>
 
-            {/* Right Column: Cart, Financial Liquidation & Payment */}
+            {/* ----------------- RIGHT COLUMN: Shopping Cart & Checkout ----------------- */}
             <div style={{ display: 'grid', gap: '16px' }}>
-              <div className="pos-card" style={{ display: 'grid', gap: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <ShoppingBag size={16} style={{ color: 'var(--orange)' }} /> Carrito de Venta ({cartItems.length})
+              <div className="pos-card">
+                <div className="pos-card-header">
+                  <h3 className="pos-card-title">
+                    <ShoppingBag size={17} /> Carrito de Venta ({cartItems.length})
                   </h3>
                   <button
                     type="button"
                     onClick={handleParkSale}
-                    className="pos-nav-tab"
-                    style={{ padding: '4px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    className="pos-cat-pill"
+                    style={{ padding: '4px 10px', fontSize: '11.5px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
                     title="Pausar venta para atender a otro cliente"
                   >
                     <PauseCircle size={13} /> En Espera
                   </button>
                 </div>
 
+                {/* Cart Items List */}
                 {cartItems.length === 0 ? (
-                  <p style={{ color: 'var(--muted)', fontSize: '12px', textAlign: 'center', padding: '20px 0' }}>
-                    No hay productos en el carrito.
-                  </p>
+                  <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--pos-text-subtle)' }}>
+                    <ShoppingBag size={36} style={{ margin: '0 auto 8px', opacity: 0.4 }} />
+                    <p style={{ margin: 0, fontSize: '13px', fontWeight: 700 }}>El carrito está vacío</p>
+                    <small style={{ fontSize: '11.5px' }}>Selecciona productos en el panel izquierdo para cotizar</small>
+                  </div>
                 ) : (
-                  <div style={{ display: 'grid', gap: '8px', maxHeight: '200px', overflowY: 'auto' }}>
+                  <div className="pos-cart-list">
                     {cartItems.map((itm, idx) => (
-                      <div
-                        key={itm.id || idx}
-                        style={{
-                          padding: '10px 12px',
-                          borderRadius: '10px',
-                          background: 'var(--bg)',
-                          border: '1px solid var(--line)',
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center'
-                        }}
-                      >
-                        <div>
-                          <strong style={{ fontSize: '13px', color: 'var(--ink)' }}>{itm.productName}</strong>
-                          <div style={{ fontSize: '11px', color: 'var(--muted)' }}>
-                            {itm.widthCm ? `${itm.widthCm}x${itm.heightCm}cm (${itm.areaM2}m²) • ` : ''}
-                            Cant: {itm.quantity} {itm.finishing !== 'none' ? `• ${itm.finishing}` : ''}
+                      <div key={itm.id || idx} className="pos-cart-item">
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div className="pos-cart-item-title">{itm.productName}</div>
+                          <div className="pos-cart-item-meta">
+                            {itm.widthCm ? <span className="pos-cart-item-badge">{itm.widthCm}x{itm.heightCm}cm ({itm.areaM2}m²)</span> : null}
+                            <span className="pos-cart-item-badge">Cant: {itm.quantity}</span>
+                            {itm.finishing !== 'none' && <span className="pos-cart-item-badge" style={{ color: 'var(--pos-primary)' }}>{itm.finishing}</span>}
                           </div>
                         </div>
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <strong style={{ fontSize: '14px', color: 'var(--ink)' }}>${itm.totalPrice.toFixed(2)}</strong>
+                          <span className="pos-cart-item-price">${itm.totalPrice.toFixed(2)}</span>
                           <button
                             type="button"
                             onClick={() => handleRemoveFromCart(idx)}
-                            style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer' }}
+                            className="pos-trash-btn"
+                            title="Eliminar ítem"
                           >
-                            <Trash2 size={14} />
+                            <Trash2 size={15} />
                           </button>
                         </div>
                       </div>
@@ -892,70 +997,84 @@ export function POSPage() {
                   </div>
                 )}
 
-                {/* Financial Liquidation Box */}
-                <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '12px', border: '1px solid var(--line)', display: 'grid', gap: '8px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                {/* Financial Liquidation Sheet */}
+                <div className="pos-financial-sheet">
+                  <div className="pos-fin-row">
                     <span>Subtotal Ítems:</span>
                     <strong>${subtotal.toFixed(2)}</strong>
                   </div>
 
-                  {/* Discount Input */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  {/* Discount Control */}
+                  <div className="pos-fin-row">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Percent size={14} style={{ color: 'var(--orange)' }} />
-                      <span style={{ fontSize: '12px', fontWeight: 700 }}>Descuento:</span>
+                      <Percent size={13} style={{ color: 'var(--pos-primary)' }} />
+                      <span>Descuento:</span>
                       <input
                         type="number"
                         min={0}
                         max={100}
-                        style={{ width: '55px', padding: '2px 6px', fontSize: '12px' }}
+                        style={{ width: '56px', padding: '3px 6px', fontSize: '12px' }}
                         className="pos-input"
                         value={discountPercent}
                         onChange={(e) => setDiscountPercent(e.target.value)}
                       />
-                      <span style={{ fontSize: '12px' }}>%</span>
+                      <span>%</span>
                     </div>
-                    {discountAmount > 0 && <span style={{ color: '#dc2626', fontWeight: 800 }}>-${discountAmount.toFixed(2)}</span>}
+                    {discountAmount > 0 ? (
+                      <strong style={{ color: 'var(--pos-danger)' }}>-${discountAmount.toFixed(2)}</strong>
+                    ) : (
+                      <span>$0.00</span>
+                    )}
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>
+                  {/* IVA (15%) Toggle Switch */}
+                  <div className="pos-fin-row">
+                    <label className="pos-toggle-switch">
                       <input
                         type="checkbox"
+                        className="pos-toggle-input"
                         checked={applyIVA}
                         onChange={(e) => setApplyIVA(e.target.checked)}
-                        style={{ width: '16px', height: '16px', accentColor: 'var(--orange)' }}
                       />
-                      Aplicar IVA (15%)
+                      <span className="pos-toggle-track" />
+                      <span style={{ fontSize: '12.5px', fontWeight: 800, color: 'var(--pos-text-main)' }}>Aplicar IVA (15%)</span>
                     </label>
-                    <span>${taxAmount.toFixed(2)}</span>
+                    <strong>${taxAmount.toFixed(2)}</strong>
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '12px', fontWeight: 700 }}>Envío / Flete:</span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      style={{ width: '80px', padding: '2px 6px', fontSize: '12px', textAlign: 'right' }}
-                      className="pos-input"
-                      value={shippingCost}
-                      onChange={(e) => setShippingCost(e.target.value)}
-                    />
+                  {/* Shipping / Freight Input */}
+                  <div className="pos-fin-row">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Truck size={13} />
+                      <span>Envío / Flete:</span>
+                    </div>
+                    <div style={{ width: '90px' }}>
+                      <input
+                        type="number"
+                        step="0.01"
+                        style={{ padding: '3px 8px', fontSize: '12px', textAlign: 'right' }}
+                        className="pos-input"
+                        placeholder="0.00"
+                        value={shippingCost}
+                        onChange={(e) => setShippingCost(e.target.value)}
+                      />
+                    </div>
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '18px', fontWeight: 900, borderTop: '1px solid var(--line)', paddingTop: '8px' }}>
-                    <span>TOTAL VENTA:</span>
-                    <span style={{ color: 'var(--orange)', fontFamily: 'Space Grotesk' }}>${totalAmount.toFixed(2)}</span>
+                  {/* Grand Total */}
+                  <div className="pos-grand-total-row">
+                    <span className="pos-grand-total-label">TOTAL VENTA:</span>
+                    <span className="pos-grand-total-val">${totalAmount.toFixed(2)}</span>
                   </div>
                 </div>
 
-                {/* Payments Section */}
-                <div style={{ display: 'grid', gap: '8px' }}>
-                  <label style={{ fontSize: '12px', fontWeight: 800 }}>Forma de Cobro / Abono</label>
+                {/* Multi-Tender Payment Methods */}
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  <label className="pos-label">Forma de Cobro / Abono</label>
                   {payments.map((p, idx) => (
-                    <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '8px' }}>
                       <select
-                        className="pos-input"
+                        className="pos-select"
                         value={p.method}
                         onChange={(e) => {
                           const updated = [...payments];
@@ -968,36 +1087,52 @@ export function POSPage() {
                         <option value="card">💳 Tarjeta</option>
                         <option value="check">📜 Cheque</option>
                       </select>
-                      <input
-                        type="number"
-                        step="0.01"
-                        className="pos-input"
-                        placeholder="Monto ($)"
-                        value={p.amount}
-                        onChange={(e) => {
-                          const updated = [...payments];
-                          updated[idx].amount = e.target.value;
-                          setPayments(updated);
-                        }}
-                      />
+                      <div className="pos-input-group">
+                        <input
+                          type="number"
+                          step="0.01"
+                          className="pos-input"
+                          placeholder="Monto ($)"
+                          value={p.amount}
+                          onChange={(e) => {
+                            const updated = [...payments];
+                            updated[idx].amount = e.target.value;
+                            setPayments(updated);
+                          }}
+                        />
+                      </div>
                     </div>
                   ))}
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 800, padding: '4px 0' }}>
-                    <span style={{ color: '#16a34a' }}>Abono Registrado: ${totalDeposited.toFixed(2)}</span>
-                    <span style={{ color: balanceDue > 0 ? '#dc2626' : '#16a34a' }}>
-                      Saldo: ${balanceDue.toFixed(2)}
+                  {/* Quick Cash Buttons */}
+                  <div className="pos-quick-cash-row">
+                    <span style={{ fontSize: '11px', color: 'var(--pos-text-subtle)', fontWeight: 800, alignSelf: 'center' }}>Cobro Rápido:</span>
+                    <button type="button" className="pos-quick-cash-btn" onClick={() => handleQuickCash(totalAmount)}>
+                      Exacto (${totalAmount.toFixed(2)})
+                    </button>
+                    <button type="button" className="pos-quick-cash-btn" onClick={() => handleQuickCash(10)}>$10</button>
+                    <button type="button" className="pos-quick-cash-btn" onClick={() => handleQuickCash(20)}>$20</button>
+                    <button type="button" className="pos-quick-cash-btn" onClick={() => handleQuickCash(50)}>$50</button>
+                    <button type="button" className="pos-quick-cash-btn" onClick={() => handleQuickCash(100)}>$100</button>
+                  </div>
+
+                  {/* Balance / Change Status Banner */}
+                  <div className={`pos-balance-card ${balanceDue === 0 ? 'paid' : 'has-balance'}`}>
+                    <span>Abono: ${totalDeposited.toFixed(2)}</span>
+                    <span>
+                      {balanceDue > 0 ? `Saldo por cobrar: $${balanceDue.toFixed(2)}` : (changeDue > 0 ? `Vuelto: $${changeDue.toFixed(2)}` : '✓ Pagado Completo')}
                     </span>
                   </div>
                 </div>
 
+                {/* Main Submit Action Button */}
                 <button
                   type="button"
-                  className="pos-submit-order-btn"
+                  className="pos-checkout-btn"
                   onClick={handleSubmitOrder}
-                  style={{ width: '100%', padding: '14px', fontSize: '15px', background: '#16a34a' }}
+                  disabled={cartItems.length === 0}
                 >
-                  <CheckCircle2 size={18} /> Registrar Venta & Generar Comprobante
+                  <CheckCircle2 size={19} /> Registrar Venta & Generar Comprobante
                 </button>
               </div>
             </div>
@@ -1005,7 +1140,9 @@ export function POSPage() {
         </div>
       )}
 
-      {/* TAB 2: PRODUCTION KANBAN */}
+      {/* ----------------------------------------------------------------------
+          TAB 2: PRODUCTION KANBAN
+          ---------------------------------------------------------------------- */}
       {activeTab === 'kanban' && (
         <POSProductionKanban
           store={store}
@@ -1020,7 +1157,9 @@ export function POSPage() {
         />
       )}
 
-      {/* TAB 3: CUSTOMER CRM 360 */}
+      {/* ----------------------------------------------------------------------
+          TAB 3: CUSTOMER CRM 360
+          ---------------------------------------------------------------------- */}
       {activeTab === 'crm' && (
         <POSCustomerCRM
           store={store}
@@ -1029,7 +1168,9 @@ export function POSPage() {
         />
       )}
 
-      {/* TAB 4: PRODUCTS & TARIFFS SPREADSHEET MANAGER */}
+      {/* ----------------------------------------------------------------------
+          TAB 4: PRODUCTS & TARIFFS SPREADSHEET MANAGER
+          ---------------------------------------------------------------------- */}
       {activeTab === 'products' && (
         <POSProductManager
           store={store}
@@ -1037,24 +1178,25 @@ export function POSPage() {
         />
       )}
 
-      {/* TAB 5: CARTERA & PEDIDOS HISTORICOS */}
+      {/* ----------------------------------------------------------------------
+          TAB 5: CARTERA & PEDIDOS HISTORICOS
+          ---------------------------------------------------------------------- */}
       {activeTab === 'orders' && (
-        <div className="pos-card" style={{ display: 'grid', gap: '14px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <FileText size={20} style={{ color: 'var(--orange)' }} />
+        <div className="pos-card">
+          <div className="pos-card-header">
+            <h2 className="pos-card-title" style={{ fontSize: '17px' }}>
+              <FileText size={19} />
               Cartera de Pedidos & Órdenes ({filteredOrdersList.length})
             </h2>
 
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               {/* Search Bar */}
-              <div style={{ position: 'relative', minWidth: '220px' }}>
-                <Search size={15} style={{ position: 'absolute', left: '10px', top: '10px', color: 'var(--muted)' }} />
+              <div className="pos-input-group" style={{ width: '220px' }}>
+                <div className="pos-input-icon-left"><Search size={14} /></div>
                 <input
                   type="text"
-                  className="pos-input"
-                  placeholder="Buscar orden, cliente o trabajo..."
-                  style={{ paddingLeft: '32px', fontSize: '12px' }}
+                  className="pos-input pos-input-with-icon"
+                  placeholder="Buscar orden o cliente..."
                   value={orderSearchTerm}
                   onChange={(e) => setOrderSearchTerm(e.target.value)}
                 />
@@ -1062,8 +1204,8 @@ export function POSPage() {
 
               {/* Payment Filter */}
               <select
-                className="pos-input"
-                style={{ width: 'auto', fontSize: '12px' }}
+                className="pos-select"
+                style={{ width: '150px' }}
                 value={orderPaymentFilter}
                 onChange={(e) => setOrderPaymentFilter(e.target.value)}
               >
@@ -1075,8 +1217,8 @@ export function POSPage() {
 
               {/* Stage Filter */}
               <select
-                className="pos-input"
-                style={{ width: 'auto', fontSize: '12px' }}
+                className="pos-select"
+                style={{ width: '160px' }}
                 value={orderStageFilter}
                 onChange={(e) => setOrderStageFilter(e.target.value)}
               >
@@ -1092,7 +1234,7 @@ export function POSPage() {
           </div>
 
           <div style={{ overflowX: 'auto' }}>
-            <table className="pos-orders-table" style={{ width: '100%' }}>
+            <table className="pos-orders-table">
               <thead>
                 <tr>
                   <th>Orden</th>
@@ -1109,7 +1251,7 @@ export function POSPage() {
               <tbody>
                 {filteredOrdersList.length === 0 ? (
                   <tr>
-                    <td colSpan={9} style={{ textAlign: 'center', padding: '30px', color: 'var(--muted)' }}>
+                    <td colSpan={9} style={{ textAlign: 'center', padding: '36px', color: 'var(--pos-text-subtle)' }}>
                       No se encontraron pedidos con los filtros seleccionados.
                     </td>
                   </tr>
@@ -1122,19 +1264,19 @@ export function POSPage() {
 
                     return (
                       <tr key={ord.id} style={{ background: isOverdue ? 'rgba(239, 68, 68, 0.04)' : 'transparent' }}>
-                        <td><strong style={{ color: 'var(--orange)' }}>#{ord.orderNumber}</strong></td>
-                        <td style={{ fontSize: '12px', color: 'var(--muted)' }}>{ord.orderDate}</td>
+                        <td><strong style={{ color: 'var(--pos-primary)' }}>#{ord.orderNumber}</strong></td>
+                        <td style={{ fontSize: '12px', color: 'var(--pos-text-muted)' }}>{ord.orderDate}</td>
                         <td><strong>{ord.customerName}</strong></td>
                         <td>{ord.jobName}</td>
                         <td>
-                          <span style={{ padding: '3px 8px', borderRadius: '6px', background: 'var(--bg)', border: '1px solid var(--line)', fontSize: '11px', fontWeight: 800 }}>
+                          <span className={`pos-status-badge ${ord.productionStage || 'preprensa'}`}>
                             {ord.productionStage}
                           </span>
                         </td>
                         <td><b>${Number(ord.totalAmount).toFixed(2)}</b></td>
-                        <td style={{ color: '#16a34a', fontWeight: 700 }}>${Number(ord.depositAmount).toFixed(2)}</td>
+                        <td style={{ color: 'var(--pos-success)', fontWeight: 700 }}>${Number(ord.depositAmount).toFixed(2)}</td>
                         <td>
-                          <strong style={{ color: ord.balanceDue > 0 ? '#dc2626' : '#16a34a' }}>
+                          <strong style={{ color: ord.balanceDue > 0 ? 'var(--pos-danger)' : 'var(--pos-success)' }}>
                             ${Number(ord.balanceDue).toFixed(2)}
                           </strong>
                         </td>
@@ -1143,42 +1285,42 @@ export function POSPage() {
                             {/* SRI Electronic Invoice Button */}
                             <button
                               type="button"
-                              className="pos-nav-tab"
-                              style={{ padding: '4px 8px', fontSize: '11px', background: '#f0fdf4', color: '#166534', fontWeight: 800 }}
+                              className="pos-cat-pill"
+                              style={{ padding: '4px 8px', fontSize: '11px', background: 'var(--pos-success-soft)', color: 'var(--pos-success-dark)', border: '1px solid var(--pos-success-border)' }}
                               onClick={() => setSriOrder({ order: ord, items, customer: cust, advisor: adv })}
                               title="Emitir / Ver Factura Electrónica SRI"
                             >
-                              <ShieldCheck size={13} /> Factura SRI
+                              <ShieldCheck size={13} /> SRI
                             </button>
 
                             {ord.balanceDue > 0 && (
                               <button
                                 type="button"
-                                className="pos-nav-tab"
-                                style={{ padding: '4px 8px', fontSize: '11px', background: '#dcfce7', color: '#166534', fontWeight: 800 }}
+                                className="pos-cat-pill"
+                                style={{ padding: '4px 8px', fontSize: '11px', background: 'var(--pos-warning-soft)', color: 'var(--pos-warning-dark)', border: '1px solid var(--pos-warning-border)' }}
                                 onClick={() => setCollectionOrder(ord)}
                                 title="Cobrar saldo pendiente"
                               >
-                                <DollarSign size={12} /> Cobrar Saldo
+                                <DollarSign size={12} /> Cobrar
                               </button>
                             )}
 
                             <button
                               type="button"
-                              className="pos-nav-tab"
+                              className="pos-cat-pill"
                               style={{ padding: '4px 8px', fontSize: '11px' }}
                               onClick={() => setReceiptOrder(ord)}
-                              title="Reimprimir Comprobante"
+                              title="Reimprimir Comprobante Térmico"
                             >
                               <Printer size={13} />
                             </button>
 
                             <button
                               type="button"
-                              className="pos-nav-tab"
+                              className="pos-cat-pill"
                               style={{ padding: '4px 8px', fontSize: '11px' }}
                               onClick={() => setWorkOrderData({ order: ord, items, advisor: adv })}
-                              title="Hoja de Taller"
+                              title="Hoja de Taller para Operarios"
                             >
                               <Wrench size={13} />
                             </button>
@@ -1194,7 +1336,9 @@ export function POSPage() {
         </div>
       )}
 
-      {/* TAB 6: INVENTORY */}
+      {/* ----------------------------------------------------------------------
+          TAB 6: INVENTORY
+          ---------------------------------------------------------------------- */}
       {activeTab === 'inventory' && (
         <POSInventoryMaterials
           store={store}
@@ -1202,7 +1346,9 @@ export function POSPage() {
         />
       )}
 
-      {/* TAB 7: PURCHASES TO SUPPLIERS */}
+      {/* ----------------------------------------------------------------------
+          TAB 7: PURCHASES TO SUPPLIERS
+          ---------------------------------------------------------------------- */}
       {activeTab === 'purchases' && (
         <POSPurchaseOrdersManager
           store={store}
@@ -1210,18 +1356,22 @@ export function POSPage() {
         />
       )}
 
-      {/* TAB 8: WEEKLY CASH RECONCILIATION */}
+      {/* ----------------------------------------------------------------------
+          TAB 8: WEEKLY CASH RECONCILIATION
+          ---------------------------------------------------------------------- */}
       {activeTab === 'weekly' && (
-        <div className="pos-card" style={{ display: 'grid', gap: '16px' }}>
-          <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Calendar size={20} style={{ color: 'var(--orange)' }} />
-            Cuadre Semanal de Caja (Formato Excel Lunes a Sábado)
-          </h2>
+        <div className="pos-card">
+          <div className="pos-card-header">
+            <h2 className="pos-card-title" style={{ fontSize: '17px' }}>
+              <Calendar size={19} />
+              Cuadre Semanal de Caja (Formato Excel Lunes a Sábado)
+            </h2>
+          </div>
           {(() => {
             const balance = calculateWeeklyBalance(store, getMondayOfWeek(), currentAdvisorId);
             return (
               <div style={{ overflowX: 'auto' }}>
-                <table className="pos-orders-table" style={{ width: '100%' }}>
+                <table className="pos-daily-excel-table">
                   <thead>
                     <tr>
                       <th>Día</th>
@@ -1240,27 +1390,27 @@ export function POSPage() {
                     {balance.days.map((d) => (
                       <tr key={d.date}>
                         <td><strong style={{ textTransform: 'capitalize' }}>{d.dayName}</strong></td>
-                        <td style={{ fontSize: '12px', color: 'var(--muted)' }}>{d.date}</td>
+                        <td style={{ fontSize: '12px', color: 'var(--pos-text-muted)' }}>{d.date}</td>
                         <td>{d.orderCount}</td>
                         <td><b>${d.totalSales.toFixed(2)}</b></td>
-                        <td style={{ color: '#16a34a', fontWeight: 700 }}>${d.totalDeposits.toFixed(2)}</td>
-                        <td style={{ color: d.totalBalanceDue > 0 ? '#dc2626' : 'var(--muted)' }}>${d.totalBalanceDue.toFixed(2)}</td>
-                        <td style={{ color: '#d97706' }}>${d.totalExpenses.toFixed(2)}</td>
+                        <td style={{ color: 'var(--pos-success)', fontWeight: 700 }}>${d.totalDeposits.toFixed(2)}</td>
+                        <td style={{ color: d.totalBalanceDue > 0 ? 'var(--pos-danger)' : 'var(--pos-text-muted)' }}>${d.totalBalanceDue.toFixed(2)}</td>
+                        <td style={{ color: 'var(--pos-warning-dark)' }}>${d.totalExpenses.toFixed(2)}</td>
                         <td>${d.cashAmount.toFixed(2)}</td>
                         <td>${d.transferAmount.toFixed(2)}</td>
-                        <td><strong style={{ color: '#2563eb' }}>${d.netTotal.toFixed(2)}</strong></td>
+                        <td><strong style={{ color: 'var(--pos-blue-dark)' }}>${d.netTotal.toFixed(2)}</strong></td>
                       </tr>
                     ))}
-                    <tr style={{ background: 'var(--bg)', fontWeight: 900, borderTop: '2px solid var(--line)' }}>
-                      <td colSpan={2}>TOTALES SEMANALES:</td>
+                    <tr style={{ background: 'var(--pos-primary-soft)', fontWeight: 900, borderTop: '2px solid var(--pos-primary)' }}>
+                      <td colSpan={2} style={{ color: 'var(--pos-primary)' }}>TOTALES SEMANALES:</td>
                       <td>{balance.totals.orderCount}</td>
                       <td>${balance.totals.totalSales.toFixed(2)}</td>
-                      <td style={{ color: '#16a34a' }}>${balance.totals.totalDeposits.toFixed(2)}</td>
-                      <td style={{ color: '#dc2626' }}>${balance.totals.totalBalanceDue.toFixed(2)}</td>
-                      <td style={{ color: '#d97706' }}>${balance.totals.totalExpenses.toFixed(2)}</td>
+                      <td style={{ color: 'var(--pos-success)' }}>${balance.totals.totalDeposits.toFixed(2)}</td>
+                      <td style={{ color: 'var(--pos-danger)' }}>${balance.totals.totalBalanceDue.toFixed(2)}</td>
+                      <td style={{ color: 'var(--pos-warning-dark)' }}>${balance.totals.totalExpenses.toFixed(2)}</td>
                       <td>${balance.totals.cashAmount.toFixed(2)}</td>
                       <td>${balance.totals.transferAmount.toFixed(2)}</td>
-                      <td style={{ color: '#2563eb', fontSize: '15px' }}>${balance.totals.netTotal.toFixed(2)}</td>
+                      <td style={{ color: 'var(--pos-primary)', fontSize: '16px' }}>${balance.totals.netTotal.toFixed(2)}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -1270,13 +1420,17 @@ export function POSPage() {
         </div>
       )}
 
-      {/* TAB 9: PETTY CASH EXPENSES */}
+      {/* ----------------------------------------------------------------------
+          TAB 9: PETTY CASH EXPENSES
+          ---------------------------------------------------------------------- */}
       {activeTab === 'expenses' && (
-        <div className="pos-card" style={{ display: 'grid', gap: '16px' }}>
-          <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <DollarSign size={20} style={{ color: 'var(--orange)' }} />
-            Registro de Gastos de Caja Chica
-          </h2>
+        <div className="pos-card">
+          <div className="pos-card-header">
+            <h2 className="pos-card-title" style={{ fontSize: '17px' }}>
+              <DollarSign size={19} />
+              Registro de Gastos de Caja Chica
+            </h2>
+          </div>
 
           <form
             onSubmit={(e) => {
@@ -1296,31 +1450,31 @@ export function POSPage() {
                 e.target.reset();
               }
             }}
-            style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: '10px', alignItems: 'end' }}
+            style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: '12px', alignItems: 'end' }}
           >
             <div>
-              <label style={{ fontSize: '11px', fontWeight: 800 }}>Descripción del Gasto</label>
-              <input name="description" className="pos-input" placeholder="Ej. Almuerzos de taller, cinta de embalaje" required />
+              <label className="pos-label required">Descripción del Gasto</label>
+              <input name="description" className="pos-input" placeholder="Ej. Cinta de embalaje, almuerzo taller" required />
             </div>
             <div>
-              <label style={{ fontSize: '11px', fontWeight: 800 }}>Monto ($)</label>
+              <label className="pos-label required">Monto ($)</label>
               <input name="amount" type="number" step="0.01" className="pos-input" placeholder="0.00" required />
             </div>
             <div>
-              <label style={{ fontSize: '11px', fontWeight: 800 }}>Categoría</label>
-              <select name="category" className="pos-input">
+              <label className="pos-label">Categoría</label>
+              <select name="category" className="pos-select">
                 <option value="Suministros">Suministros Taller</option>
                 <option value="Alimentación">Alimentación</option>
                 <option value="Transporte">Transporte / Flete</option>
                 <option value="Servicios">Servicios / Varios</option>
               </select>
             </div>
-            <button type="submit" className="pos-submit-order-btn">
+            <button type="submit" className="pos-add-cart-btn" style={{ padding: '10px 18px' }}>
               + Registrar Gasto
             </button>
           </form>
 
-          <table className="pos-orders-table" style={{ width: '100%', marginTop: '10px' }}>
+          <table className="pos-orders-table" style={{ marginTop: '14px' }}>
             <thead>
               <tr>
                 <th>Fecha</th>
@@ -1332,14 +1486,14 @@ export function POSPage() {
             </thead>
             <tbody>
               {(store.expenses || []).length === 0 ? (
-                <tr><td colSpan={5} style={{ textAlign: 'center', padding: '20px', color: 'var(--muted)' }}>No hay gastos registrados</td></tr>
+                <tr><td colSpan={5} style={{ textAlign: 'center', padding: '24px', color: 'var(--pos-text-subtle)' }}>No hay gastos registrados en caja chica</td></tr>
               ) : (
                 (store.expenses || []).map((exp) => (
                   <tr key={exp.id}>
                     <td>{exp.expenseDate}</td>
                     <td><strong>{exp.description}</strong></td>
-                    <td><span style={{ padding: '2px 8px', background: 'var(--bg)', borderRadius: '4px', fontSize: '11px' }}>{exp.category}</span></td>
-                    <td style={{ color: '#d97706', fontWeight: 800 }}>${Number(exp.amount).toFixed(2)}</td>
+                    <td><span className="pos-nav-badge">{exp.category}</span></td>
+                    <td style={{ color: 'var(--pos-warning-dark)', fontWeight: 800 }}>${Number(exp.amount).toFixed(2)}</td>
                     <td style={{ textAlign: 'right' }}>
                       <button
                         type="button"
@@ -1347,9 +1501,10 @@ export function POSPage() {
                           const res = deletePOSExpense(store, exp.id);
                           if (res.ok) setStore(res.updatedStore);
                         }}
-                        style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer' }}
+                        className="pos-trash-btn"
+                        title="Eliminar gasto"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={15} />
                       </button>
                     </td>
                   </tr>
@@ -1360,7 +1515,9 @@ export function POSPage() {
         </div>
       )}
 
-      {/* MODALS */}
+      {/* ----------------------------------------------------------------------
+          MODALS & OVERLAYS
+          ---------------------------------------------------------------------- */}
       {receiptOrder && (
         <POSReceiptModal
           order={receiptOrder}
@@ -1417,8 +1574,8 @@ export function POSPage() {
       {/* SHIFT OPEN/CLOSE MODAL */}
       {isShiftModalOpen && (
         <div className="pos-modal-overlay">
-          <div className="pos-modal-card" style={{ maxWidth: '420px' }}>
-            <h2 style={{ margin: '0 0 12px', fontSize: '18px', fontWeight: 900 }}>
+          <div className="pos-modal-card" style={{ maxWidth: '440px' }}>
+            <h2 style={{ margin: '0 0 14px', fontSize: '18px', fontWeight: 900 }}>
               {shiftAction === 'open' ? 'Apertura de Turno de Caja' : 'Cierre de Turno & Arqueo'}
             </h2>
             <form
@@ -1436,10 +1593,10 @@ export function POSPage() {
                 setShiftCashAmount('');
                 setShiftNotes('');
               }}
-              style={{ display: 'grid', gap: '12px' }}
+              style={{ display: 'grid', gap: '14px' }}
             >
               <div>
-                <label style={{ fontSize: '12px', fontWeight: 800 }}>
+                <label className="pos-label required">
                   {shiftAction === 'open' ? 'Efectivo Inicial en Caja ($)' : 'Efectivo Físico Contado ($)'}
                 </label>
                 <input
@@ -1454,21 +1611,21 @@ export function POSPage() {
               </div>
 
               <div>
-                <label style={{ fontSize: '12px', fontWeight: 800 }}>Observaciones / Notas</label>
+                <label className="pos-label">Observaciones / Billetes</label>
                 <input
                   type="text"
                   className="pos-input"
                   value={shiftNotes}
                   onChange={(e) => setShiftNotes(e.target.value)}
-                  placeholder="Ej. Billetes de $20 y monedas"
+                  placeholder="Ej. Billetes de $20 y sueltos"
                 />
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '6px' }}>
-                <button type="button" className="pos-nav-tab" onClick={() => setIsShiftModalOpen(false)}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
+                <button type="button" className="pos-cat-pill" onClick={() => setIsShiftModalOpen(false)}>
                   Cancelar
                 </button>
-                <button type="submit" className="pos-submit-order-btn">
+                <button type="submit" className="pos-add-cart-btn" style={{ width: 'auto', padding: '10px 18px' }}>
                   {shiftAction === 'open' ? 'Abrir Turno' : 'Cerrar y Cuadrar'}
                 </button>
               </div>

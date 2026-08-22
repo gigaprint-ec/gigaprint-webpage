@@ -20,7 +20,7 @@ import {
 
 export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess }) {
   const handleAuthCallback = onAuthenticated || onUnlockSuccess || (() => {});
-  const [selectedAdvisorId, setSelectedAdvisorId] = useState(advisors[0]?.id || '');
+  const [selectedAdvisorId, setSelectedAdvisorId] = useState(advisors[0]?.id || 'adv-vicky');
   const [pinInput, setPinInput] = useState('');
   const [loginMode, setLoginMode] = useState('advisor'); // 'advisor' | 'admin'
   const [adminPass, setAdminPass] = useState('');
@@ -30,7 +30,7 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess 
   const currentMonday = getMondayOfWeek();
   const currentWeekCode = getISOWeekCode();
 
-  const selectedAdvisor = advisors.find((a) => a.id === selectedAdvisorId) || advisors[0];
+  const selectedAdvisor = advisors.find((a) => a.id === selectedAdvisorId) || advisors[0] || { name: 'Vicky', id: 'adv-vicky' };
 
   // Handle Physical Keyboard input
   useEffect(() => {
@@ -115,30 +115,31 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess 
     <div className="pos-lock-screen-wrapper">
       <div className="pos-lock-modal-card">
         {/* Brand & Week Header */}
-        <div className="pos-lock-header">
-          <div className="pos-lock-logo">
-            <span className="pos-lock-logo-mark">G</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '14px', borderBottom: '1px solid var(--pos-border)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div className="pos-brand-logo-mark" style={{ width: '42px', height: '42px' }}>G</div>
             <div>
-              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 900, color: 'var(--ink)' }}>
+              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 900, color: 'var(--pos-text-main)' }}>
                 Gigaprint POS
               </h2>
-              <small style={{ color: 'var(--muted)', fontSize: '11px', textTransform: 'uppercase', fontWeight: 700 }}>
+              <small style={{ color: 'var(--pos-text-muted)', fontSize: '11px', textTransform: 'uppercase', fontWeight: 800 }}>
                 Punto de Venta & Caja
               </small>
             </div>
           </div>
 
-          <div className="pos-lock-week-badge">
-            <Calendar size={13} style={{ color: 'var(--orange)' }} />
+          <div className="pos-sync-pill synced">
+            <Calendar size={13} style={{ color: 'var(--pos-primary)' }} />
             <span>Semana <b>{currentWeekCode}</b></span>
           </div>
         </div>
 
         {/* Mode Selector Tabs */}
-        <div className="pos-lock-mode-toggle">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', background: '#f1f5f9', padding: '5px', borderRadius: '14px' }}>
           <button
             type="button"
-            className={`pos-lock-tab ${loginMode === 'advisor' ? 'active' : ''}`}
+            className={`pos-nav-tab ${loginMode === 'advisor' ? 'active' : ''}`}
+            style={{ justifyContent: 'center', padding: '9px', fontSize: '12.5px' }}
             onClick={() => {
               setLoginMode('advisor');
               setErrorMsg('');
@@ -149,7 +150,8 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess 
           </button>
           <button
             type="button"
-            className={`pos-lock-tab ${loginMode === 'admin' ? 'active' : ''}`}
+            className={`pos-nav-tab ${loginMode === 'admin' ? 'active' : ''}`}
+            style={{ justifyContent: 'center', padding: '9px', fontSize: '12.5px' }}
             onClick={() => {
               setLoginMode('admin');
               setErrorMsg('');
@@ -162,62 +164,75 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess 
 
         {/* ADVISOR LOGIN MODE */}
         {loginMode === 'advisor' && (
-          <div className="pos-lock-advisor-flow">
+          <div style={{ display: 'grid', gap: '14px' }}>
             {/* Advisor Selector Avatars */}
-            <div className="pos-advisor-pills-row">
-              {advisors.filter((a) => a.isActive !== false).map((adv) => {
-                const isSelected = adv.id === selectedAdvisorId;
-                const initials = adv.name.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase();
-                return (
-                  <button
-                    key={adv.id}
-                    type="button"
-                    className={`pos-advisor-pill-card ${isSelected ? 'active' : ''}`}
-                    onClick={() => {
-                      setSelectedAdvisorId(adv.id);
-                      setPinInput('');
-                      setErrorMsg('');
-                    }}
-                  >
-                    <div className="pos-advisor-pill-avatar">{initials}</div>
-                    <span>{adv.name}</span>
-                  </button>
-                );
-              })}
+            <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
+              {(advisors.length > 0 ? advisors : [{ id: 'adv-vicky', name: 'Vicky', role: 'asesora' }])
+                .filter((a) => a.isActive !== false)
+                .map((adv) => {
+                  const isSelected = adv.id === selectedAdvisorId;
+                  const initials = adv.name.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase();
+                  return (
+                    <button
+                      key={adv.id}
+                      type="button"
+                      className={`pos-cat-pill ${isSelected ? 'active' : ''}`}
+                      style={{ padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '8px', borderRadius: '12px' }}
+                      onClick={() => {
+                        setSelectedAdvisorId(adv.id);
+                        setPinInput('');
+                        setErrorMsg('');
+                      }}
+                    >
+                      <span style={{ width: '24px', height: '24px', borderRadius: '50%', background: isSelected ? '#ffffff' : 'var(--pos-primary)', color: isSelected ? 'var(--pos-primary)' : '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 900 }}>
+                        {initials}
+                      </span>
+                      <span>{adv.name}</span>
+                    </button>
+                  );
+                })}
             </div>
 
             {/* Selected Advisor Display */}
-            <div className="pos-selected-advisor-target">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Key size={16} style={{ color: 'var(--orange)' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderRadius: '11px', background: '#f8fafc', border: '1px solid var(--pos-border)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
+                <Key size={16} style={{ color: 'var(--pos-primary)' }} />
                 <span>Ingresa el PIN de <b>{selectedAdvisor?.name}</b>:</span>
               </div>
-              <small style={{ color: 'var(--muted)', fontSize: '11px' }}>
-                Renovado el Lunes {currentMonday}
+              <small style={{ color: 'var(--pos-text-muted)', fontSize: '11px', fontWeight: 700 }}>
+                Lunes {currentMonday}
               </small>
             </div>
 
             {/* PIN Mask Display */}
-            <div className={`pos-pin-display-box ${isShaking ? 'shake' : ''}`}>
-              <div className="pos-pin-dots">
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '14px', padding: '16px', background: '#f8fafc', borderRadius: '14px', border: '1.5px solid var(--pos-border)' }}>
+              <div style={{ display: 'flex', gap: '14px' }}>
                 {[0, 1, 2, 3].map((idx) => (
                   <span
                     key={idx}
-                    className={`pos-pin-dot ${pinInput.length > idx ? 'filled' : ''}`}
+                    style={{
+                      width: '16px',
+                      height: '16px',
+                      borderRadius: '50%',
+                      background: pinInput.length > idx ? 'var(--pos-primary)' : '#cbd5e1',
+                      transform: pinInput.length > idx ? 'scale(1.2)' : 'none',
+                      boxShadow: pinInput.length > idx ? '0 0 10px rgba(234, 88, 12, 0.4)' : 'none',
+                      transition: 'all 0.15s ease'
+                    }}
                   />
                 ))}
               </div>
               {pinInput.length > 4 && (
-                <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--orange-dark)' }}>
-                  ({pinInput.length} caracteres)
+                <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--pos-primary)' }}>
+                  ({pinInput.length} dígitos)
                 </span>
               )}
             </div>
 
             {/* Error Message */}
             {errorMsg && (
-              <div className="pos-lock-error-banner">
-                <AlertCircle size={15} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', borderRadius: '10px', background: 'var(--pos-danger-soft)', color: 'var(--pos-danger-dark)', fontSize: '12.5px', fontWeight: 700, border: '1px solid var(--pos-danger-border)' }}>
+                <AlertCircle size={16} />
                 <span>{errorMsg}</span>
               </div>
             )}
@@ -236,7 +251,8 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess 
               ))}
               <button
                 type="button"
-                className="pos-keypad-btn action"
+                className="pos-keypad-btn"
+                style={{ background: '#f8fafc', color: 'var(--pos-text-muted)', fontSize: '15px' }}
                 onClick={handleKeypadClear}
                 title="Limpiar"
               >
@@ -251,18 +267,20 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess 
               </button>
               <button
                 type="button"
-                className="pos-keypad-btn action"
+                className="pos-keypad-btn"
+                style={{ background: '#f8fafc', color: 'var(--pos-text-muted)' }}
                 onClick={handleKeypadBackspace}
                 title="Borrar dígito"
               >
-                <Delete size={18} />
+                <Delete size={19} />
               </button>
             </div>
 
             {/* Unlock Button */}
             <button
               type="button"
-              className="pos-unlock-submit-btn"
+              className="pos-add-cart-btn"
+              style={{ padding: '14px', fontSize: '15px' }}
               onClick={handleAdvisorSubmit}
               disabled={pinInput.length === 0}
             >
@@ -274,13 +292,13 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess 
 
         {/* ADMIN LOGIN MODE */}
         {loginMode === 'admin' && (
-          <form onSubmit={handleAdminSubmit} className="pos-lock-admin-flow">
-            <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+          <form onSubmit={handleAdminSubmit} style={{ display: 'grid', gap: '14px' }}>
+            <div style={{ textAlign: 'center', padding: '12px 0' }}>
               <div style={{
                 width: '54px',
                 height: '54px',
                 borderRadius: '16px',
-                background: 'linear-gradient(135deg, var(--orange) 0%, var(--orange-dark) 100%)',
+                background: 'linear-gradient(135deg, var(--pos-primary) 0%, var(--pos-primary-hover) 100%)',
                 color: '#fff',
                 display: 'flex',
                 alignItems: 'center',
@@ -290,39 +308,41 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess 
               }}>
                 <ShieldCheck size={28} />
               </div>
-              <h3 style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: 800, color: 'var(--ink)' }}>
+              <h3 style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: 900, color: 'var(--pos-text-main)' }}>
                 Modo Administrador General
               </h3>
-              <p style={{ margin: 0, fontSize: '12px', color: 'var(--muted)' }}>
-                Acceso a todas las asesoras, cuadres consolidados y Hub Maestro de Credenciales.
+              <p style={{ margin: 0, fontSize: '12px', color: 'var(--pos-text-muted)' }}>
+                Acceso a todas las asesoras, cuadres consolidados y Hub Maestro.
               </p>
             </div>
 
             {errorMsg && (
-              <div className="pos-lock-error-banner" style={{ marginBottom: '14px' }}>
-                <AlertCircle size={15} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', borderRadius: '10px', background: 'var(--pos-danger-soft)', color: 'var(--pos-danger-dark)', fontSize: '12.5px', fontWeight: 700, border: '1px solid var(--pos-danger-border)' }}>
+                <AlertCircle size={16} />
                 <span>{errorMsg}</span>
               </div>
             )}
 
-            <div className="pos-form-group" style={{ marginBottom: '16px' }}>
-              <label>PIN Maestro o Contraseña Admin</label>
+            <div>
+              <label className="pos-label required">PIN Maestro o Contraseña Admin</label>
               <input
                 type="password"
                 autoFocus
-                placeholder="Ingresa clave o PIN maestro (ej. 0000)"
+                className="pos-input"
+                placeholder="Ingresa clave de demostración (gigaprint)"
                 value={adminPass}
                 onChange={(e) => {
                   setAdminPass(e.target.value);
                   setErrorMsg('');
                 }}
-                style={{ fontSize: '16px', padding: '12px 14px' }}
+                style={{ fontSize: '15px', padding: '12px 14px' }}
               />
             </div>
 
             <button
               type="submit"
-              className="pos-unlock-submit-btn"
+              className="pos-add-cart-btn"
+              style={{ padding: '14px', fontSize: '15px' }}
             >
               <span>Entrar como Administrador</span>
               <ArrowRight size={18} />

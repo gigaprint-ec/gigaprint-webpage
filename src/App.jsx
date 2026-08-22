@@ -11,6 +11,8 @@ import { POSPage } from './pages/pos/POSPage';
 import { POSAdminDashboard } from './pages/pos/POSAdminDashboard';
 import { POSAdvisorsManagement } from './pages/pos/POSAdvisorsManagement';
 import { OrderTrackingPage } from './pages/pos/OrderTrackingPage';
+import { LiveScaleVisualizer } from './components/studio/LiveScaleVisualizer';
+import { MaterialFinishPicker } from './components/studio/MaterialFinishPicker';
 const EditorPage = lazy(() => import('./pages/EditorPage').then((module) => ({ default: module.EditorPage })));
 
 function HomePage() {
@@ -714,6 +716,14 @@ function SmartProductDetailPage() {
                 <div className="detail-area-tag">
                   Área unitaria: {quote.area.toFixed(2)} m² · Tarifa: {money(quote.rate)} / m²
                 </div>
+                <div style={{ marginTop: '16px', marginBottom: '16px' }}>
+                  <LiveScaleVisualizer
+                    widthCm={widthCm}
+                    heightCm={heightCm}
+                    productName={product.name}
+                    category={product.category}
+                  />
+                </div>
               </div>
             )}
 
@@ -1210,6 +1220,15 @@ function SmartQuotePage() {
                     </div>
                   )}
                 </div>
+
+                {isArea && (
+                  <div style={{ marginTop: '20px' }}>
+                    <MaterialFinishPicker
+                      selectedMaterialId={selection.material || 'lona-13oz'}
+                      onSelectMaterial={(mat) => setSelection((curr) => ({ ...curr, material: mat.id, sustrato: mat.name }))}
+                    />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1273,37 +1292,16 @@ function SmartQuotePage() {
                     </label>
                   </div>
 
-                  {/* 2D Proportional Canvas Aspect Preview */}
-                  <div className="quote-proportional-canvas-wrap">
-                    <div className="canvas-header">
-                      <span><Sparkles size={14} /> Vista previa de proporción y acabados</span>
-                      <small>{widthCm > heightCm ? 'Formato Horizontal' : widthCm === heightCm ? 'Formato Cuadrado' : 'Formato Vertical'}</small>
-                    </div>
-                    <div className="canvas-viewport">
-                      <div
-                        className={`proportional-banner ${finishing !== 'none' ? 'with-finishing' : ''}`}
-                        style={{
-                          aspectRatio: `${Math.max(10, widthCm)} / ${Math.max(10, heightCm)}`,
-                          maxWidth: '100%',
-                          maxHeight: '160px'
-                        }}
-                      >
-                        {canvasGrommets.map((grommet) => (
-                          <span
-                            key={grommet.key}
-                            className={`canvas-grommet ${finishing === 'large' ? 'large' : ''} ${grommet.className || ''}`}
-                            style={grommet.style}
-                          />
-                        ))}
-                        <div className="canvas-inner-label">
-                          <strong>{selectedProduct?.name}</strong>
-                          <span>{widthCm} × {heightCm} cm · {quote.area.toFixed(2)} m²</span>
-                          {(finishing === 'small' || finishing === 'large') && (
-                            <small style={{ fontSize: '9px', opacity: 0.85 }}>{effectiveEyeletCount} ojales {finishing === 'small' ? 'pequeños' : 'grandes'}</small>
-                          )}
-                        </div>
-                      </div>
-                    </div>
+                  {/* Interactive Scale Visualizer */}
+                  <div style={{ marginTop: '14px', marginBottom: '14px' }}>
+                    <LiveScaleVisualizer
+                      widthCm={widthCm}
+                      heightCm={heightCm}
+                      eyeletMode={finishing === 'none' || finishing === 'bolsillo' ? 'none' : eyeletPreset === 'corners' ? '4-corners' : eyeletPreset === 'every50' ? 'perimeter-50' : eyeletPreset === 'every30' ? 'perimeter-30' : 'custom'}
+                      customEyeletCount={effectiveEyeletCount}
+                      productName={selectedProduct?.name}
+                      category={selectedProduct?.category}
+                    />
                   </div>
 
                   <div className="quote-insight">
