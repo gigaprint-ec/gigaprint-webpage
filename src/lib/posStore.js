@@ -333,6 +333,30 @@ export async function syncEntityRemote(tableName, record) {
   }
 }
 
+// Async Remote Delete Engine for individual entities
+export async function deleteEntityRemote(tableName, id) {
+  if (!hasSupabase || !supabase) return { ok: false, error: 'No Supabase connection' };
+  try {
+    setSyncStatus('syncing');
+    const { error } = await supabase
+      .from(tableName)
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.warn(`[Supabase Delete Warn] ${tableName}:`, error.message);
+      setSyncStatus('error');
+      return { ok: false, error: error.message };
+    }
+    setSyncStatus('synced');
+    return { ok: true };
+  } catch (e) {
+    console.error(`[Supabase Delete Exception] ${tableName}:`, e);
+    setSyncStatus('error');
+    return { ok: false, error: e.message };
+  }
+}
+
 // Remote Batch Fetch Engine to hydrate and merge from Supabase
 export async function fetchRemotePOSStore() {
   if (!hasSupabase || !supabase) return loadPOSStore();
@@ -426,11 +450,109 @@ export function subscribePOSRealtime(onUpdate) {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'pos_customer_activity_logs' }, () => {
       fetchRemotePOSStore().then(onUpdate);
     })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'pos_advisors' }, () => {
+      fetchRemotePOSStore().then(onUpdate);
+    })
     .subscribe();
 
   return () => {
     supabase.removeChannel(channel);
   };
+}
+
+// Advisor CRUD & Realtime Sync Engine
+export function createPOSAdvisor(store, advisorData) {
+  const currentMonday = getMondayOfWeek();
+  const currentWeekCode = getISOWeekCode();
+  const rawName = String(advisorData.name || '').trim();
+  const firstName = rawName.split(' ')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+  const pin = String(advisorData.pin || advisorData.weeklyPin || Math.floor(100000 + Math.random() * 900000)).trim();
+  const weeklyPassword = advisorData.weeklyPassword || `${firstName || 'asesora'}-${pin}`;
+
+  const newAdvisor = {
+    id: advisorData.id || `adv-${Date.now()}`,
+    name: rawName,
+    email: advisorData.email ? advisorData.email.trim() : `${firstName || 'asesora'}@gigaprint.ec`,
+    phone: advisorData.phone ? advisorData.phone.trim() : '',
+    role: advisorData.role || 'asesora',
+    pin,
+    weeklyPin: pin,
+    weeklyPassword,
+    weeklyGoal: Number(advisorData.weeklyGoal) || 3200,
+    isActive: advisorData.isActive !== false,
+    currentWeekCode,
+    pinLastRotatedAt: currentMonday
+  };
+
+  const updatedAdvisors = [...(store.advisors || []), newAdvisor];
+  const nextStore = {
+    ...store,
+    advisors: updatedAdvisors,
+    lastUpdated: new Date().toISOString()
+  };
+
+  savePOSStoreLocal(nextStore);
+  syncEntityRemote('pos_advisors', newAdvisor);
+  return { nextStore, newAdvisor };
+}
+
+export function updatePOSAdvisor(store, advisorId, updates) {
+  let updatedAdvisor = null;
+  const currentMonday = getMondayOfWeek();
+  const currentWeekCode = getISOWeekCode();
+
+  const updatedAdvisors = (store.advisors || []).map((adv) => {
+    if (adv.id === advisorId) {
+      const pin = updates.pin || updates.weeklyPin || adv.weeklyPin || adv.pin;
+      const firstName = (updates.name || adv.name).split(' ')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+      const weeklyPassword = updates.weeklyPassword || `${firstName || 'asesora'}-${pin}`;
+
+      const merged = {
+        ...adv,
+        ...updates,
+        pin,
+        weeklyPin: pin,
+        weeklyPassword,
+        weeklyGoal: updates.weeklyGoal !== undefined ? Number(updates.weeklyGoal) : adv.weeklyGoal,
+        isActive: updates.isActive !== undefined ? updates.isActive : adv.isActive,
+        currentWeekCode: adv.currentWeekCode || currentWeekCode,
+        pinLastRotatedAt: adv.pinLastRotatedAt || currentMonday
+      };
+      updatedAdvisor = merged;
+      return merged;
+    }
+    return adv;
+  });
+
+  const nextStore = {
+    ...store,
+    advisors: updatedAdvisors,
+    lastUpdated: new Date().toISOString()
+  };
+
+  savePOSStoreLocal(nextStore);
+  if (updatedAdvisor) {
+    syncEntityRemote('pos_advisors', updatedAdvisor);
+  }
+  return { nextStore, updatedAdvisor };
+}
+
+export function deletePOSAdvisor(store, advisorId) {
+  const updatedAdvisors = (store.advisors || []).filter((adv) => adv.id !== advisorId);
+  const nextStore = {
+    ...store,
+    advisors: updatedAdvisors,
+    lastUpdated: new Date().toISOString()
+  };
+
+  savePOSStoreLocal(nextStore);
+  deleteEntityRemote('pos_advisors', advisorId);
+  return nextStore;
+}
+
+export function regeneratePOSAdvisorPIN(store, advisorId) {
+  const newPin = String(Math.floor(100000 + Math.random() * 900000));
+  return updatePOSAdvisor(store, advisorId, { pin: newPin, weeklyPin: newPin });
 }
 
 // POS Session Management

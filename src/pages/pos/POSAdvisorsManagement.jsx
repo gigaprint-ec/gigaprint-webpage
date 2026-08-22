@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Users,
   Plus,
@@ -18,7 +18,12 @@ import {
   MessageCircle,
   Calendar,
   Lock,
-  Sparkles
+  Sparkles,
+  Search,
+  Dices,
+  Cloud,
+  CheckCheck,
+  Smartphone
 } from 'lucide-react';
 import {
   loadPOSStore,
@@ -27,7 +32,12 @@ import {
   getISOWeekCode,
   rotateAdvisorsCredentials,
   formatWeeklyCredentialsText,
-  toISODate
+  createPOSAdvisor,
+  updatePOSAdvisor,
+  deletePOSAdvisor,
+  regeneratePOSAdvisorPIN,
+  fetchRemotePOSStore,
+  subscribePOSRealtime
 } from '../../lib/posStore';
 
 export function POSAdvisorsManagement() {
@@ -36,11 +46,38 @@ export function POSAdvisorsManagement() {
   const [editingAdvisor, setEditingAdvisor] = useState(null);
   const [copiedAll, setCopiedAll] = useState(false);
   const [copiedSingleId, setCopiedSingleId] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedRoleFilter, setSelectedRoleFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all'); // all, active, inactive
+  const [toastMessage, setToastMessage] = useState('');
+
+  const currentMonday = getMondayOfWeek();
+  const currentWeekCode = getISOWeekCode();
+
+  // Load from remote Supabase on mount and subscribe to Realtime changes
+  useEffect(() => {
+    fetchRemotePOSStore().then((remote) => {
+      if (remote && remote.advisors) setStore(remote);
+    });
+
+    const unsubscribe = subscribePOSRealtime((updatedStore) => {
+      if (updatedStore && updatedStore.advisors) setStore(updatedStore);
+    });
+
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
+  }, []);
+
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(''), 3500);
+  };
 
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    pin: '123456',
+    pin: '',
     weeklyPin: '',
     weeklyPassword: '',
     phone: '',
@@ -49,14 +86,15 @@ export function POSAdvisorsManagement() {
     isActive: true
   });
 
-  const currentMonday = getMondayOfWeek();
-  const currentWeekCode = getISOWeekCode();
-
   const money = (val) => `$${(Number(val) || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+
+  const generateRandom6DigitPIN = () => {
+    return String(Math.floor(100000 + Math.random() * 900000));
+  };
 
   const openCreateModal = () => {
     setEditingAdvisor(null);
-    const tempPin = String(Math.floor(100000 + Math.random() * 900000));
+    const tempPin = generateRandom6DigitPIN();
     setFormData({
       name: '',
       email: '',
@@ -73,12 +111,13 @@ export function POSAdvisorsManagement() {
 
   const openEditModal = (advisor) => {
     setEditingAdvisor(advisor);
+    const pin = advisor.weeklyPin || advisor.pin || generateRandom6DigitPIN();
     setFormData({
       name: advisor.name || '',
       email: advisor.email || '',
-      pin: advisor.weeklyPin || advisor.pin || '123456',
-      weeklyPin: advisor.weeklyPin || advisor.pin || '123456',
-      weeklyPassword: advisor.weeklyPassword || `${advisor.name.toLowerCase()}-${advisor.pin || '123456'}`,
+      pin,
+      weeklyPin: pin,
+      weeklyPassword: advisor.weeklyPassword || `${(advisor.name || 'asesora').split(' ')[0].toLowerCase()}-${pin}`,
       phone: advisor.phone || '',
       role: advisor.role || 'asesora',
       weeklyGoal: advisor.weeklyGoal || 3200,
@@ -91,66 +130,69 @@ export function POSAdvisorsManagement() {
     e.preventDefault();
     if (!formData.name.trim()) return;
 
-    let updatedAdvisors;
-    if (editingAdvisor) {
-      updatedAdvisors = store.advisors.map((a) =>
-        a.id === editingAdvisor.id
-          ? {
-              ...a,
-              ...formData,
-              pin: formData.weeklyPin || formData.pin,
-              weeklyPin: formData.weeklyPin || formData.pin,
-              weeklyPassword: formData.weeklyPassword,
-              weeklyGoal: Number(formData.weeklyGoal) || 3200
-            }
-          : a
-      );
-    } else {
-      const newAdv = {
-        id: `adv-${Date.now()}`,
-        ...formData,
-        pin: formData.weeklyPin || formData.pin,
-        weeklyPin: formData.weeklyPin || formData.pin,
-        weeklyPassword: formData.weeklyPassword,
-        currentWeekCode,
-        pinLastRotatedAt: currentMonday,
-        weeklyGoal: Number(formData.weeklyGoal) || 3200
-      };
-      updatedAdvisors = [...store.advisors, newAdv];
+    let pin = String(formData.weeklyPin || formData.pin || generateRandom6DigitPIN()).trim();
+    if (pin.length !== 6 || isNaN(Number(pin))) {
+      pin = generateRandom6DigitPIN();
     }
 
-    const nextState = { ...store, advisors: updatedAdvisors };
-    setStore(nextState);
-    savePOSStore(nextState);
+    const payload = {
+      ...formData,
+      pin,
+      weeklyPin: pin,
+      weeklyPassword: formData.weeklyPassword || `${formData.name.split(' ')[0].toLowerCase() || 'asesora'}-${pin}`,
+      weeklyGoal: Number(formData.weeklyGoal) || 3200
+    };
+
+    if (editingAdvisor) {
+      const { nextStore } = updatePOSAdvisor(store, editingAdvisor.id, payload);
+      setStore(nextStore);
+      showToast(`✅ Asesor(a) "${formData.name}" actualizado y sincronizado en la base de datos.`);
+    } else {
+      const { nextStore } = createPOSAdvisor(store, payload);
+      setStore(nextStore);
+      showToast(`🎉 Nuevo asesor(a) "${formData.name}" creado con PIN de 6 dígitos.`);
+    }
+
     setIsModalOpen(false);
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm('¿Estás seguro de eliminar esta asesora del sistema?')) {
-      const updatedAdvisors = store.advisors.filter((a) => a.id !== id);
-      const nextState = { ...store, advisors: updatedAdvisors };
-      setStore(nextState);
-      savePOSStore(nextState);
+  const handleDelete = (advisor) => {
+    const confirmMsg = `¿Estás seguro de eliminar a "${advisor.name}" del sistema?\n\nEsta acción eliminará sus credenciales de la base de datos, de la nube Supabase y de la pantalla de bloqueo de todas las terminales.`;
+    if (window.confirm(confirmMsg)) {
+      const nextStore = deletePOSAdvisor(store, advisor.id);
+      setStore(nextStore);
+      showToast(`🗑️ "${advisor.name}" ha sido eliminado del sistema y de todas las bases de datos.`);
     }
   };
 
   const toggleActive = (advisor) => {
-    const updatedAdvisors = store.advisors.map((a) =>
-      a.id === advisor.id ? { ...a, isActive: !a.isActive } : a
-    );
-    const nextState = { ...store, advisors: updatedAdvisors };
-    setStore(nextState);
-    savePOSStore(nextState);
+    const nextState = !advisor.isActive;
+    const { nextStore } = updatePOSAdvisor(store, advisor.id, { isActive: nextState });
+    setStore(nextStore);
+    showToast(nextState ? `🟢 "${advisor.name}" ahora está activa para ventas.` : `⏸️ "${advisor.name}" ha sido pausada.`);
+  };
+
+  const handleRegeneratePIN = (advisor) => {
+    const newPin = generateRandom6DigitPIN();
+    const { nextStore } = updatePOSAdvisor(store, advisor.id, {
+      pin: newPin,
+      weeklyPin: newPin,
+      weeklyPassword: `${advisor.name.split(' ')[0].toLowerCase()}-${newPin}`
+    });
+    setStore(nextStore);
+    showToast(`🎲 Nuevo PIN de 6 dígitos (${newPin}) asignado a "${advisor.name}".`);
   };
 
   // Force Rotate Credentials for all advisors
   const handleForceRotate = () => {
-    if (window.confirm('¿Deseas generar y rotar nuevas contraseñas y PINs para todas las asesoras ahora mismo?')) {
+    if (window.confirm('¿Deseas generar y rotar nuevas contraseñas y PINs de 6 dígitos para todas las asesoras ahora mismo?')) {
       const rotated = rotateAdvisorsCredentials(store.advisors, true);
-      const nextState = { ...store, advisors: rotated };
+      const nextState = { ...store, advisors: rotated, lastUpdated: new Date().toISOString() };
       setStore(nextState);
       savePOSStore(nextState);
-      alert('¡Credenciales semanales rotadas con éxito! Puedes copiarlas y compartirlas con el equipo.');
+      // Remote sync all rotated
+      rotated.forEach((adv) => updatePOSAdvisor(nextState, adv.id, adv));
+      showToast('🔄 ¡PINs de 6 dígitos rotados con éxito para todo el equipo!');
     }
   };
 
@@ -160,9 +202,10 @@ export function POSAdvisorsManagement() {
     navigator.clipboard.writeText(text);
     setCopiedAll(true);
     setTimeout(() => setCopiedAll(false), 3000);
+    showToast('📋 Credenciales de todo el equipo copiadas al portapapeles.');
   };
 
-  // Share to WhatsApp Web
+  // Share to WhatsApp Web (All)
   const handleShareWhatsApp = () => {
     const text = formatWeeklyCredentialsText(store.advisors, currentMonday);
     const encoded = encodeURIComponent(text);
@@ -170,53 +213,109 @@ export function POSAdvisorsManagement() {
   };
 
   // Copy Single Advisor Credential
-  const handleCopySingle = (advisor, index) => {
-    const text = `🔑 Credencial Gigaprint (${currentWeekCode})\n👤 Asesora: ${advisor.name}\n🔢 PIN: ${advisor.weeklyPin || advisor.pin}\n🔐 Clave: ${advisor.weeklyPassword}\n🌐 Acceso: https://gigaprint-ec.github.io/gigaprint-webpage/#/admin/pos`;
+  const handleCopySingle = (advisor) => {
+    const text = `🔐 *GIGAPRINT — CREDENCIAL DE ACCESO POS*\n👤 *Asesora:* ${advisor.name}\n🔢 *PIN de Caja (6 dígitos):* ${advisor.weeklyPin || advisor.pin}\n🔑 *Clave Semanal:* ${advisor.weeklyPassword}\n🎯 *Meta Semanal:* $${advisor.weeklyGoal || 3200}\n\n🌐 *Terminal de Caja:* https://gigaprint-ec.github.io/gigaprint-webpage/caja`;
     navigator.clipboard.writeText(text);
     setCopiedSingleId(advisor.id);
     setTimeout(() => setCopiedSingleId(null), 2500);
+    showToast(`📋 Credencial de "${advisor.name}" copiada.`);
   };
 
-  const activeCount = store.advisors.filter((a) => a.isActive).length;
-  const totalWeeklyGoal = store.advisors
-    .filter((a) => a.isActive)
+  // Send Direct WhatsApp to single advisor
+  const handleSendAdvisorWhatsApp = (advisor) => {
+    const phone = (advisor.phone || '').replace(/[^0-9]/g, '');
+    const cleanPhone = phone.startsWith('0') ? `593${phone.substring(1)}` : (phone.startsWith('593') ? phone : `593${phone}`);
+    const text = `Hola ${advisor.name} 👋,\n\nTe comparto tu PIN de acceso de 6 dígitos al POS de Gigaprint para esta semana (${currentWeekCode}):\n\n🔢 *PIN de Caja:* ${advisor.weeklyPin || advisor.pin}\n🔑 *Clave:* ${advisor.weeklyPassword}\n🎯 *Meta Semanal:* $${advisor.weeklyGoal || 3200}\n\nIngresa directamente aquí: https://gigaprint-ec.github.io/gigaprint-webpage/caja`;
+    const url = phone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}` : `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+  };
+
+  // Filtered Advisors List
+  const filteredAdvisors = (store.advisors || []).filter((adv) => {
+    const matchesSearch =
+      !searchQuery.trim() ||
+      adv.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (adv.email && adv.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (adv.phone && adv.phone.includes(searchQuery)) ||
+      (adv.weeklyPin && adv.weeklyPin.includes(searchQuery));
+
+    const matchesRole = selectedRoleFilter === 'all' || adv.role === selectedRoleFilter;
+    const matchesStatus =
+      statusFilter === 'all' ||
+      (statusFilter === 'active' && adv.isActive !== false) ||
+      (statusFilter === 'inactive' && adv.isActive === false);
+
+    return matchesSearch && matchesRole && matchesStatus;
+  });
+
+  const activeCount = (store.advisors || []).filter((a) => a.isActive !== false).length;
+  const totalWeeklyGoal = (store.advisors || [])
+    .filter((a) => a.isActive !== false)
     .reduce((sum, a) => sum + Number(a.weeklyGoal || 0), 0);
 
   return (
     <div className="pos-container">
-      {/* Top Banner & Stats */}
-      <div className="pos-top-bar">
+      {/* Toast Notification Alert */}
+      {toastMessage && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
+          zIndex: 10000,
+          background: 'var(--ink)',
+          color: '#ffffff',
+          padding: '12px 20px',
+          borderRadius: '12px',
+          boxShadow: '0 10px 30px rgba(0,0,0,0.35)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          fontSize: '13.5px',
+          fontWeight: 700,
+          border: '1px solid rgba(255,255,255,0.15)',
+          animation: 'posSlideIn 0.3s ease'
+        }}>
+          <CheckCheck size={18} style={{ color: '#22c55e' }} />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* Top Header Bar */}
+      <div className="pos-top-bar" style={{ flexWrap: 'wrap', gap: '14px' }}>
         <div className="pos-brand-badge">
           <h1>
             <Users size={22} style={{ color: 'var(--orange)' }} />
-            Gestión de Asesoras Comerciales
+            Gestión de Asesores & Equipo
           </h1>
-          <span>{store.advisors.length} Asesoras Registradas</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>{store.advisors.length} Registrados</span>
+            <span className="pos-sync-pill synced" style={{ padding: '3px 8px', fontSize: '11px' }}>
+              <Cloud size={12} /> Supabase Realtime
+            </span>
+          </div>
         </div>
 
-        <div className="pos-top-actions">
-          <div style={{ display: 'flex', gap: '16px', marginRight: '8px', fontSize: '13px' }}>
-            <span>Activas: <b>{activeCount}</b></span>
-            <span>Meta Global Semanal: <b style={{ color: 'var(--orange-dark)' }}>{money(totalWeeklyGoal)}</b></span>
+        <div className="pos-top-actions" style={{ flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ display: 'flex', gap: '14px', alignItems: 'center', fontSize: '13px' }}>
+            <span>Activos: <b style={{ color: '#16a34a' }}>{activeCount}</b></span>
+            <span>Meta Semanal: <b style={{ color: 'var(--orange-dark)' }}>{money(totalWeeklyGoal)}</b></span>
           </div>
           <button
             type="button"
             className="pos-submit-order-btn"
-            style={{ padding: '10px 18px', fontSize: '13px' }}
+            style={{ padding: '10px 18px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
             onClick={openCreateModal}
           >
-            <Plus size={16} /> Nueva Asesora
+            <Plus size={17} /> Añadir Asesor(a)
           </button>
         </div>
       </div>
 
-      {/* =========================================================================
-          WEEKLY CREDENTIALS ROTATION HUB
-          ========================================================================= */}
+      {/* Weekly Credentials Broadcast Banner */}
       <div className="pos-card" style={{
         background: 'linear-gradient(135deg, rgba(234, 88, 12, 0.08) 0%, rgba(251, 146, 60, 0.03) 100%)',
         border: '1.5px solid rgba(234, 88, 12, 0.35)',
-        marginBottom: '8px'
+        marginBottom: '12px'
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
           <div>
@@ -225,14 +324,14 @@ export function POSAdvisorsManagement() {
                 <Calendar size={12} /> SEMANA {currentWeekCode}
               </span>
               <span style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>
-                Renovadas automáticamente el Lunes {currentMonday}
+                Válidas desde Lun {currentMonday} (PINs de 6 Dígitos)
               </span>
             </div>
-            <h2 style={{ margin: '0 0 6px', fontSize: '18px', fontWeight: 900, color: 'var(--ink)' }}>
-              🔑 Credenciales y PINs Semanales de Acceso
+            <h2 style={{ margin: '0 0 6px', fontSize: '17px', fontWeight: 900, color: 'var(--ink)' }}>
+              🔑 Credenciales y PINs Semanales de Caja (6 Dígitos)
             </h2>
             <p style={{ margin: 0, fontSize: '13px', color: 'var(--muted)', maxWidth: '640px' }}>
-              Cada lunes a las 00:00 se genera una nueva contraseña y PIN para cada asesora comercial. Copia y comparte las credenciales para que ingresen al Punto de Venta y registren sus ventas.
+              Cualquier asesor que añadas, edites o elimines se actualiza automáticamente en Supabase y en la pantalla de bloqueo de todas las cajas del taller.
             </p>
           </div>
 
@@ -244,7 +343,7 @@ export function POSAdvisorsManagement() {
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '8px',
-                padding: '10px 18px',
+                padding: '10px 16px',
                 borderRadius: '10px',
                 border: '1.5px solid var(--orange)',
                 background: copiedAll ? '#16a34a' : 'var(--orange)',
@@ -257,7 +356,7 @@ export function POSAdvisorsManagement() {
               }}
             >
               {copiedAll ? <Check size={16} /> : <Copy size={16} />}
-              {copiedAll ? '¡Copiado al portapapeles!' : 'Copiar Credenciales'}
+              {copiedAll ? '¡Copiado!' : 'Copiar Credenciales'}
             </button>
 
             <button
@@ -277,13 +376,13 @@ export function POSAdvisorsManagement() {
                 cursor: 'pointer'
               }}
             >
-              <MessageCircle size={16} /> Enviar a WhatsApp
+              <MessageCircle size={16} /> WhatsApp Equipo
             </button>
 
             <button
               type="button"
               onClick={handleForceRotate}
-              title="Generar nuevas credenciales ahora mismo"
+              title="Generar nuevos PINs de 6 dígitos ahora mismo"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -298,73 +397,78 @@ export function POSAdvisorsManagement() {
                 cursor: 'pointer'
               }}
             >
-              <RefreshCw size={14} /> Rotar Ahora
+              <RefreshCw size={14} /> Rotar PINs Lunes
             </button>
           </div>
         </div>
+      </div>
 
-        {/* Quick Advisor Key Strip */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-          gap: '10px',
-          marginTop: '16px',
-          paddingTop: '16px',
-          borderTop: '1px dashed rgba(234, 88, 12, 0.25)'
-        }}>
-          {store.advisors.map((adv, idx) => (
-            <div
-              key={adv.id}
-              style={{
-                padding: '8px 12px',
-                borderRadius: '8px',
-                background: 'var(--paper)',
-                border: '1px solid var(--line)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-              }}
+      {/* Filters & Search Control Strip */}
+      <div className="pos-card" style={{ padding: '12px 16px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+        {/* Search Input */}
+        <div style={{ position: 'relative', flex: '1', minWidth: '220px', maxWidth: '400px' }}>
+          <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
+          <input
+            type="text"
+            placeholder="Buscar por nombre, correo, teléfono o PIN..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '9px 12px 9px 36px',
+              borderRadius: '10px',
+              border: '1px solid var(--line)',
+              background: 'var(--bg)',
+              color: 'var(--ink)',
+              fontSize: '13px',
+              outline: 'none'
+            }}
+          />
+        </div>
+
+        {/* Role & Status Filter Pills */}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 700 }}>Rol:</span>
+          {['all', 'asesora', 'cajera', 'disenador', 'supervisor'].map((role) => (
+            <button
+              key={role}
+              type="button"
+              className={`pos-cat-pill ${selectedRoleFilter === role ? 'active' : ''}`}
+              style={{ padding: '6px 12px', fontSize: '12px', textTransform: 'capitalize' }}
+              onClick={() => setSelectedRoleFilter(role)}
             >
-              <div>
-                <b style={{ fontSize: '13px', display: 'block', color: 'var(--ink)' }}>
-                  {adv.name}
-                </b>
-                <span style={{ fontSize: '11px', color: 'var(--muted)' }}>
-                  PIN: <code style={{ fontWeight: 800, color: 'var(--orange-dark)', background: 'var(--orange-soft)', padding: '1px 5px', borderRadius: '4px' }}>{adv.weeklyPin || adv.pin || '123456'}</code>
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => handleCopySingle(adv, idx)}
-                title="Copiar credencial individual"
-                style={{
-                  border: 0,
-                  background: copiedSingleId === adv.id ? '#dcfce7' : 'var(--bg)',
-                  color: copiedSingleId === adv.id ? '#166534' : 'var(--ink)',
-                  padding: '6px',
-                  borderRadius: '6px',
-                  cursor: 'pointer'
-                }}
-              >
-                {copiedSingleId === adv.id ? <Check size={14} /> : <Copy size={14} />}
-              </button>
-            </div>
+              {role === 'all' ? 'Todos' : (role === 'disenador' ? 'Diseño' : role)}
+            </button>
+          ))}
+
+          <div style={{ height: '20px', width: '1px', background: 'var(--line)', margin: '0 4px' }} />
+
+          {/* Status filter */}
+          {['all', 'active', 'inactive'].map((st) => (
+            <button
+              key={st}
+              type="button"
+              className={`pos-cat-pill ${statusFilter === st ? 'active' : ''}`}
+              style={{ padding: '6px 10px', fontSize: '11px' }}
+              onClick={() => setStatusFilter(st)}
+            >
+              {st === 'all' ? 'Ver Todos' : (st === 'active' ? 'Activos' : 'Pausados')}
+            </button>
           ))}
         </div>
       </div>
 
       {/* =========================================================================
-          ADVISORS GRID CARDS
+          ADVISORS GRID CARDS (DYNAMIC CRUD)
           ========================================================================= */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-        gap: '20px',
-        marginTop: '16px'
+        gap: '16px'
       }}>
-        {store.advisors.map((advisor, idx) => {
+        {filteredAdvisors.map((advisor, idx) => {
           const initials = advisor.name.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase();
-          const advisorOrders = store.orders.filter((o) => o.advisorId === advisor.id);
+          const advisorOrders = (store.orders || []).filter((o) => o.advisorId === advisor.id);
           const totalSales = advisorOrders.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
 
           return (
@@ -374,57 +478,95 @@ export function POSAdvisorsManagement() {
               style={{
                 display: 'grid',
                 gap: '14px',
-                opacity: advisor.isActive ? 1 : 0.6,
-                borderLeft: advisor.isActive ? '4px solid var(--orange)' : '4px solid var(--muted)'
+                opacity: advisor.isActive !== false ? 1 : 0.6,
+                borderLeft: advisor.isActive !== false ? '4px solid var(--orange)' : '4px solid var(--muted)',
+                position: 'relative'
               }}
             >
+              {/* Header: Avatar, Name, Role & Quick Actions */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div style={{
-                    width: '44px',
-                    height: '44px',
-                    borderRadius: '12px',
-                    background: advisor.isActive ? 'linear-gradient(135deg, var(--orange) 0%, var(--orange-dark) 100%)' : 'var(--line)',
+                    width: '46px',
+                    height: '46px',
+                    borderRadius: '13px',
+                    background: advisor.isActive !== false ? 'linear-gradient(135deg, var(--orange) 0%, var(--orange-dark) 100%)' : 'var(--line)',
                     color: '#fff',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     fontWeight: 900,
-                    fontSize: '15px'
+                    fontSize: '16px'
                   }}>
                     {initials}
                   </div>
                   <div>
-                    <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 800, color: 'var(--ink)' }}>
+                    <h3 style={{ margin: 0, fontSize: '15.5px', fontWeight: 800, color: 'var(--ink)' }}>
                       {advisor.name}
                     </h3>
-                    <small style={{ color: 'var(--muted)', fontSize: '11px', textTransform: 'uppercase', fontWeight: 700 }}>
-                      Asesora Comercial #{idx + 1}
-                    </small>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '2px' }}>
+                      <span style={{
+                        fontSize: '10.5px',
+                        padding: '1px 6px',
+                        borderRadius: '4px',
+                        background: 'var(--bg)',
+                        border: '1px solid var(--line)',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        color: 'var(--muted)'
+                      }}>
+                        {advisor.role || 'asesora'}
+                      </span>
+                      <small style={{ color: 'var(--muted)', fontSize: '11px' }}>
+                        #{idx + 1}
+                      </small>
+                    </div>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '6px' }}>
+                {/* Edit & Delete Action Buttons */}
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                   <button
                     type="button"
                     onClick={() => openEditModal(advisor)}
-                    style={{ border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--ink)', padding: '4px' }}
-                    title="Editar asesora"
+                    style={{
+                      border: '1px solid var(--line)',
+                      background: 'var(--paper)',
+                      cursor: 'pointer',
+                      color: 'var(--ink)',
+                      padding: '7px',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                    title="Editar datos del asesor"
                   >
                     <Edit2 size={15} />
                   </button>
+
                   <button
                     type="button"
-                    onClick={() => handleDelete(advisor.id)}
-                    style={{ border: 0, background: 'transparent', cursor: 'pointer', color: '#dc2626', padding: '4px' }}
-                    title="Eliminar asesora"
+                    onClick={() => handleDelete(advisor)}
+                    style={{
+                      border: '1px solid rgba(220, 38, 38, 0.2)',
+                      background: '#fef2f2',
+                      cursor: 'pointer',
+                      color: '#dc2626',
+                      padding: '7px',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                    title="Eliminar asesor de todas las bases de datos"
                   >
                     <Trash2 size={15} />
                   </button>
                 </div>
               </div>
 
-              {/* Weekly Credential Highlight Box */}
+              {/* Weekly 6-Digit PIN Credential Box */}
               <div style={{
                 background: 'var(--bg)',
                 padding: '10px 14px',
@@ -436,47 +578,94 @@ export function POSAdvisorsManagement() {
               }}>
                 <div>
                   <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', display: 'block' }}>
-                    Credencial Semanal ({currentWeekCode})
+                    PIN DE CAJA ({currentWeekCode})
                   </span>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '2px' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--ink)' }}>
-                      PIN (6d): <code style={{ color: 'var(--orange-dark)', background: 'var(--orange-soft)', padding: '2px 6px', borderRadius: '4px' }}>{advisor.weeklyPin || advisor.pin || '123456'}</code>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '3px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 900, color: 'var(--ink)' }}>
+                      PIN: <code style={{ color: 'var(--orange-dark)', background: 'var(--orange-soft)', padding: '2px 7px', borderRadius: '5px', fontSize: '13px', letterSpacing: '1px' }}>{advisor.weeklyPin || advisor.pin || '123456'}</code>
                     </span>
                     <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
                       Clave: <b>{advisor.weeklyPassword || `${advisor.name.toLowerCase()}-123456`}</b>
                     </span>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleCopySingle(advisor, idx)}
-                  style={{
-                    border: 0,
-                    background: copiedSingleId === advisor.id ? '#dcfce7' : 'var(--paper)',
-                    color: copiedSingleId === advisor.id ? '#166534' : 'var(--orange-dark)',
-                    padding: '6px 10px',
-                    borderRadius: '6px',
-                    fontSize: '11px',
-                    fontWeight: 800,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
-                >
-                  {copiedSingleId === advisor.id ? <Check size={13} /> : <Copy size={13} />}
-                  {copiedSingleId === advisor.id ? '¡Copiado!' : 'Copiar'}
-                </button>
+
+                <div style={{ display: 'flex', gap: '5px' }}>
+                  {/* Regenerate PIN button */}
+                  <button
+                    type="button"
+                    onClick={() => handleRegeneratePIN(advisor)}
+                    title="Generar nuevo PIN de 6 dígitos aleatorio"
+                    style={{
+                      border: '1px solid var(--line)',
+                      background: 'var(--paper)',
+                      color: 'var(--ink)',
+                      padding: '6px 8px',
+                      borderRadius: '6px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    <Dices size={13} style={{ color: 'var(--orange)' }} /> PIN
+                  </button>
+
+                  {/* Copy Credential */}
+                  <button
+                    type="button"
+                    onClick={() => handleCopySingle(advisor)}
+                    style={{
+                      border: 0,
+                      background: copiedSingleId === advisor.id ? '#dcfce7' : 'var(--paper)',
+                      color: copiedSingleId === advisor.id ? '#166534' : 'var(--orange-dark)',
+                      padding: '6px 9px',
+                      borderRadius: '6px',
+                      fontSize: '11px',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    {copiedSingleId === advisor.id ? <Check size={13} /> : <Copy size={13} />}
+                  </button>
+
+                  {/* Send Direct WhatsApp */}
+                  <button
+                    type="button"
+                    onClick={() => handleSendAdvisorWhatsApp(advisor)}
+                    title="Enviar PIN por WhatsApp"
+                    style={{
+                      border: 0,
+                      background: '#dcfce7',
+                      color: '#166534',
+                      padding: '6px 9px',
+                      borderRadius: '6px',
+                      fontSize: '11px',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    <MessageCircle size={13} />
+                  </button>
+                </div>
               </div>
 
-              {/* Advisor Specs & Meta */}
+              {/* Specs & Performance */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '12px' }}>
                 <div>
                   <span style={{ color: 'var(--muted)', display: 'block' }}>Meta Semanal:</span>
                   <strong style={{ color: 'var(--orange-dark)' }}>{money(advisor.weeklyGoal || 3200)}</strong>
                 </div>
                 <div>
-                  <span style={{ color: 'var(--muted)', display: 'block' }}>Ventas Registradas:</span>
+                  <span style={{ color: 'var(--muted)', display: 'block' }}>Ventas del Turno:</span>
                   <strong>{money(totalSales)} ({advisorOrders.length})</strong>
                 </div>
               </div>
@@ -500,12 +689,12 @@ export function POSAdvisorsManagement() {
                     display: 'flex',
                     alignItems: 'center',
                     gap: '6px',
-                    color: advisor.isActive ? '#16a34a' : 'var(--muted)',
+                    color: advisor.isActive !== false ? '#16a34a' : 'var(--muted)',
                     fontWeight: 700
                   }}
                 >
-                  {advisor.isActive ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
-                  {advisor.isActive ? 'Asesora Activa' : 'Inactiva / Pausada'}
+                  {advisor.isActive !== false ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
+                  {advisor.isActive !== false ? 'Activo en Caja' : 'Pausado / Inactivo'}
                 </button>
                 <span style={{ color: 'var(--muted)', fontSize: '11px' }}>
                   {advisor.phone || advisor.email || 'Sin contacto'}
@@ -516,8 +705,18 @@ export function POSAdvisorsManagement() {
         })}
       </div>
 
+      {filteredAdvisors.length === 0 && (
+        <div className="pos-card" style={{ textAlign: 'center', padding: '40px 20px', marginTop: '20px' }}>
+          <Users size={36} style={{ color: 'var(--muted)', margin: '0 auto 12px' }} />
+          <h3 style={{ margin: '0 0 6px', fontSize: '16px', color: 'var(--ink)' }}>No se encontraron asesores</h3>
+          <p style={{ margin: 0, fontSize: '13px', color: 'var(--muted)' }}>
+            Prueba ajustando el término de búsqueda o añade un nuevo asesor con el botón superior.
+          </p>
+        </div>
+      )}
+
       {/* =========================================================================
-          MODAL: CREATE / EDIT ADVISOR
+          MODAL: CREATE / EDIT ADVISOR (6-DIGIT PIN & SUPABASE SYNC)
           ========================================================================= */}
       {isModalOpen && (
         <div className="pos-modal-overlay" style={{
@@ -534,15 +733,18 @@ export function POSAdvisorsManagement() {
             background: 'var(--paper)',
             borderRadius: '20px',
             width: '100%',
-            maxWidth: '460px',
+            maxWidth: '480px',
             border: '1px solid var(--line)',
             boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
             padding: '24px'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 800, color: 'var(--ink)' }}>
-                {editingAdvisor ? 'Editar Asesora Comercial' : 'Registrar Nueva Asesora'}
-              </h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div className="pos-brand-logo-mark" style={{ width: '32px', height: '32px', fontSize: '14px' }}>G</div>
+                <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 800, color: 'var(--ink)' }}>
+                  {editingAdvisor ? 'Editar Asesor(a)' : 'Registrar Nuevo Asesor(a)'}
+                </h3>
+              </div>
               <button type="button" onClick={() => setIsModalOpen(false)} style={{ border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--muted)' }}>
                 <X size={20} />
               </button>
@@ -550,7 +752,7 @@ export function POSAdvisorsManagement() {
 
             <form onSubmit={handleSave} style={{ display: 'grid', gap: '12px' }}>
               <div className="pos-form-group">
-                <label>Nombre Completo de la Asesora *</label>
+                <label>Nombre Completo *</label>
                 <input
                   type="text"
                   required
@@ -559,14 +761,41 @@ export function POSAdvisorsManagement() {
                   onChange={(e) => setFormData({
                     ...formData,
                     name: e.target.value,
-                    weeklyPassword: `${e.target.value.split(' ')[0].toLowerCase()}-${formData.weeklyPin || '1234'}`
+                    weeklyPassword: `${e.target.value.split(' ')[0].toLowerCase()}-${formData.weeklyPin || '123456'}`
                   })}
                 />
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div className="pos-form-group">
-                  <label>PIN de Caja (6 dígitos) *</label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <label style={{ margin: 0 }}>PIN Caja (6d) *</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newPin = generateRandom6DigitPIN();
+                        setFormData({
+                          ...formData,
+                          weeklyPin: newPin,
+                          pin: newPin,
+                          weeklyPassword: `${(formData.name || 'asesora').split(' ')[0].toLowerCase()}-${newPin}`
+                        });
+                      }}
+                      style={{
+                        border: 0,
+                        background: 'transparent',
+                        color: 'var(--orange-dark)',
+                        fontSize: '11px',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '2px'
+                      }}
+                    >
+                      <Dices size={12} /> Generar
+                    </button>
+                  </div>
                   <input
                     type="text"
                     required
@@ -577,17 +806,31 @@ export function POSAdvisorsManagement() {
                       ...formData,
                       weeklyPin: e.target.value,
                       pin: e.target.value,
-                      weeklyPassword: `${formData.name.split(' ')[0].toLowerCase() || 'asesora'}-${e.target.value}`
+                      weeklyPassword: `${(formData.name || 'asesora').split(' ')[0].toLowerCase()}-${e.target.value}`
                     })}
                   />
                 </div>
+
                 <div className="pos-form-group">
-                  <label>Contraseña Semanal</label>
-                  <input
-                    type="text"
-                    value={formData.weeklyPassword}
-                    onChange={(e) => setFormData({ ...formData, weeklyPassword: e.target.value })}
-                  />
+                  <label>Rol en el Taller</label>
+                  <select
+                    value={formData.role}
+                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: '10px',
+                      border: '1px solid var(--line)',
+                      background: 'var(--bg)',
+                      color: 'var(--ink)',
+                      fontSize: '13px'
+                    }}
+                  >
+                    <option value="asesora">Asesora Comercial</option>
+                    <option value="cajera">Cajero / Cobranzas</option>
+                    <option value="disenador">Diseñador Gráfico</option>
+                    <option value="supervisor">Supervisor de Taller</option>
+                  </select>
                 </div>
               </div>
 
@@ -622,7 +865,7 @@ export function POSAdvisorsManagement() {
                 />
               </div>
 
-              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
@@ -645,7 +888,7 @@ export function POSAdvisorsManagement() {
                   className="pos-submit-order-btn"
                   style={{ flex: 1, padding: '12px', fontSize: '13px' }}
                 >
-                  Guardar Asesora
+                  {editingAdvisor ? 'Guardar Cambios' : 'Crear Asesor(a)'}
                 </button>
               </div>
             </form>
@@ -655,3 +898,5 @@ export function POSAdvisorsManagement() {
     </div>
   );
 }
+
+export default POSAdvisorsManagement;
