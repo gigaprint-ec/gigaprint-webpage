@@ -37,10 +37,9 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess 
     const handleKeyDown = (e) => {
       if (loginMode === 'advisor') {
         if (e.key >= '0' && e.key <= '9') {
-          if (pinInput.length < 6) {
-            const nextPin = pinInput + e.key;
-            setPinInput(nextPin);
-            setErrorMsg('');
+          setPinInput((prev) => {
+            if (prev.length >= 6) return prev;
+            const nextPin = prev + e.key;
             if (nextPin.length === 6) {
               setTimeout(() => {
                 const res = authenticateAdvisor(advisors, selectedAdvisorId, nextPin);
@@ -51,7 +50,9 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess 
                 }
               }, 120);
             }
-          }
+            return nextPin;
+          });
+          setErrorMsg('');
         } else if (e.key === 'Backspace') {
           setPinInput((prev) => prev.slice(0, -1));
           setErrorMsg('');
@@ -66,13 +67,12 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess 
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [pinInput, loginMode, selectedAdvisorId, advisors]);
+  }, [loginMode, selectedAdvisorId, advisors]);
 
   const handleKeypadPress = (num) => {
-    if (pinInput.length < 6) {
-      const nextPin = pinInput + num;
-      setPinInput(nextPin);
-      setErrorMsg('');
+    setPinInput((prev) => {
+      if (prev.length >= 6) return prev;
+      const nextPin = prev + num;
       if (nextPin.length === 6) {
         setTimeout(() => {
           const res = authenticateAdvisor(advisors, selectedAdvisorId, nextPin);
@@ -83,7 +83,9 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess 
           }
         }, 120);
       }
-    }
+      return nextPin;
+    });
+    setErrorMsg('');
   };
 
   const handleKeypadBackspace = () => {
