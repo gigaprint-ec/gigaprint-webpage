@@ -1396,3 +1396,193 @@
   }
 }
 
+/* ==========================================================================
+   Dark Mode Overrides for Smart Quoter & UI Components
+   ========================================================================== */
+[data-theme="dark"] .selected-product-showcase {
+  background: #1b1b18;
+  border-color: rgba(234, 88, 12, 0.35);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="dark"] .selected-product-showcase:hover {
+  border-color: var(--orange);
+  box-shadow: 0 6px 28px rgba(234, 88, 12, 0.16);
+}
+
+[data-theme="dark"] .showcase-media {
+  background: #24241f;
+  border-color: rgba(245, 242, 233, 0.12);
+}
+
+[data-theme="dark"] .showcase-title {
+  color: #f5f2e9;
+}
+
+[data-theme="dark"] .showcase-desc {
+  color: #aaa79b;
+}
+
+[data-theme="dark"] .showcase-spec-pill {
+  background: #24241f;
+  color: #aaa79b;
+  border-color: rgba(245, 242, 233, 0.14);
+}
+
+[data-theme="dark"] .showcase-change-btn {
+  background: var(--orange);
+  color: #fff;
+}
+
+[data-theme="dark"] .showcase-change-btn:hover {
+  background: #c2410c;
+}
+
+[data-theme="dark"] .smart-dropdown-panel {
+  background: #1b1b18;
+  border-color: rgba(245, 242, 233, 0.16);
+  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.65);
+}
+
+[data-theme="dark"] .dropdown-header-bar h4 {
+  color: #f5f2e9;
+}
+
+[data-theme="dark"] .dropdown-close-btn {
+  color: #aaa79b;
+}
+
+[data-theme="dark"] .dropdown-close-btn:hover {
+  color: #f5f2e9;
+  background: #24241f;
+}
+
+[data-theme="dark"] .dropdown-search-input {
+  background: #11110f;
+  color: #f5f2e9;
+  border-color: rgba(245, 242, 233, 0.18);
+}
+
+[data-theme="dark"] .dropdown-search-input:focus {
+  border-color: var(--orange);
+  background: #141412;
+  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.2);
+}
+
+[data-theme="dark"] .dropdown-item-row:hover {
+  background: #24241f;
+  border-color: rgba(245, 242, 233, 0.12);
+}
+
+[data-theme="dark"] .dropdown-item-row.active {
+  background: rgba(234, 88, 12, 0.18);
+  border-color: var(--orange);
+}
+
+[data-theme="dark"] .dropdown-item-thumb {
+  background: #24241f;
+  border-color: rgba(245, 242, 233, 0.12);
+}
+
+[data-theme="dark"] .dropdown-item-title {
+  color: #f5f2e9;
+}
+
+[data-theme="dark"] .dropdown-item-cat {
+  color: #aaa79b;
+}
+
+[data-theme="dark"] .dropdown-item-price {
+  color: #f97316;
+}
+
+[data-theme="dark"] .quote-category-pills button {
+  background: #1b1b18;
+  color: #aaa79b;
+  border-color: rgba(245, 242, 233, 0.14);
+}
+
+[data-theme="dark"] .quote-category-pills button:hover {
+  border-color: var(--orange);
+  color: #f5f2e9;
+}
+
+[data-theme="dark"] .quote-category-pills button.active {
+  background: var(--orange);
+  color: #fff;
+  border-color: var(--orange);
+}
+
+[data-theme="dark"] .quote-option select {
+  background: #11110f;
+  color: #f5f2e9;
+  border-color: rgba(245, 242, 233, 0.16);
+}
+
+[data-theme="dark"] .quote-insight {
+  background: rgba(234, 88, 12, 0.12);
+  border-color: rgba(234, 88, 12, 0.25);
+  color: #f5f2e9;
+}
+
+[data-theme="dark"] .preset-chip {
+  color: #f5f2e9;
+  border-color: rgba(245, 242, 233, 0.2);
+  background: transparent;
+}
+
+[data-theme="dark"] .preset-chip:hover {
+  border-color: var(--orange);
+  color: var(--orange);
+  background: rgba(234, 88, 12, 0.15);
+}
+
+[data-theme="dark"] .tier-card {
+  background: #1b1b18;
+  border-color: rgba(245, 242, 233, 0.14);
+  color: #f5f2e9;
+}
+
+[data-theme="dark"] .tier-card:hover {
+  border-color: var(--orange);
+  background: #24241f;
+}
+
+[data-theme="dark"] .tier-card.active {
+  border-color: var(--orange);
+  background: rgba(234, 88, 12, 0.15);
+}
+
+[data-theme="dark"] .design-option-card {
+  background: #1b1b18;
+  border-color: rgba(245, 242, 233, 0.14);
+  color: #f5f2e9;
+}
+
+[data-theme="dark"] .design-option-card:hover {
+  border-color: var(--orange);
+  background: #24241f;
+}
+
+[data-theme="dark"] .design-option-card.active {
+  border-color: var(--orange);
+  background: rgba(234, 88, 12, 0.15);
+}
+
+[data-theme="dark"] .quote-unit-feedback {
+  background: #1b1b18;
+  border-color: rgba(245, 242, 233, 0.14);
+  color: #f5f2e9;
+}
+
+[data-theme="dark"] .quote-unit-feedback span {
+  color: #aaa79b;
+}
+
+[data-theme="dark"] .quote-summary-card {
+  background: #171714;
+  border: 1px solid rgba(245, 242, 233, 0.14);
+  color: #f5f2e9;
+}
+
+
