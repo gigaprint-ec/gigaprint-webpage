@@ -1397,6 +1397,164 @@
 }
 
 /* ==========================================================================
+   Smart Quantity Controller
+   ========================================================================== */
+.smart-quantity-controller {
+  display: grid;
+  gap: 12px;
+  margin: 18px 0 22px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+}
+
+.quantity-controller-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.quantity-controller-head label {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--ink);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.quantity-controller-head span {
+  font-size: 11px;
+  color: var(--muted);
+  font-family: 'DM Mono', monospace;
+}
+
+.quantity-stepper-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.quantity-stepper-box {
+  display: inline-flex;
+  align-items: center;
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  background: var(--cream);
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.quantity-stepper-btn {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.quantity-stepper-btn:hover:not(:disabled) {
+  background: var(--orange);
+  color: #fff;
+}
+
+.quantity-stepper-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.quantity-stepper-input {
+  width: 70px;
+  height: 44px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  text-align: center;
+  font-size: 17px;
+  font-weight: 800;
+  font-family: 'Space Grotesk', sans-serif;
+  color: var(--ink);
+  -moz-appearance: textfield;
+}
+
+.quantity-stepper-input::-webkit-outer-spin-button,
+.quantity-stepper-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.quantity-quick-increments {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.quick-inc-btn {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.quick-inc-btn:hover {
+  border-color: var(--orange);
+  color: var(--orange-dark);
+  background: var(--orange-soft);
+}
+
+.quantity-quick-presets {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+}
+
+.quantity-quick-presets span {
+  font-size: 11px;
+  color: var(--muted);
+  margin-right: 2px;
+}
+
+.qty-preset-btn {
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px dashed var(--line);
+  background: transparent;
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.qty-preset-btn:hover {
+  border-color: var(--orange);
+  color: var(--orange);
+  background: var(--orange-soft);
+}
+
+.qty-preset-btn.active {
+  border-style: solid;
+  border-color: var(--orange);
+  background: var(--orange);
+  color: #fff;
+  font-weight: 700;
+}
+
+/* ==========================================================================
    Dark Mode Overrides for Smart Quoter & UI Components
    ========================================================================== */
 [data-theme="dark"] .selected-product-showcase {
@@ -1584,5 +1742,48 @@
   border: 1px solid rgba(245, 242, 233, 0.14);
   color: #f5f2e9;
 }
+
+[data-theme="dark"] .smart-quantity-controller {
+  background: #1b1b18;
+  border-color: rgba(245, 242, 233, 0.14);
+}
+
+[data-theme="dark"] .quantity-stepper-box {
+  background: #11110f;
+  border-color: rgba(245, 242, 233, 0.16);
+}
+
+[data-theme="dark"] .quantity-stepper-input {
+  color: #f5f2e9;
+}
+
+[data-theme="dark"] .quick-inc-btn {
+  background: #24241f;
+  border-color: rgba(245, 242, 233, 0.14);
+  color: #f5f2e9;
+}
+
+[data-theme="dark"] .quick-inc-btn:hover {
+  background: rgba(234, 88, 12, 0.2);
+  border-color: var(--orange);
+  color: #f97316;
+}
+
+[data-theme="dark"] .qty-preset-btn {
+  border-color: rgba(245, 242, 233, 0.16);
+  color: #f5f2e9;
+}
+
+[data-theme="dark"] .qty-preset-btn:hover {
+  border-color: var(--orange);
+  color: var(--orange);
+  background: rgba(234, 88, 12, 0.15);
+}
+
+[data-theme="dark"] .qty-preset-btn.active {
+  background: var(--orange);
+  color: #fff;
+}
+
 
 

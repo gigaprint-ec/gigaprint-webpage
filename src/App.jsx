@@ -477,10 +477,17 @@ function SmartProductDetailPage() {
 
             <div className="detail-actions">
               <div className="qty large">
-                <button type="button" onClick={() => setQuantity(Math.max(minQty, effectiveQty - 1))} aria-label="Disminuir cantidad">
+                <button type="button" onClick={() => setQuantity(Math.max(minQty, effectiveQty - 1))} disabled={effectiveQty <= minQty} aria-label="Disminuir cantidad">
                   <Minus size={16} />
                 </button>
-                <span>{effectiveQty}</span>
+                <input
+                  type="number"
+                  min={minQty}
+                  value={effectiveQty}
+                  onChange={(e) => setQuantity(Math.max(minQty, parseInt(e.target.value, 10) || minQty))}
+                  style={{ width: '60px', border: '0', background: 'transparent', textAlign: 'center', fontWeight: '800', fontSize: '16px', color: 'var(--ink)' }}
+                  aria-label="Cantidad exacta"
+                />
                 <button type="button" onClick={() => setQuantity(effectiveQty + 1)} aria-label="Aumentar cantidad">
                   <Plus size={16} />
                 </button>
@@ -980,17 +987,62 @@ function SmartQuotePage() {
                     <small>Área total del pedido: {(quote.area * effectiveQuantity).toFixed(2)} m² · Tarifa activa: {money(activeTier.price)} / m²</small>
                   </div>
 
-                  <label className="range-label">
-                    Cantidad de piezas <span>{effectiveQuantity}</span>
-                  </label>
-                  <input
-                    className="range"
-                    type="range"
-                    min={minQuantity}
-                    max={Math.max(minQuantity + 20, 50)}
-                    value={effectiveQuantity}
-                    onChange={(event) => setQuantity(Number(event.target.value))}
-                  />
+                  <div className="smart-quantity-controller">
+                    <div className="quantity-controller-head">
+                      <label>Cantidad de piezas</label>
+                      <span>Área total: {(quote.area * effectiveQuantity).toFixed(2)} m²</span>
+                    </div>
+
+                    <div className="quantity-stepper-row">
+                      <div className="quantity-stepper-box">
+                        <button
+                          type="button"
+                          className="quantity-stepper-btn"
+                          onClick={() => setQuantity(Math.max(minQuantity, effectiveQuantity - 1))}
+                          disabled={effectiveQuantity <= minQuantity}
+                          aria-label="Disminuir una pieza"
+                        >
+                          <Minus size={16} />
+                        </button>
+                        <input
+                          type="number"
+                          min={minQuantity}
+                          value={effectiveQuantity}
+                          onChange={(event) => setQuantity(Math.max(minQuantity, parseInt(event.target.value, 10) || minQuantity))}
+                          className="quantity-stepper-input"
+                          aria-label="Cantidad exacta de piezas"
+                        />
+                        <button
+                          type="button"
+                          className="quantity-stepper-btn"
+                          onClick={() => setQuantity(effectiveQuantity + 1)}
+                          aria-label="Aumentar una pieza"
+                        >
+                          <Plus size={16} />
+                        </button>
+                      </div>
+
+                      <div className="quantity-quick-increments">
+                        <button type="button" className="quick-inc-btn" onClick={() => setQuantity(effectiveQuantity + 1)}>+1</button>
+                        <button type="button" className="quick-inc-btn" onClick={() => setQuantity(effectiveQuantity + 5)}>+5</button>
+                        <button type="button" className="quick-inc-btn" onClick={() => setQuantity(effectiveQuantity + 10)}>+10</button>
+                      </div>
+                    </div>
+
+                    <div className="quantity-quick-presets">
+                      <span>Sugeridos:</span>
+                      {[1, 2, 3, 5, 10, 20, 50].map((qtyVal) => (
+                        <button
+                          key={qtyVal}
+                          type="button"
+                          className={`qty-preset-btn ${effectiveQuantity === qtyVal ? 'active' : ''}`}
+                          onClick={() => setQuantity(qtyVal)}
+                        >
+                          {qtyVal} {qtyVal === 1 ? 'pieza' : 'piezas'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
                   {/* Finishing Options for Area Products */}
                   <div className="finishing-select-group">
@@ -1110,36 +1162,66 @@ function SmartQuotePage() {
                   <h3>Cantidad y escalas de descuento</h3>
                   <p>Escoge o escribe la cantidad deseada. Los descuentos por volumen aplican automáticamente.</p>
 
-                  <div className="qty-quick-buttons">
-                    <span>Sugeridos:</span>
-                    {[1, 6, 12, 24, 50, 100].map((qtyVal) => (
-                      <button
-                        key={qtyVal}
-                        type="button"
-                        className={`preset-chip ${effectiveQuantity === qtyVal ? 'active' : ''}`}
-                        onClick={() => setQuantity(qtyVal)}
-                      >
-                        {qtyVal} {selectedProduct?.unit || 'uds'}
-                      </button>
-                    ))}
-                  </div>
+                  <div className="smart-quantity-controller">
+                    <div className="quantity-controller-head">
+                      <label>Cantidad ({selectedProduct?.unit || 'unidades'})</label>
+                      <span>Tarifa actual: {money(quote.rate)} / {selectedProduct?.unit || 'u'}</span>
+                    </div>
 
-                  <div className="fields two" style={{ marginTop: '12px' }}>
-                    <label>
-                      Cantidad ({selectedProduct?.unit || 'unidades'})
-                      <input
-                        type="number"
-                        min={minQuantity}
-                        value={effectiveQuantity}
-                        onChange={(event) => setQuantity(Math.max(minQuantity, Number(event.target.value) || 1))}
-                      />
-                    </label>
-                    <div className="quote-unit-feedback">
-                      <span>Tarifa unitaria aplicada</span>
-                      <strong>{money(quote.rate)} <small>/ {selectedProduct?.unit || 'u'}</small></strong>
+                    <div className="quantity-stepper-row">
+                      <div className="quantity-stepper-box">
+                        <button
+                          type="button"
+                          className="quantity-stepper-btn"
+                          onClick={() => setQuantity(Math.max(minQuantity, effectiveQuantity - 1))}
+                          disabled={effectiveQuantity <= minQuantity}
+                          aria-label="Disminuir una unidad"
+                        >
+                          <Minus size={16} />
+                        </button>
+                        <input
+                          type="number"
+                          min={minQuantity}
+                          value={effectiveQuantity}
+                          onChange={(event) => setQuantity(Math.max(minQuantity, parseInt(event.target.value, 10) || minQuantity))}
+                          className="quantity-stepper-input"
+                          aria-label="Cantidad exacta"
+                        />
+                        <button
+                          type="button"
+                          className="quantity-stepper-btn"
+                          onClick={() => setQuantity(effectiveQuantity + 1)}
+                          aria-label="Aumentar una unidad"
+                        >
+                          <Plus size={16} />
+                        </button>
+                      </div>
+
+                      <div className="quantity-quick-increments">
+                        <button type="button" className="quick-inc-btn" onClick={() => setQuantity(effectiveQuantity + 6)}>+6</button>
+                        <button type="button" className="quick-inc-btn" onClick={() => setQuantity(effectiveQuantity + 12)}>+12</button>
+                        <button type="button" className="quick-inc-btn" onClick={() => setQuantity(effectiveQuantity + 24)}>+24</button>
+                      </div>
+
                       {quote.savingsPercent > 0 && (
-                        <span className="tier-discount-badge">¡Ahorras {quote.savingsPercent}% por volumen!</span>
+                        <span className="tier-discount-badge" style={{ marginLeft: 'auto' }}>
+                          ¡Ahorras {quote.savingsPercent}% por volumen!
+                        </span>
                       )}
+                    </div>
+
+                    <div className="quantity-quick-presets">
+                      <span>Sugeridos:</span>
+                      {[1, 6, 12, 24, 50, 100, 200, 500].map((qtyVal) => (
+                        <button
+                          key={qtyVal}
+                          type="button"
+                          className={`qty-preset-btn ${effectiveQuantity === qtyVal ? 'active' : ''}`}
+                          onClick={() => setQuantity(qtyVal)}
+                        >
+                          {qtyVal} {selectedProduct?.unit || 'uds'}
+                        </button>
+                      ))}
                     </div>
                   </div>
 
