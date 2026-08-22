@@ -41,7 +41,12 @@ export function imageFor(category = '', text = '') {
 
 export function isAreaProduct(category = '', text = '') {
   const haystack = `${category} ${text}`.toLowerCase();
-  return /campana\s+lonas|\bm2\b|m²|gran formato/i.test(haystack) || /lona|vinil|microperforado|panaflex|tela.*bandera/i.test(haystack);
+  return (
+    /campana\s+lonas|\bm2\b|m²|gran formato/i.test(haystack) ||
+    /lona|vinil|microperforado|panaflex|tela.*bandera/i.test(haystack) ||
+    /rótulo|rotulo|fachada|caja de luz|luminoso|lightbox|corpóreo|corporeo/i.test(haystack) ||
+    /porta-banner|banner en a|banner araña|banner arana/i.test(haystack)
+  );
 }
 
 export function isTotalTierProduct(category = '') {
@@ -150,7 +155,20 @@ export const estebanCatalogProducts = Array.from(grouped.values())
 export const catalogCategories = ['Todos', ...unique(estebanCatalogProducts.map((product) => product.category))];
 
 export function getProductCalcType(product) {
-  return product?.calcType || product?.type || (product?.pricingMode === 'area' ? 'm2' : 'unit');
+  if (
+    product?.calcType === 'm2' ||
+    product?.type === 'm2' ||
+    product?.unit === 'm²' ||
+    product?.unit === 'm2' ||
+    product?.pricingMode === 'area' ||
+    isAreaProduct(product?.category, product?.name)
+  ) {
+    return 'm2';
+  }
+  if (product?.pricingMode === 'tier-total' || product?.calcType === 'scale-total') {
+    return 'scale-total';
+  }
+  return product?.calcType || product?.type || 'scale';
 }
 
 export function getVariantOptions(product) {
@@ -234,7 +252,10 @@ export function getLeadTimeEstimate(product) {
 }
 
 export function calculateCatalogQuote(product, config = {}) {
-  const mode = product?.pricingMode || (getProductCalcType(product) === 'm2' ? 'area' : 'unit');
+  const calcType = getProductCalcType(product);
+  const isArea = calcType === 'm2';
+  const isTierTotal = product?.pricingMode === 'tier-total' || calcType === 'scale-total';
+  const mode = isArea ? 'area' : isTierTotal ? 'tier-total' : 'unit';
   const quantity = Math.max(Number(product?.minQuantity || 1), Number(config.quantity) || 1);
   const width = Math.max(0.01, Number(config.width) || 1);
   const height = Math.max(0.01, Number(config.height) || 1);
