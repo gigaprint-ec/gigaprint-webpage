@@ -37,9 +37,11 @@ import {
 } from './components/studio/Chrome';
 
 export function Brand({ compact = false }) {
+  const { theme } = useSite();
+  const logoSrc = theme === 'dark' ? media.logoDark : media.logoLight;
   return (
     <Link className={`brand brand-svg ${compact ? 'brand-compact' : ''}`} to="/" aria-label="Gigaprint — Tus ideas en grande">
-      <img className="brand-logo-image" src={media.logoDark} alt="Gigaprint — Tus ideas en grande" />
+      <img className="brand-logo-image" src={logoSrc} alt="Gigaprint — Tus ideas en grande" />
     </Link>
   );
 }
