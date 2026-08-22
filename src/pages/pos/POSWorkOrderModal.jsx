@@ -4,6 +4,10 @@ import { X, Printer, Wrench } from 'lucide-react';
 export function POSWorkOrderModal({ order, items = [], advisor, isOpen, onClose }) {
   if (!isOpen || !order) return null;
 
+  const trackingToken = order.trackingToken || order.orderNumber;
+  const trackingUrl = `https://gigaprint-ec.github.io/gigaprint-webpage/seguimiento/${trackingToken}`;
+  const qrCodeUrl = `https://quickchart.io/qr?text=${encodeURIComponent(trackingUrl)}&size=90&margin=1`;
+
   const handlePrint = () => {
     window.print();
   };
@@ -24,7 +28,7 @@ export function POSWorkOrderModal({ order, items = [], advisor, isOpen, onClose 
         color: '#000',
         borderRadius: '16px',
         width: '100%',
-        maxWidth: '680px',
+        maxWidth: '720px',
         maxHeight: '90vh',
         overflowY: 'auto',
         padding: '24px',
@@ -75,14 +79,22 @@ export function POSWorkOrderModal({ order, items = [], advisor, isOpen, onClose 
         {/* Printable Production Sheet */}
         <div className="printable-work-order" style={{ display: 'grid', gap: '14px', fontFamily: 'Arial, sans-serif' }}>
           {/* Header Banner */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', borderBottom: '2px solid #000', paddingBottom: '10px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #000', paddingBottom: '10px' }}>
             <div>
               <h1 style={{ margin: 0, fontSize: '22px', fontWeight: '900', letterSpacing: '-0.02em' }}>GIGAPRINT — TALLER</h1>
               <span style={{ fontSize: '12px', color: '#475569', fontWeight: 'bold' }}>ORDEN DE TRABAJO & ESPECIFICACIONES TÉCNICAS</span>
             </div>
-            <div style={{ textAlign: 'right' }}>
-              <span style={{ display: 'block', fontSize: '12px', color: '#64748b' }}>NRO. DE ORDEN</span>
-              <strong style={{ fontSize: '24px', fontWeight: '900', color: '#ea580c' }}>#{order.orderNumber}</strong>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <img
+                src={qrCodeUrl}
+                alt="QR Tracking"
+                style={{ width: '65px', height: '65px', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '2px' }}
+              />
+              <div style={{ textAlign: 'right' }}>
+                <span style={{ display: 'block', fontSize: '11px', color: '#64748b' }}>NRO. DE ORDEN</span>
+                <strong style={{ fontSize: '22px', fontWeight: '900', color: '#ea580c' }}>#{order.orderNumber}</strong>
+              </div>
             </div>
           </div>
 

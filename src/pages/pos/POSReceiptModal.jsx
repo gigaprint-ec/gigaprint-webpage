@@ -1,10 +1,13 @@
 import React from 'react';
-import { X, Printer, MessageCircle, CheckCircle2, AlertCircle } from 'lucide-react';
+import { X, Printer, MessageCircle, CheckCircle2, AlertCircle, QrCode, ExternalLink } from 'lucide-react';
 
 export function POSReceiptModal({ order, items = [], advisor, isOpen, onClose }) {
   if (!isOpen || !order) return null;
 
   const money = (val) => `$${(Number(val) || 0).toFixed(2)}`;
+  const trackingToken = order.trackingToken || order.orderNumber;
+  const trackingUrl = `https://gigaprint-ec.github.io/gigaprint-webpage/seguimiento/${trackingToken}`;
+  const qrCodeUrl = `https://quickchart.io/qr?text=${encodeURIComponent(trackingUrl)}&size=140&margin=1`;
 
   const handlePrint = () => {
     window.print();
@@ -41,6 +44,9 @@ export function POSReceiptModal({ order, items = [], advisor, isOpen, onClose })
     lines.push(`*Total Venta:* ${money(order.totalAmount)}`);
     lines.push(`*Abonado:* ${money(order.depositAmount)}`);
     lines.push(`*Saldo por Pagar:* ${money(order.balanceDue)}`);
+    lines.push(`================================`);
+    lines.push(`📱 *Sigue el estado de tu trabajo en vivo aquí:*`);
+    lines.push(`${trackingUrl}`);
     lines.push(`================================`);
     lines.push(`¡Gracias por confiar en Gigaprint — Tus ideas en grande! 🚀`);
 
@@ -102,11 +108,11 @@ export function POSReceiptModal({ order, items = [], advisor, isOpen, onClose })
 
         {/* Printable Ticket Area */}
         <div className="pos-printable-receipt" style={{ padding: '24px', background: '#fff', color: '#18181b', fontFamily: 'monospace' }}>
-          <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 900, color: '#ea580c' }}>GIGAPRINT</h2>
+          <div style={{ textAlign: 'center', marginBottom: '14px' }}>
+            <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 900, color: '#ea580c' }}>GIGAPRINT</h2>
             <p style={{ margin: '2px 0', fontSize: '11px', fontWeight: 700 }}>Tus ideas en grande</p>
             <p style={{ margin: '2px 0', fontSize: '11px' }}>Quito, Ecuador · Tel: 099 000 0000</p>
-            <p style={{ margin: '4px 0 0', fontSize: '12px', fontWeight: 800 }}>ORDEN # {order.orderNumber}</p>
+            <p style={{ margin: '4px 0 0', fontSize: '13px', fontWeight: 800 }}>ORDEN # {order.orderNumber}</p>
           </div>
 
           <div style={{ borderTop: '1px dashed #71717a', borderBottom: '1px dashed #71717a', padding: '10px 0', fontSize: '11px', display: 'grid', gap: '4px' }}>
@@ -176,7 +182,22 @@ export function POSReceiptModal({ order, items = [], advisor, isOpen, onClose })
             </div>
           </div>
 
-          <div style={{ textAlign: 'center', marginTop: '20px', fontSize: '10px', color: '#71717a' }}>
+          {/* QR Code for Client Tracking */}
+          <div style={{ textAlign: 'center', marginTop: '16px', borderTop: '1px dashed #71717a', paddingTop: '12px' }}>
+            <img
+              src={qrCodeUrl}
+              alt="QR Seguimiento"
+              style={{ width: '110px', height: '110px', margin: '0 auto', display: 'block' }}
+            />
+            <p style={{ margin: '4px 0 2px', fontSize: '10px', fontWeight: 800 }}>
+              ESCANEA PARA SEGUIR TU TRABAJO EN VIVO
+            </p>
+            <span style={{ fontSize: '9px', color: '#71717a' }}>
+              gigaprint-ec.github.io/gigaprint-webpage/seguimiento/{trackingToken}
+            </span>
+          </div>
+
+          <div style={{ textAlign: 'center', marginTop: '12px', fontSize: '10px', color: '#71717a' }}>
             <p style={{ margin: 0 }}>Valores sujetos a confirmación de especificaciones.</p>
             <p style={{ margin: '4px 0 0', fontWeight: 700 }}>¡Gracias por su preferencia!</p>
           </div>
@@ -200,8 +221,8 @@ export function POSReceiptModal({ order, items = [], advisor, isOpen, onClose })
               border: '1.5px solid var(--line)',
               background: 'var(--paper)',
               color: 'var(--ink)',
+              fontWeight: 800,
               fontSize: '13px',
-              fontWeight: 700,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -218,11 +239,11 @@ export function POSReceiptModal({ order, items = [], advisor, isOpen, onClose })
             style={{
               padding: '12px',
               borderRadius: '10px',
-              border: 0,
-              background: '#22c55e',
+              border: 'none',
+              background: '#16a34a',
               color: '#fff',
-              fontSize: '13px',
               fontWeight: 800,
+              fontSize: '13px',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -230,7 +251,7 @@ export function POSReceiptModal({ order, items = [], advisor, isOpen, onClose })
               gap: '8px'
             }}
           >
-            <MessageCircle size={16} /> Enviar a WhatsApp
+            <MessageCircle size={16} /> Enviar WhatsApp
           </button>
         </div>
       </div>

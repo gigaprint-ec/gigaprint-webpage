@@ -1,4 +1,4 @@
-﻿import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   TrendingUp,
   DollarSign,
@@ -12,9 +12,19 @@ import {
   Award,
   Sparkles,
   ArrowUpRight,
-  PieChart
+  PieChart,
+  Layers,
+  BarChart2,
+  Wrench,
+  Percent
 } from 'lucide-react';
-import { loadPOSStore, exportOrdersToCSV, toISODate, getMondayOfWeek } from '../../lib/posStore';
+import {
+  loadPOSStore,
+  exportOrdersToCSV,
+  toISODate,
+  getMondayOfWeek,
+  calculateOrderMargin
+} from '../../lib/posStore';
 
 export function POSAdminDashboard() {
   const [store] = useState(loadPOSStore);
@@ -84,7 +94,7 @@ export function POSAdminDashboard() {
     });
   }, [store.expenses, dateRange, selectedAdvisorId]);
 
-  // Aggregate Metrics
+  // Aggregate Financial Metrics
   const totalSales = filteredOrders.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
   const totalDeposits = filteredPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
   const totalBalanceDue = filteredOrders.reduce((sum, o) => sum + Number(o.balanceDue || 0), 0);
@@ -97,7 +107,75 @@ export function POSAdminDashboard() {
   const checkAmount = filteredPayments.filter((p) => p.paymentMethod === 'check').reduce((sum, p) => sum + Number(p.amount || 0), 0);
   const cardAmount = filteredPayments.filter((p) => p.paymentMethod === 'card').reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
-  // Advisor Leaderboard Performance Table
+  // Profit Margin & Job Costing Analytics
+  const marginSummary = useMemo(() => {
+    let totalEstimatedCost = 0;
+    let totalEstimatedMaterial = 0;
+
+    filteredOrders.forEach((o) => {
+      const items = (store.orderItems || []).filter((i) => i.orderId === o.id);
+      const margin = calculateOrderMargin(o, items, store.materials || []);
+      totalEstimatedCost += margin.totalCost;
+      totalEstimatedMaterial += margin.materialCost;
+    });
+
+    const grossProfit = totalSales - totalEstimatedCost;
+    const marginPercent = totalSales > 0 ? (grossProfit / totalSales) * 100 : 0;
+
+    return {
+      totalEstimatedCost,
+      totalEstimatedMaterial,
+      grossProfit,
+      marginPercent
+    };
+  }, [filteredOrders, totalSales, store.orderItems, store.materials]);
+
+  // Substrates & Categories Revenue Distribution
+  const categoryBreakdown = useMemo(() => {
+    const cats = {};
+    filteredOrders.forEach((o) => {
+      const items = (store.orderItems || []).filter((i) => i.orderId === o.id);
+      items.forEach((itm) => {
+        const cat = itm.category || 'Gran Formato';
+        const amt = Number(itm.totalPrice || 0);
+        const area = Number(itm.areaM2 || 0) * (itm.quantity || 1);
+        if (!cats[cat]) cats[cat] = { revenue: 0, count: 0, m2: 0 };
+        cats[cat].revenue += amt;
+        cats[cat].count += Number(itm.quantity || 1);
+        cats[cat].m2 += area;
+      });
+    });
+
+    return Object.entries(cats).map(([name, data]) => ({
+      name,
+      revenue: data.revenue,
+      count: data.count,
+      m2: data.m2,
+      percent: totalSales > 0 ? (data.revenue / totalSales) * 100 : 0
+    })).sort((a, b) => b.revenue - a.revenue);
+  }, [filteredOrders, store.orderItems, totalSales]);
+
+  // Daily Sales for Current Selection (for Bar Chart)
+  const dailySalesData = useMemo(() => {
+    const daysMap = {};
+    filteredOrders.forEach((o) => {
+      const d = o.orderDate;
+      if (!daysMap[d]) daysMap[d] = 0;
+      daysMap[d] += Number(o.totalAmount || 0);
+    });
+
+    const sortedDates = Object.keys(daysMap).sort();
+    const maxVal = Math.max(...Object.values(daysMap), 100);
+
+    return sortedDates.map((dateStr) => ({
+      date: dateStr,
+      dayLabel: dateStr.split('-').slice(1).join('/'),
+      sales: daysMap[dateStr] || 0,
+      heightPercent: Math.min(100, Math.max(10, ((daysMap[dateStr] || 0) / maxVal) * 100))
+    }));
+  }, [filteredOrders]);
+
+  // Advisor Performance Leaderboard
   const advisorPerformance = useMemo(() => {
     return store.advisors.map((advisor) => {
       const advOrders = store.orders.filter((o) => o.advisorId === advisor.id && (!dateRange.from || o.orderDate >= dateRange.from) && (!dateRange.to || o.orderDate <= dateRange.to));
@@ -129,7 +207,7 @@ export function POSAdminDashboard() {
   }, [store.advisors, store.orders, store.payments, store.expenses, dateRange]);
 
   return (
-    <div className="pos-container">
+    <div className="pos-container" style={{ display: 'grid', gap: '20px' }}>
       {/* Top Banner & Date Filter Toolbar */}
       <div className="pos-top-bar">
         <div className="pos-brand-badge">
@@ -230,10 +308,10 @@ export function POSAdminDashboard() {
         </div>
       )}
 
-      {/* Executive KPI Cards */}
+      {/* Executive Financial KPI Cards */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
         gap: '16px'
       }}>
         <div className="pos-card" style={{ borderLeft: '4px solid var(--orange)' }}>
@@ -259,7 +337,7 @@ export function POSAdminDashboard() {
           <h2 style={{ fontSize: '26px', margin: '6px 0 2px', color: '#dc2626', fontFamily: 'Space Grotesk' }}>
             {money(totalBalanceDue)}
           </h2>
-          <small style={{ color: '#dc2626', fontWeight: 700 }}>Saldos pendientes en la calle</small>
+          <small style={{ color: '#dc2626', fontWeight: 700 }}>Saldos pendientes de cobro</small>
         </div>
 
         <div className="pos-card" style={{ borderLeft: '4px solid #f59e0b' }}>
@@ -270,16 +348,82 @@ export function POSAdminDashboard() {
           <small style={{ color: 'var(--muted)' }}>{filteredExpenses.length} egresos reportados</small>
         </div>
 
-        <div className="pos-card" style={{ borderLeft: '4px solid #2563eb' }}>
-          <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase' }}>Neto en Caja</span>
-          <h2 style={{ fontSize: '26px', margin: '6px 0 2px', color: '#2563eb', fontFamily: 'Space Grotesk' }}>
-            {money(netIncome)}
+        <div className="pos-card" style={{ borderLeft: '4px solid #8b5cf6' }}>
+          <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase' }}>Margen Bruto Est.</span>
+          <h2 style={{ fontSize: '26px', margin: '6px 0 2px', color: '#8b5cf6', fontFamily: 'Space Grotesk' }}>
+            {marginSummary.marginPercent.toFixed(1)}%
           </h2>
-          <small style={{ color: '#2563eb', fontWeight: 700 }}>Recaudación menos egresos</small>
+          <small style={{ color: '#8b5cf6', fontWeight: 700 }}>Utilidad: {money(marginSummary.grossProfit)}</small>
         </div>
       </div>
 
-      {/* Methods Breakdown & Payment Split */}
+      {/* Visual Chart: Daily Sales Trend */}
+      {dailySalesData.length > 0 && (
+        <div className="pos-card" style={{ display: 'grid', gap: '14px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <BarChart2 size={18} style={{ color: 'var(--orange)' }} />
+              Tendencia de Ventas Diarias
+            </h3>
+            <span style={{ fontSize: '12px', color: 'var(--muted)' }}>Facturación por día</span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px', height: '140px', paddingTop: '20px', borderBottom: '1px solid var(--line)' }}>
+            {dailySalesData.map((d, idx) => (
+              <div key={idx} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', height: '100%', justifyContent: 'flex-end' }}>
+                <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--ink)' }}>
+                  ${d.sales > 0 ? d.sales.toFixed(0) : '0'}
+                </span>
+                <div
+                  style={{
+                    width: '100%',
+                    maxWidth: '40px',
+                    height: `${d.heightPercent}%`,
+                    background: 'linear-gradient(180deg, var(--orange) 0%, var(--orange-dark) 100%)',
+                    borderRadius: '6px 6px 0 0',
+                    transition: 'all 0.3s ease'
+                  }}
+                />
+                <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 700 }}>
+                  {d.dayLabel}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Substrates & Products Revenue Breakdown */}
+      {categoryBreakdown.length > 0 && (
+        <div className="pos-card" style={{ display: 'grid', gap: '14px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Layers size={18} style={{ color: 'var(--orange)' }} />
+              Participación por Familia de Productos & Sustratos
+            </h3>
+            <span style={{ fontSize: '12px', color: 'var(--muted)' }}>Volumen e ingresos</span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+            {categoryBreakdown.map((cat, idx) => (
+              <div key={idx} style={{ padding: '14px', borderRadius: '12px', background: 'var(--bg)', border: '1px solid var(--line)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <strong style={{ fontSize: '13px', color: 'var(--ink)' }}>{cat.name}</strong>
+                  <span style={{ fontSize: '12px', fontWeight: 900, color: 'var(--orange)' }}>{cat.percent.toFixed(1)}%</span>
+                </div>
+                <div style={{ fontSize: '18px', fontWeight: 900, color: 'var(--ink)', fontFamily: 'Space Grotesk' }}>
+                  {money(cat.revenue)}
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px' }}>
+                  {cat.count} ítems {cat.m2 > 0 ? `• ${cat.m2.toFixed(1)} m² impresos` : ''}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Payment Split Breakdown */}
       <div className="pos-card">
         <div className="pos-card-title">
           <h3>
@@ -306,16 +450,16 @@ export function POSAdminDashboard() {
             <small style={{ color: 'var(--muted)' }}>{totalDeposits > 0 ? `${((transferAmount / totalDeposits) * 100).toFixed(1)}%` : '0%'}</small>
           </div>
 
-          <div style={{ padding: '16px', borderRadius: '12px', background: 'rgba(147, 51, 234, 0.08)', border: '1px solid rgba(147, 51, 234, 0.2)' }}>
-            <span style={{ fontSize: '12px', fontWeight: 800, color: '#9333ea' }}>📜 CHEQUES</span>
-            <div style={{ fontSize: '20px', fontWeight: 800, margin: '6px 0', color: '#6b21a8' }}>{money(checkAmount)}</div>
-            <small style={{ color: 'var(--muted)' }}>{totalDeposits > 0 ? `${((checkAmount / totalDeposits) * 100).toFixed(1)}%` : '0%'}</small>
+          <div style={{ padding: '16px', borderRadius: '12px', background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.2)' }}>
+            <span style={{ fontSize: '12px', fontWeight: 800, color: '#d97706' }}>💳 TARJETAS</span>
+            <div style={{ fontSize: '20px', fontWeight: 800, margin: '6px 0', color: '#b45309' }}>{money(cardAmount)}</div>
+            <small style={{ color: 'var(--muted)' }}>{totalDeposits > 0 ? `${((cardAmount / totalDeposits) * 100).toFixed(1)}%` : '0%'}</small>
           </div>
 
-          <div style={{ padding: '16px', borderRadius: '12px', background: 'rgba(234, 88, 12, 0.08)', border: '1px solid rgba(234, 88, 12, 0.2)' }}>
-            <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--orange-dark)' }}>💳 TARJETAS</span>
-            <div style={{ fontSize: '20px', fontWeight: 800, margin: '6px 0', color: 'var(--orange-dark)' }}>{money(cardAmount)}</div>
-            <small style={{ color: 'var(--muted)' }}>{totalDeposits > 0 ? `${((cardAmount / totalDeposits) * 100).toFixed(1)}%` : '0%'}</small>
+          <div style={{ padding: '16px', borderRadius: '12px', background: 'rgba(100, 116, 139, 0.08)', border: '1px solid rgba(100, 116, 139, 0.2)' }}>
+            <span style={{ fontSize: '12px', fontWeight: 800, color: '#475569' }}>📜 CHEQUES</span>
+            <div style={{ fontSize: '20px', fontWeight: 800, margin: '6px 0', color: '#334155' }}>{money(checkAmount)}</div>
+            <small style={{ color: 'var(--muted)' }}>{totalDeposits > 0 ? `${((checkAmount / totalDeposits) * 100).toFixed(1)}%` : '0%'}</small>
           </div>
         </div>
       </div>
@@ -325,89 +469,68 @@ export function POSAdminDashboard() {
         <div className="pos-card-title">
           <h3>
             <Award size={18} style={{ color: 'var(--orange)' }} />
-            Desempeño y Cumplimiento de Metas por Asesora
+            Rendimiento Comercial & Cumplimiento de Metas
           </h3>
-          <span>Comparativa del periodo seleccionado</span>
+          <span>Semana {store.advisors[0]?.currentWeekCode || 'Actual'}</span>
         </div>
 
         <div style={{ overflowX: 'auto' }}>
-          <table className="pos-daily-excel-table">
+          <table className="pos-orders-table" style={{ width: '100%' }}>
             <thead>
               <tr>
-                <th style={{ textAlign: 'left' }}>Asesora Comercial</th>
+                <th>Asesora</th>
                 <th>Trabajos</th>
-                <th>Venta Realizada</th>
-                <th>Abonado Recaudado</th>
+                <th>Venta Bruta</th>
+                <th>Cobrado</th>
                 <th>Por Cobrar</th>
                 <th>Gastos</th>
                 <th>Neto Caja</th>
                 <th>Ticket Prom.</th>
                 <th>Meta Semanal</th>
-                <th style={{ textAlign: 'center' }}>% Cumplimiento</th>
+                <th style={{ minWidth: '130px' }}>Cumplimiento</th>
               </tr>
             </thead>
             <tbody>
-              {advisorPerformance.map((adv) => {
-                const isPassed = adv.compliance >= 100;
-                return (
-                  <tr key={adv.id}>
-                    <td style={{ textAlign: 'left', fontWeight: 800 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{
-                          width: '26px',
-                          height: '26px',
-                          borderRadius: '6px',
-                          background: 'var(--orange-soft)',
-                          color: 'var(--orange-dark)',
-                          fontSize: '11px',
-                          fontWeight: 800,
-                          display: 'grid',
-                          placeItems: 'center'
-                        }}>
-                          {adv.name.substring(0, 2).toUpperCase()}
-                        </div>
-                        <span>{adv.name}</span>
+              {advisorPerformance.map((adv) => (
+                <tr key={adv.id}>
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div className="pos-advisor-pill-avatar" style={{ width: '28px', height: '28px', fontSize: '11px' }}>
+                        {adv.name.substring(0, 2).toUpperCase()}
                       </div>
-                    </td>
-                    <td>{adv.orderCount}</td>
-                    <td style={{ fontWeight: 800 }}>{money(adv.sales)}</td>
-                    <td className="pos-highlight-cash">{money(adv.deposits)}</td>
-                    <td className="pos-highlight-balance">{money(adv.balance)}</td>
-                    <td style={{ color: '#d97706' }}>{money(adv.expenses)}</td>
-                    <td style={{ fontWeight: 800, color: '#2563eb' }}>{money(adv.net)}</td>
-                    <td>{money(adv.avgTicket)}</td>
-                    <td>{money(adv.weeklyGoal)}</td>
-                    <td style={{ textAlign: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center' }}>
-                        <div style={{ width: '60px', height: '8px', background: 'var(--line)', borderRadius: '4px', overflow: 'hidden' }}>
-                          <div style={{
-                            width: `${Math.min(100, adv.compliance)}%`,
+                      <div>
+                        <strong>{adv.name}</strong>
+                        {adv.isActive === false && <span style={{ fontSize: '10px', color: '#dc2626', display: 'block' }}>Inactiva</span>}
+                      </div>
+                    </div>
+                  </td>
+                  <td><b>{adv.orderCount}</b></td>
+                  <td><b>{money(adv.sales)}</b></td>
+                  <td style={{ color: '#16a34a', fontWeight: 700 }}>{money(adv.deposits)}</td>
+                  <td style={{ color: adv.balance > 0 ? '#dc2626' : 'var(--muted)', fontWeight: 700 }}>{money(adv.balance)}</td>
+                  <td style={{ color: '#d97706' }}>{money(adv.expenses)}</td>
+                  <td><b style={{ color: '#2563eb' }}>{money(adv.net)}</b></td>
+                  <td>{money(adv.avgTicket)}</td>
+                  <td>{money(adv.weeklyGoal || 3200)}</td>
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ flex: 1, height: '8px', background: 'var(--line)', borderRadius: '999px', overflow: 'hidden' }}>
+                        <div
+                          style={{
                             height: '100%',
-                            background: isPassed ? '#16a34a' : 'var(--orange)'
-                          }} />
-                        </div>
-                        <span style={{ fontSize: '11px', fontWeight: 800, color: isPassed ? '#16a34a' : 'var(--ink)' }}>
-                          {adv.compliance.toFixed(1)}%
-                        </span>
+                            width: `${Math.min(100, adv.compliance)}%`,
+                            background: adv.compliance >= 100 ? '#16a34a' : (adv.compliance >= 60 ? 'var(--orange)' : '#dc2626'),
+                            borderRadius: '999px'
+                          }}
+                        />
                       </div>
-                    </td>
-                  </tr>
-                );
-              })}
-              <tr className="total-row">
-                <td style={{ textAlign: 'left', fontWeight: 900 }}>TOTALES CONSOLIDADOS</td>
-                <td>{filteredOrders.length}</td>
-                <td style={{ fontWeight: 900, color: 'var(--orange-dark)' }}>{money(totalSales)}</td>
-                <td className="pos-highlight-cash">{money(totalDeposits)}</td>
-                <td className="pos-highlight-balance">{money(totalBalanceDue)}</td>
-                <td style={{ color: '#d97706' }}>{money(totalExpenses)}</td>
-                <td style={{ fontWeight: 900, color: '#2563eb' }}>{money(netIncome)}</td>
-                <td>{money(filteredOrders.length > 0 ? totalSales / filteredOrders.length : 0)}</td>
-                <td>-</td>
-                <td style={{ textAlign: 'center', fontWeight: 800 }}>
-                  {totalSales > 0 ? `${((totalDeposits / totalSales) * 100).toFixed(1)}% recaudado` : '0%'}
-                </td>
-              </tr>
+                      <span style={{ fontSize: '12px', fontWeight: 800, color: adv.compliance >= 100 ? '#16a34a' : 'var(--ink)' }}>
+                        {adv.compliance.toFixed(0)}%
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

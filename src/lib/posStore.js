@@ -1,4 +1,5 @@
 import { supabase, hasSupabase } from './supabase';
+import { estebanCatalogProducts } from '../catalog';
 
 export const POS_STORAGE_KEY = 'gigaprint-pos-v1';
 export const POS_SESSION_KEY = 'gigaprint-pos-session-v1';
@@ -98,15 +99,15 @@ export function rotateAdvisorsCredentials(advisors = [], force = false, targetDa
 }
 
 // Helper to format all credentials into WhatsApp/copyable text
-export function formatWeeklyCredentialsText(advisors = [], mondayDateStr = '') {
-  const monday = mondayDateStr || getMondayOfWeek();
-  const currentWeek = getISOWeekCode(new Date(monday));
+export function formatWeeklyCredentialsForWhatsApp(advisors = []) {
+  const weekCode = getISOWeekCode();
+  const monday = getMondayOfWeek();
   const activeAdvisors = advisors.filter((a) => a.isActive !== false);
 
-  let text = `🔑 *CREDENCIALES GIGAPRINT - SEMANA ${currentWeek}*\n`;
-  text += `📅 *Válidas:* Desde el Lunes ${monday}\n`;
-  text += `🏢 *Punto de Venta:* https://gigaprint-ec.github.io/gigaprint-webpage/pos\n`;
+  let text = `🔐 *GIGAPRINT — CREDENCIALES SEMANALES DE PUNTO DE VENTA (POS)*\n`;
+  text += `📅 *Semana:* ${weekCode} (Válidas desde Lun ${monday})\n`;
   text += `-------------------------------------------\n\n`;
+
   activeAdvisors.forEach((adv, index) => {
     text += `👤 *Asesora ${index + 1}: ${adv.name}*\n`;
     text += `   • PIN de Caja: *${adv.weeklyPin || adv.pin || '1234'}*\n`;
@@ -117,6 +118,8 @@ export function formatWeeklyCredentialsText(advisors = [], mondayDateStr = '') {
   text += `⚠️ *Aviso:* Las credenciales se renuevan automáticamente cada LUNES a las 00:00 para control y seguridad de las ventas.`;
   return text;
 }
+
+export const formatWeeklyCredentialsText = formatWeeklyCredentialsForWhatsApp;
 
 // Default initial advisors
 export const DEFAULT_ADVISORS = [
@@ -131,14 +134,31 @@ export const DEFAULT_ADVISORS = [
 
 // Default Customers with rich CRM metadata
 export const DEFAULT_CUSTOMERS = [
-  { id: 'cust-1', name: 'Agrofunción', identification: '1790012345001', phone: '0987654321', email: 'agrofuncion@gmail.com', city: 'Quito', address: 'Av. Granados', companyName: 'Agrofunción S.A.', isVip: true, tags: ['Empresarial', 'Factura', 'Crédito 15d'], notes: 'Solicita siempre lonas con dobladillo y ojales reforzados cada 30cm.' },
-  { id: 'cust-2', name: 'Mauro Peñafiel', identification: '1712345678', phone: '0991234567', email: 'mauro.p@hotmail.com', city: 'Quito', address: 'Cumbayá', companyName: '', isVip: false, tags: ['Frecuente', 'Viniles'], notes: 'Prefiere vinil brillante con laminado mate.' },
-  { id: 'cust-3', name: 'Jhony Gaspar', identification: '1723456789', phone: '0983456789', email: 'jgaspar@gmail.com', city: 'Quito', address: 'Norte de Quito', companyName: 'Gaspar Publicidad', isVip: true, tags: ['Agencia', 'Mayorista'], notes: 'Diseñador independiente, envía artes listos en PDF.' },
-  { id: 'cust-4', name: 'Juan Carlos', identification: '1709876543', phone: '0978901234', email: 'jc@outlook.com', city: 'Quito', address: 'Sector La Mariscal', companyName: '', isVip: false, tags: ['Puntual'], notes: 'Paga 100% por transferencia antes de retirar.' },
-  { id: 'cust-5', name: 'Melissa Andrade', identification: '1718293041', phone: '0998765432', email: 'melissa.a@gmail.com', city: 'Quito', address: 'Tumbaco', companyName: 'Eventos & Bodas', isVip: false, tags: ['Eventos', 'Roll-Ups'], notes: 'Pide respaldos de estructura de araña y roll-up.' },
-  { id: 'cust-6', name: 'Escuela El Rosario', identification: '1792345678001', phone: '022345678', email: 'elrosario@edu.ec', city: 'Quito', address: 'Valle de los Chillos', companyName: 'U.E. El Rosario', isVip: true, tags: ['Institución', 'Factura'], notes: 'Requiere comprobante de retención y orden de compra formal.' },
-  { id: 'cust-7', name: 'Karen Rodas', identification: '1729485721', phone: '0961234567', email: 'karen.r@gmail.com', city: 'Quito', address: 'Quito Sur', companyName: '', isVip: false, tags: ['Rótulos'], notes: 'Cotizaciones de letras 3D y acrílico.' }
+  { id: 'cust-1', name: 'Agrofunción', identification: '1790012345001', phone: '0987654321', email: 'agrofuncion@gmail.com', city: 'Quito', address: 'Av. Granados', companyName: 'Agrofunción S.A.', isVip: true, creditLimit: 2500, creditDays: 15, tags: ['Empresarial', 'Factura', 'Crédito 15d'], notes: 'Solicita siempre lonas con dobladillo y ojales reforzados cada 30cm.' },
+  { id: 'cust-2', name: 'Mauro Peñafiel', identification: '1712345678', phone: '0991234567', email: 'mauro.p@hotmail.com', city: 'Quito', address: 'Cumbayá', companyName: '', isVip: false, creditLimit: 500, creditDays: 0, tags: ['Frecuente', 'Viniles'], notes: 'Prefiere vinil brillante con laminado mate.' },
+  { id: 'cust-3', name: 'Jhony Gaspar', identification: '1723456789', phone: '0983456789', email: 'jgaspar@gmail.com', city: 'Quito', address: 'Norte de Quito', companyName: 'Gaspar Publicidad', isVip: true, creditLimit: 1500, creditDays: 30, tags: ['Agencia', 'Mayorista'], notes: 'Diseñador independiente, envía artes listos en PDF.' },
+  { id: 'cust-4', name: 'Juan Carlos', identification: '1709876543', phone: '0978901234', email: 'jc@outlook.com', city: 'Quito', address: 'Sector La Mariscal', companyName: '', isVip: false, creditLimit: 300, creditDays: 0, tags: ['Puntual'], notes: 'Paga 100% por transferencia antes de retirar.' },
+  { id: 'cust-5', name: 'Melissa Andrade', identification: '1718293041', phone: '0998765432', email: 'melissa.a@gmail.com', city: 'Quito', address: 'Tumbaco', companyName: 'Eventos & Bodas', isVip: false, creditLimit: 600, creditDays: 0, tags: ['Eventos', 'Roll-Ups'], notes: 'Pide respaldos de estructura de araña y roll-up.' },
+  { id: 'cust-6', name: 'Escuela El Rosario', identification: '1792345678001', phone: '022345678', email: 'elrosario@edu.ec', city: 'Quito', address: 'Valle de los Chillos', companyName: 'U.E. El Rosario', isVip: true, creditLimit: 3000, creditDays: 30, tags: ['Institución', 'Factura'], notes: 'Requiere comprobante de retención y orden de compra formal.' },
+  { id: 'cust-7', name: 'Karen Rodas', identification: '1729485721', phone: '0961234567', email: 'karen.r@gmail.com', city: 'Quito', address: 'Quito Sur', companyName: '', isVip: false, creditLimit: 400, creditDays: 0, tags: ['Rótulos'], notes: 'Cotizaciones de letras 3D y acrílico.' }
 ];
+
+// Default Initial Products (derived from catalog)
+export const DEFAULT_PRODUCTS = estebanCatalogProducts.map((p, idx) => ({
+  id: p.id || `prod-${idx + 1}`,
+  sku: `GIGA-${String(idx + 1).padStart(3, '0')}`,
+  name: p.name,
+  category: p.category || 'Gran Formato',
+  parentCategory: p.category || 'Gran Formato',
+  calcType: p.calcType || (p.pricingMode === 'area' ? 'area' : 'unit'),
+  basePrice: Number(p.price || p.priceScales?.[0]?.price || 7.50),
+  minPrice: Number(p.minPrice || p.priceScales?.[p.priceScales?.length - 1]?.price || 5.00),
+  unit: p.unit || (p.pricingMode === 'area' ? 'm2' : 'unidad'),
+  priceTiers: p.priceScales || [],
+  isActive: true,
+  leadTimeDays: p.leadTimeDays || 2,
+  description: p.description || `${p.name} con acabados profesionales Gigaprint.`
+}));
 
 // Default Materials Inventory
 export const DEFAULT_MATERIALS = [
@@ -157,7 +177,15 @@ export const DEFAULT_MATERIALS = [
   { id: 'mat-ojales-gran', name: 'Ojales Reforzados Grandes #5', category: 'accesorio', unit: 'unid', currentStock: 1800.00, minStockAlert: 150.00, widthM: null, lengthM: null, costPerUnit: 0.07, supplierName: 'Ferretería Industrial' }
 ];
 
-// Generate Next Order Number (e.g., 61930)
+// Default Suppliers Directory
+export const DEFAULT_SUPPLIERS = [
+  { id: 'sup-1', name: 'Importadora Gráfica Ecuador', identification: '1791234567001', contactName: 'Carlos Morales', phone: '0981112233', email: 'ventas@importadoragrafica.ec', city: 'Quito', address: 'Av. Galo Plaza Lasso', materialsSupplied: ['Lona Frontlit 13oz', 'Lona 10oz', 'Lona Mesh'], paymentTerms: 'Crédito 30d', notes: 'Entrega a domicilio los días martes y jueves.' },
+  { id: 'sup-2', name: 'Suministros Visuales del Austro', identification: '1792223334001', contactName: 'Patricia Vélez', phone: '0994445566', email: 'suministros@visuales.com.ec', city: 'Quito', address: 'Sector El Inca', materialsSupplied: ['Lona Backlit', 'Vinil Microperforado'], paymentTerms: 'Crédito 15d', notes: 'Descuento 5% por pronto pago en 8 días.' },
+  { id: 'sup-3', name: 'Distribuidora Avery / Ritrama', identification: '1793334445001', contactName: 'Ing. David Salazar', phone: '0977778899', email: 'dsalazar@viniles.ec', city: 'Quito', address: 'Carcelén Industrial', materialsSupplied: ['Vinil Adhesivo Blanco', 'Vinil Mate', 'Laminado en Frío'], paymentTerms: 'Contado', notes: 'Excelente calidad de adhesivo para exteriores.' },
+  { id: 'sup-4', name: 'Plásticos & Rígidos Industriales', identification: '1794445556001', contactName: 'Roberto Campana', phone: '0988889900', email: 'rcampana@plasticos.com.ec', city: 'Quito', address: 'Calderón', materialsSupplied: ['Planchas Sintra 3mm', 'Acrílico Cristal'], paymentTerms: 'Crédito 15d', notes: 'Corte a medida con sierra de banco sin costo adicional.' }
+];
+
+// Helper to generate Next Order Number (e.g., 61930)
 export function generateOrderNumber(existingOrders = []) {
   const maxNum = existingOrders.reduce((max, order) => {
     const num = parseInt(order.orderNumber, 10);
@@ -183,256 +211,313 @@ export function onSyncStatusChange(callback) {
   return () => syncListeners.delete(callback);
 }
 
-// Load POS store from local storage
+// Initial Local Storage State
+export const INITIAL_POS_STORE = {
+  advisors: DEFAULT_ADVISORS,
+  customers: DEFAULT_CUSTOMERS,
+  products: DEFAULT_PRODUCTS,
+  orders: [],
+  orderItems: [],
+  payments: [],
+  expenses: [],
+  shifts: [],
+  materials: DEFAULT_MATERIALS,
+  materialLogs: [],
+  customerLogs: [],
+  suppliers: DEFAULT_SUPPLIERS,
+  parkedSales: [],
+  lastUpdated: new Date().toISOString()
+};
+
+// Safe JSON Parse with Fallback
+export function safeJSONParse(str, fallback) {
+  try {
+    return str ? JSON.parse(str) : fallback;
+  } catch (e) {
+    return fallback;
+  }
+}
+
+// Load Store from LocalStorage with auto-rotation
 export function loadPOSStore() {
-  try {
-    const raw = localStorage.getItem(POS_STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      const advisors = parsed.advisors?.length ? parsed.advisors : DEFAULT_ADVISORS;
-      const rotatedAdvisors = rotateAdvisorsCredentials(advisors);
-
-      const state = {
-        advisors: rotatedAdvisors,
-        customers: parsed.customers?.length ? parsed.customers : DEFAULT_CUSTOMERS,
-        orders: parsed.orders || [],
-        orderItems: parsed.orderItems || [],
-        payments: parsed.payments || [],
-        expenses: parsed.expenses || [],
-        shifts: parsed.shifts || [],
-        materials: parsed.materials?.length ? parsed.materials : DEFAULT_MATERIALS,
-        materialLogs: parsed.materialLogs || [],
-        activeAdvisorId: parsed.activeAdvisorId || rotatedAdvisors[0]?.id
-      };
-
-      if (JSON.stringify(advisors) !== JSON.stringify(rotatedAdvisors)) {
-        savePOSStore(state);
-      }
-
-      return state;
-    }
-  } catch (err) {
-    console.error('Failed to load local POS store:', err);
+  if (typeof window === 'undefined') return INITIAL_POS_STORE;
+  const raw = localStorage.getItem(POS_STORAGE_KEY);
+  if (!raw) {
+    const fresh = {
+      ...INITIAL_POS_STORE,
+      advisors: rotateAdvisorsCredentials(DEFAULT_ADVISORS)
+    };
+    savePOSStoreLocal(fresh);
+    return fresh;
   }
 
-  const initialAdvisors = rotateAdvisorsCredentials(DEFAULT_ADVISORS);
-  return {
-    advisors: initialAdvisors,
-    customers: DEFAULT_CUSTOMERS,
-    orders: [],
-    orderItems: [],
-    payments: [],
-    expenses: [],
-    shifts: [],
-    materials: DEFAULT_MATERIALS,
-    materialLogs: [],
-    activeAdvisorId: initialAdvisors[0].id
+  const parsed = safeJSONParse(raw, INITIAL_POS_STORE);
+  const rotatedAdvisors = rotateAdvisorsCredentials(parsed.advisors || DEFAULT_ADVISORS);
+
+  const merged = {
+    advisors: rotatedAdvisors,
+    customers: (parsed.customers && parsed.customers.length > 0) ? parsed.customers : DEFAULT_CUSTOMERS,
+    products: (parsed.products && parsed.products.length > 0) ? parsed.products : DEFAULT_PRODUCTS,
+    orders: parsed.orders || [],
+    orderItems: parsed.orderItems || [],
+    payments: parsed.payments || [],
+    expenses: parsed.expenses || [],
+    shifts: parsed.shifts || [],
+    materials: (parsed.materials && parsed.materials.length > 0) ? parsed.materials : DEFAULT_MATERIALS,
+    materialLogs: parsed.materialLogs || [],
+    customerLogs: parsed.customerLogs || [],
+    suppliers: (parsed.suppliers && parsed.suppliers.length > 0) ? parsed.suppliers : DEFAULT_SUPPLIERS,
+    parkedSales: parsed.parkedSales || [],
+    lastUpdated: parsed.lastUpdated || new Date().toISOString()
   };
+
+  return merged;
 }
 
-// Save POS store locally
-export function savePOSStore(state) {
-  try {
-    localStorage.setItem(POS_STORAGE_KEY, JSON.stringify(state));
-  } catch (err) {
-    console.error('Failed to persist POS store:', err);
-  }
+// Save Store directly to LocalStorage
+export function savePOSStoreLocal(store) {
+  if (typeof window === 'undefined') return;
+  const dataToSave = {
+    ...store,
+    lastUpdated: new Date().toISOString()
+  };
+  localStorage.setItem(POS_STORAGE_KEY, JSON.stringify(dataToSave));
 }
 
-// ==========================================
-// SUPABASE BIDIRECTIONAL SYNC ENGINE
-// ==========================================
+export const savePOSStore = savePOSStoreLocal;
 
-// Helper to map camelCase JS objects to snake_case for Supabase
-function toSnakeCase(obj) {
+// Helper to convert camelCase object keys to snake_case for Supabase
+export function toSnakeCase(obj) {
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
-  const newObj = {};
-  for (const [key, value] of Object.entries(obj)) {
-    const snakeKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
-    newObj[snakeKey] = value;
-  }
-  return newObj;
+  const n = {};
+  Object.keys(obj).forEach((k) => {
+    const sk = k.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+    n[sk] = obj[k];
+  });
+  return n;
 }
 
-// Helper to map snake_case SQL rows to camelCase JS objects
-function toCamelCase(obj) {
+// Helper to convert snake_case object keys to camelCase for React
+export function toCamelCase(obj) {
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
-  const newObj = {};
-  for (const [key, value] of Object.entries(obj)) {
-    const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
-    newObj[camelKey] = value;
-  }
-  return newObj;
+  const n = {};
+  Object.keys(obj).forEach((k) => {
+    const ck = k.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+    n[ck] = obj[k];
+  });
+  return n;
 }
 
-// Asynchronously sync an entity to Supabase in the background
+// Async Remote Sync Engine for individual entities
 export async function syncEntityRemote(tableName, record) {
-  if (!hasSupabase || !supabase) return;
+  if (!hasSupabase || !supabase) return { ok: false, error: 'No Supabase connection' };
   try {
-    setSyncStatus('saving');
-    const snakeRecord = toSnakeCase(record);
-    const { error } = await supabase.from(tableName).upsert(snakeRecord, { onConflict: 'id' });
+    setSyncStatus('syncing');
+    const snake = toSnakeCase(record);
+    const { data, error } = await supabase
+      .from(tableName)
+      .upsert(snake, { onConflict: 'id' })
+      .select();
+
     if (error) {
-      console.warn(`Remote sync warning for ${tableName}:`, error.message);
-      setSyncStatus('offline');
-    } else {
-      setSyncStatus('synced');
+      console.warn(`[Supabase Sync Warn] ${tableName}:`, error.message);
+      setSyncStatus('error');
+      return { ok: false, error: error.message };
     }
-  } catch (err) {
-    console.warn(`Remote sync error for ${tableName}:`, err);
-    setSyncStatus('offline');
+    setSyncStatus('synced');
+    return { ok: true, data };
+  } catch (e) {
+    console.error(`[Supabase Sync Exception] ${tableName}:`, e);
+    setSyncStatus('error');
+    return { ok: false, error: e.message };
   }
 }
 
-// Asynchronously fetch all remote POS data and merge into local state
+// Remote Batch Fetch Engine to hydrate and merge from Supabase
 export async function fetchRemotePOSStore() {
-  if (!hasSupabase || !supabase) return null;
+  if (!hasSupabase || !supabase) return loadPOSStore();
   try {
-    setSyncStatus('saving');
-    const [advRes, custRes, ordRes, itmRes, payRes, expRes, shfRes, matRes] = await Promise.all([
+    setSyncStatus('syncing');
+    const [
+      advRes, custRes, ordRes, itmRes, payRes, expRes, shfRes, matRes, logRes, cLogRes, supRes, prkRes, prdRes
+    ] = await Promise.all([
       supabase.from('pos_advisors').select('*'),
       supabase.from('pos_customers').select('*'),
-      supabase.from('pos_orders').select('*').order('created_at', { ascending: false }),
-      supabase.from('pos_order_items').select('*'),
-      supabase.from('pos_payments').select('*'),
-      supabase.from('pos_expenses').select('*'),
-      supabase.from('pos_cash_shifts').select('*').order('opened_at', { ascending: false }),
-      supabase.from('pos_materials_inventory').select('*')
+      supabase.from('pos_orders').select('*').order('created_at', { ascending: false }).limit(200),
+      supabase.from('pos_order_items').select('*').limit(500),
+      supabase.from('pos_payments').select('*').limit(500),
+      supabase.from('pos_expenses').select('*').limit(200),
+      supabase.from('pos_cash_shifts').select('*').limit(100),
+      supabase.from('pos_materials_inventory').select('*'),
+      supabase.from('pos_material_usage_logs').select('*').limit(300),
+      supabase.from('pos_customer_activity_logs').select('*').order('created_at', { ascending: false }).limit(200),
+      supabase.from('pos_suppliers').select('*'),
+      supabase.from('pos_parked_sales').select('*'),
+      supabase.from('pos_products').select('*')
     ]);
 
     const local = loadPOSStore();
 
+    const remoteAdvisors = (advRes.data || []).map(toCamelCase);
+    const remoteCustomers = (custRes.data || []).map(toCamelCase);
+    const remoteOrders = (ordRes.data || []).map(toCamelCase);
+    const remoteItems = (itmRes.data || []).map(toCamelCase);
+    const remotePayments = (payRes.data || []).map(toCamelCase);
+    const remoteExpenses = (expRes.data || []).map(toCamelCase);
+    const remoteShifts = (shfRes.data || []).map(toCamelCase);
+    const remoteMaterials = (matRes.data || []).map(toCamelCase);
+    const remoteUsageLogs = (logRes.data || []).map(toCamelCase);
+    const remoteCustLogs = (cLogRes.data || []).map(toCamelCase);
+    const remoteSuppliers = (supRes.data || []).map(toCamelCase);
+    const remoteParked = (prkRes.data || []).map(toCamelCase);
+    const remoteProducts = (prdRes.data || []).map(toCamelCase);
+
     const merged = {
-      ...local,
-      advisors: advRes.data?.length ? advRes.data.map(toCamelCase) : local.advisors,
-      customers: custRes.data?.length ? custRes.data.map(toCamelCase) : local.customers,
-      orders: ordRes.data?.length ? ordRes.data.map(toCamelCase) : local.orders,
-      orderItems: itmRes.data?.length ? itmRes.data.map(toCamelCase) : local.orderItems,
-      payments: payRes.data?.length ? payRes.data.map(toCamelCase) : local.payments,
-      expenses: expRes.data?.length ? expRes.data.map(toCamelCase) : local.expenses,
-      shifts: shfRes.data?.length ? shfRes.data.map(toCamelCase) : local.shifts,
-      materials: matRes.data?.length ? matRes.data.map(toCamelCase) : local.materials
+      advisors: remoteAdvisors.length ? rotateAdvisorsCredentials(remoteAdvisors) : local.advisors,
+      customers: remoteCustomers.length ? remoteCustomers : local.customers,
+      products: remoteProducts.length ? remoteProducts : local.products,
+      orders: remoteOrders.length ? remoteOrders : local.orders,
+      orderItems: remoteItems.length ? remoteItems : local.orderItems,
+      payments: remotePayments.length ? remotePayments : local.payments,
+      expenses: remoteExpenses.length ? remoteExpenses : local.expenses,
+      shifts: remoteShifts.length ? remoteShifts : local.shifts,
+      materials: remoteMaterials.length ? remoteMaterials : local.materials,
+      materialLogs: remoteUsageLogs.length ? remoteUsageLogs : local.materialLogs,
+      customerLogs: remoteCustLogs.length ? remoteCustLogs : local.customerLogs,
+      suppliers: remoteSuppliers.length ? remoteSuppliers : local.suppliers,
+      parkedSales: remoteParked.length ? remoteParked : local.parkedSales,
+      lastUpdated: new Date().toISOString()
     };
 
-    savePOSStore(merged);
+    savePOSStoreLocal(merged);
     setSyncStatus('synced');
     return merged;
-  } catch (err) {
-    console.warn('Failed to fetch remote POS store:', err);
+  } catch (e) {
+    console.warn('[POS Store Remote Fetch] Fallback to local store:', e);
     setSyncStatus('offline');
-    return null;
+    return loadPOSStore();
   }
 }
 
-// Subscribe to Realtime Supabase changes across multiple devices
+// Realtime Subscriptions Handler for Multi-device live sync
 export function subscribePOSRealtime(onUpdate) {
   if (!hasSupabase || !supabase) return () => {};
-  try {
-    const channel = supabase
-      .channel('pos-realtime-sync')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'pos_orders' }, () => {
-        fetchRemotePOSStore().then((updated) => updated && onUpdate && onUpdate(updated));
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'pos_payments' }, () => {
-        fetchRemotePOSStore().then((updated) => updated && onUpdate && onUpdate(updated));
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'pos_cash_shifts' }, () => {
-        fetchRemotePOSStore().then((updated) => updated && onUpdate && onUpdate(updated));
-      })
-      .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  } catch (err) {
-    console.warn('Realtime subscription error:', err);
-    return () => {};
-  }
+  const channel = supabase
+    .channel('pos-realtime-all-channels')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'pos_orders' }, () => {
+      fetchRemotePOSStore().then(onUpdate);
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'pos_payments' }, () => {
+      fetchRemotePOSStore().then(onUpdate);
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'pos_cash_shifts' }, () => {
+      fetchRemotePOSStore().then(onUpdate);
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'pos_customers' }, () => {
+      fetchRemotePOSStore().then(onUpdate);
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'pos_products' }, () => {
+      fetchRemotePOSStore().then(onUpdate);
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'pos_expenses' }, () => {
+      fetchRemotePOSStore().then(onUpdate);
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'pos_customer_activity_logs' }, () => {
+      fetchRemotePOSStore().then(onUpdate);
+    })
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
 }
 
-// ==========================================
-// POS SESSION & ROLE AUTHENTICATION
-// ==========================================
+// POS Session Management
 export function getPOSSession() {
-  try {
-    const raw = localStorage.getItem(POS_SESSION_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch (err) {
-    console.error('Failed to load POS session:', err);
+  if (typeof window === 'undefined') return null;
+  const raw = localStorage.getItem(POS_SESSION_KEY);
+  if (!raw) return null;
+  const session = safeJSONParse(raw, null);
+  if (!session || !session.expiresAt) return null;
+
+  if (new Date(session.expiresAt).getTime() < Date.now()) {
+    localStorage.removeItem(POS_SESSION_KEY);
+    return null;
   }
-  return null;
+  return session;
 }
 
-export function savePOSSession(session) {
-  try {
-    if (!session) {
-      localStorage.removeItem(POS_SESSION_KEY);
-    } else {
-      localStorage.setItem(POS_SESSION_KEY, JSON.stringify(session));
-    }
-  } catch (err) {
-    console.error('Failed to save POS session:', err);
-  }
+export function setPOSSession(advisorOrAdmin) {
+  if (typeof window === 'undefined') return;
+  const expiresAt = new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(); // 12 hours
+  const session = {
+    ...advisorOrAdmin,
+    unlockedAt: new Date().toISOString(),
+    expiresAt
+  };
+  localStorage.setItem(POS_SESSION_KEY, JSON.stringify(session));
+  return session;
 }
 
-// Authenticate Advisor by PIN or Password
-export function authenticateAdvisor(advisors, advisorId, pinOrPass) {
-  const adv = advisors.find((a) => a.id === advisorId && a.isActive !== false);
-  if (!adv) return { ok: false, error: 'Asesora no encontrada o inactiva.' };
+export function authenticateAdvisor(advisors, advisorId, pinOrPassword) {
+  const advisor = advisors.find((a) => a.id === advisorId && a.isActive !== false);
+  if (!advisor) return { ok: false, error: 'Asesora no encontrada o inactiva.' };
 
-  const inputClean = String(pinOrPass).trim();
-  const pinMatch = adv.weeklyPin === inputClean || adv.pin === inputClean;
-  const passMatch = adv.weeklyPassword?.toLowerCase() === inputClean.toLowerCase();
-  const masterMatch = inputClean === '0000' || inputClean === 'gigaprint';
+  const cleanInput = String(pinOrPassword).trim().toLowerCase();
+  const validPin = String(advisor.weeklyPin || advisor.pin || '').trim().toLowerCase();
+  const validPass = String(advisor.weeklyPassword || '').trim().toLowerCase();
 
-  if (pinMatch || passMatch || masterMatch) {
-    const session = {
-      role: 'asesora',
-      advisorId: adv.id,
-      advisorName: adv.name,
-      loggedInAt: new Date().toISOString()
-    };
-    savePOSSession(session);
+  if (cleanInput === validPin || cleanInput === validPass || cleanInput === '0000' || cleanInput === 'gigaprint') {
+    const session = setPOSSession({
+      id: advisor.id,
+      name: advisor.name,
+      email: advisor.email,
+      role: advisor.role || 'asesora',
+      isAdmin: false,
+      weeklyGoal: advisor.weeklyGoal || 3200
+    });
     return { ok: true, session };
   }
 
-  return { ok: false, error: 'PIN o clave incorrecta para esta semana.' };
+  return { ok: false, error: 'PIN o contraseña incorrecta para esta semana.' };
 }
 
-// Authenticate Admin by Master PIN or Password
-export function authenticateAdmin(pinOrPass) {
-  const clean = String(pinOrPass).trim();
-  if (clean === '0000' || clean.toLowerCase() === 'gigaprint' || clean.toLowerCase() === 'admin') {
-    const session = {
-      role: 'admin',
-      advisorId: null,
-      advisorName: 'Administrador General',
-      loggedInAt: new Date().toISOString()
-    };
-    savePOSSession(session);
+export function authenticateAdmin(password) {
+  const clean = String(password).trim();
+  if (clean === 'gigaprint' || clean === '0000' || clean === 'admin2026') {
+    const session = setPOSSession({
+      id: 'adv-admin',
+      name: 'Administrador General',
+      email: 'admin@gigaprint.ec',
+      role: 'super_admin',
+      isAdmin: true,
+      weeklyGoal: 0
+    });
     return { ok: true, session };
   }
-  return { ok: false, error: 'Contraseña de administrador incorrecta.' };
+  return { ok: false, error: 'Contraseña de Administrador incorrecta.' };
 }
 
 export function logoutPOSSession() {
-  savePOSSession(null);
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(POS_SESSION_KEY);
 }
 
-// ==========================================
-// CASH REGISTER SHIFTS (ARQUEO DE CAJA)
-// ==========================================
+// Cash Shift Management
 export function getActiveCashShift(shifts = [], advisorId) {
-  return shifts.find((s) => s.advisorId === advisorId && s.status === 'open') || null;
+  const today = toISODate();
+  return shifts.find((s) => s.advisorId === advisorId && s.status === 'open');
 }
 
-export function openCashShift(store, advisorId, openingCash = 0) {
-  const dateStr = toISODate();
+export function openCashShift(store, advisorId, openingCash = 0, notes = '') {
+  const today = toISODate();
+  const shiftId = `shf-${Date.now()}`;
   const newShift = {
-    id: `shift-${Date.now()}`,
+    id: shiftId,
     advisorId,
-    date: dateStr,
-    shiftDate: dateStr,
+    date: today,
+    shiftDate: today,
     openingCash: Number(openingCash) || 0,
     closingCash: null,
     expectedCash: null,
@@ -440,508 +525,820 @@ export function openCashShift(store, advisorId, openingCash = 0) {
     status: 'open',
     openedAt: new Date().toISOString(),
     closedAt: null,
-    notes: ''
+    notes: notes || 'Apertura de turno regular'
   };
 
-  const nextState = {
-    ...store,
-    shifts: [newShift, ...store.shifts.filter((s) => !(s.advisorId === advisorId && s.status === 'open'))]
-  };
-  savePOSStore(nextState);
+  const updatedShifts = [newShift, ...(store.shifts || [])];
+  const updatedStore = { ...store, shifts: updatedShifts };
+  savePOSStoreLocal(updatedStore);
   syncEntityRemote('pos_cash_shifts', newShift);
-  return { state: nextState, shift: newShift };
+  return { updatedStore, shift: newShift };
 }
 
-export function closeCashShift(store, shiftId, actualCashCounted, notes = '') {
-  const shift = store.shifts.find((s) => s.id === shiftId);
-  if (!shift) return { state: store, shift: null };
+export function closeCashShift(store, shiftId, closingCash = 0, notes = '') {
+  const shift = (store.shifts || []).find((s) => s.id === shiftId);
+  if (!shift) return { ok: false, error: 'Turno no encontrado.' };
 
-  const dayRecon = calculateDailyReconciliation(store.orders, store.payments, store.expenses, shift.advisorId, shift.date || toISODate(shift.openedAt));
-  const expectedCash = (Number(shift.openingCash) || 0) + dayRecon.totalCash - dayRecon.totalExpenses;
-  const counted = Number(actualCashCounted) || 0;
-  const diff = counted - expectedCash;
+  const cashPayments = (store.payments || []).filter(
+    (p) => p.advisorId === shift.advisorId && p.paymentMethod === 'cash' && p.paymentDate === shift.date
+  ).reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
-  const updatedShift = {
+  const cashExpenses = (store.expenses || []).filter(
+    (e) => e.advisorId === shift.advisorId && e.expenseDate === shift.date
+  ).reduce((sum, e) => sum + Number(e.amount || 0), 0);
+
+  const expectedCash = (Number(shift.openingCash) || 0) + cashPayments - cashExpenses;
+  const counted = Number(closingCash) || 0;
+  const difference = counted - expectedCash;
+
+  const closedShift = {
     ...shift,
     closingCash: counted,
     expectedCash,
-    difference: diff,
+    difference,
     status: 'closed',
     closedAt: new Date().toISOString(),
-    notes
+    notes: notes ? `${shift.notes || ''} | Cierre: ${notes}` : shift.notes
   };
 
-  const nextState = {
-    ...store,
-    shifts: store.shifts.map((s) => s.id === shiftId ? updatedShift : s)
-  };
-  savePOSStore(nextState);
-  syncEntityRemote('pos_cash_shifts', updatedShift);
-  return { state: nextState, shift: updatedShift };
+  const updatedShifts = (store.shifts || []).map((s) => (s.id === shiftId ? closedShift : s));
+  const updatedStore = { ...store, shifts: updatedShifts };
+  savePOSStoreLocal(updatedStore);
+  syncEntityRemote('pos_cash_shifts', closedShift);
+  return { ok: true, updatedStore, shift: closedShift };
 }
 
-// ==========================================
-// ORDER LIFECYCLE & KANBAN STAGES
-// ==========================================
+// Master Function to Create Order with local deduction and remote sync
+export function createPOSOrder(store, orderData) {
+  const orderId = `ord-${Date.now()}`;
+  const trackingToken = crypto.randomUUID ? crypto.randomUUID() : `trk-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+  const orderNumber = generateOrderNumber(store.orders || []);
+  const today = toISODate();
+  const dayOfWeek = getDayNameSpanish(today);
+  const weekCode = getISOWeekCode();
 
-// Create a new Order with split payments and material usage tracking
-export function createPOSOrder(store, orderData, items = [], splitPayments = []) {
-  const orderId = orderData.id || `ord-${Date.now()}`;
-  const orderNumber = orderData.orderNumber || generateOrderNumber(store.orders);
+  const stageHistory = [
+    { stage: orderData.productionStage || 'preprensa', timestamp: new Date().toISOString(), advisorId: orderData.advisorId, note: 'Creación de orden en POS' }
+  ];
 
-  const fullOrder = {
-    ...orderData,
+  const newOrder = {
     id: orderId,
+    trackingToken,
     orderNumber,
+    advisorId: orderData.advisorId,
+    customerId: orderData.customerId || null,
+    customerName: orderData.customerName || 'Cliente Mostrador',
+    customerIdentification: orderData.customerIdentification || '',
+    customerPhone: orderData.customerPhone || '',
+    jobName: orderData.jobName || `Trabajo #${orderNumber}`,
+    orderDate: today,
+    deliveryDate: orderData.deliveryDate || today,
+    pickupLocation: orderData.pickupLocation || 'Matriz Gigaprint - Av. de la Prensa y Vaca de Castro, Quito',
+    pickupPin: String(Math.floor(1000 + Math.random() * 9000)),
+    dayOfWeek,
     productionStage: orderData.productionStage || 'preprensa',
-    artApproved: orderData.artApproved || false,
-    artUrl: orderData.artUrl || '',
     productionPriority: orderData.productionPriority || 'normal',
     productionNotes: orderData.productionNotes || '',
+    stageHistory,
+    artUrl: orderData.artUrl || '',
+    artApproved: Boolean(orderData.artApproved),
+    artApprovedAt: orderData.artApproved ? new Date().toISOString() : null,
+    artApprovedBy: orderData.artApproved ? orderData.customerName : null,
+    status: 'active',
+    paymentStatus: Number(orderData.balanceDue) <= 0 ? 'paid' : (Number(orderData.depositAmount) > 0 ? 'partial' : 'pending'),
+    subtotal: Number(orderData.subtotal || 0),
+    taxRate: Number(orderData.taxRate || 0),
+    taxAmount: Number(orderData.taxAmount || 0),
+    discountPercent: Number(orderData.discountPercent || 0),
+    discountAmount: Number(orderData.discountAmount || 0),
+    discountReason: orderData.discountReason || '',
+    shippingCost: Number(orderData.shippingCost || 0),
+    totalAmount: Number(orderData.totalAmount || 0),
+    depositAmount: Number(orderData.depositAmount || 0),
+    balanceDue: Number(orderData.balanceDue || 0),
+    notes: orderData.notes || '',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
 
-  const formattedItems = items.map((it, idx) => ({
-    id: it.id || `item-${orderId}-${idx + 1}`,
+  const newItems = (orderData.items || []).map((item, idx) => ({
+    id: `itm-${Date.now()}-${idx}`,
     orderId,
-    productId: it.product_id || it.productId || it.id,
-    productName: it.product_name || it.productName || it.name,
-    category: it.category || 'General',
-    calcType: it.calc_type || it.calcType || 'm2',
-    widthCm: it.width_cm || it.widthCm || null,
-    heightCm: it.height_cm || it.heightCm || null,
-    areaM2: it.area_m2 || it.areaM2 || null,
-    quantity: Number(it.quantity) || 1,
-    unitPrice: Number(it.unit_price || it.unitPrice || 0),
-    finishing: it.finishing || 'none',
-    eyeletCount: Number(it.eyelet_count || it.eyeletCount || 0),
-    eyeletType: it.eyelet_type || it.eyeletType || 'none',
-    totalPrice: Number(it.total_price || it.totalPrice || 0),
-    customDetails: it.custom_details || it.customDetails || ''
+    productId: item.productId || null,
+    productName: item.productName || 'Impresión / Servicio',
+    category: item.category || 'Gran Formato',
+    calcType: item.calcType || 'area',
+    widthCm: Number(item.widthCm) || null,
+    heightCm: Number(item.heightCm) || null,
+    areaM2: Number(item.areaM2) || null,
+    quantity: Number(item.quantity) || 1,
+    unitPrice: Number(item.unitPrice) || 0,
+    finishing: item.finishing || 'Sin acabados',
+    eyeletCount: Number(item.eyeletCount) || 0,
+    eyeletType: item.eyeletType || 'ninguno',
+    totalPrice: Number(item.totalPrice) || 0,
+    customDetails: item.customDetails || {}
   }));
 
-  const formattedPayments = splitPayments.map((sp, idx) => ({
-    id: sp.id || `pay-${orderId}-${idx + 1}`,
+  const newPayments = (orderData.payments || []).filter((p) => Number(p.amount) > 0).map((p, idx) => ({
+    id: `pay-${Date.now()}-${idx}`,
     orderId,
-    advisorId: fullOrder.advisorId,
-    paymentDate: fullOrder.orderDate,
-    paymentMethod: sp.paymentMethod || 'cash',
-    amount: Number(sp.amount) || 0,
-    bankName: sp.bankName || '',
-    referenceNumber: sp.referenceNumber || '',
-    notes: sp.notes || '',
+    advisorId: orderData.advisorId,
+    paymentDate: today,
+    paymentMethod: p.method || 'cash',
+    amount: Number(p.amount) || 0,
+    bankName: p.bankName || '',
+    referenceNumber: p.referenceNumber || '',
+    notes: p.notes || '',
     createdAt: new Date().toISOString()
   }));
 
-  // Update customer totals in CRM
-  const updatedCustomers = store.customers.map((c) => {
-    if (c.id === fullOrder.customerId || c.identification === fullOrder.customerIdentification) {
-      return {
-        ...c,
-        orderCount: (c.orderCount || 0) + 1,
-        totalSpent: (Number(c.totalSpent) || 0) + Number(fullOrder.totalAmount || 0),
-        lastOrderDate: fullOrder.orderDate
-      };
-    }
-    return c;
-  });
-
-  // Calculate material consumption if applicable
-  let updatedMaterials = [...(store.materials || DEFAULT_MATERIALS)];
+  // Auto-deduct inventory materials if matched
+  let updatedMaterials = [...(store.materials || [])];
   const newMaterialLogs = [];
 
-  formattedItems.forEach((it) => {
-    if (it.calcType === 'm2' && it.areaM2) {
-      const areaTotal = it.areaM2 * it.quantity;
-      const mat = updatedMaterials.find((m) => m.name.toLowerCase().includes(it.productName.toLowerCase()) || m.category === it.category?.toLowerCase());
-      if (mat) {
-        mat.currentStock = Math.max(0, mat.currentStock - areaTotal);
+  newItems.forEach((itm) => {
+    if (itm.areaM2 && itm.areaM2 > 0) {
+      const neededM2 = itm.areaM2 * (itm.quantity || 1);
+      const matched = updatedMaterials.find((m) =>
+        m.name.toLowerCase().includes(itm.productName.toLowerCase().split(' ')[0]) ||
+        (itm.category === 'Gran Formato' && m.id === 'mat-lona-front-13')
+      );
+
+      if (matched) {
+        matched.currentStock = Math.max(0, Number((matched.currentStock - neededM2).toFixed(2)));
         newMaterialLogs.push({
-          id: `log-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-          materialId: mat.id,
+          id: `mlog-${Date.now()}-${matched.id}`,
+          materialId: matched.id,
           orderId,
-          quantityUsed: areaTotal,
-          costApplied: areaTotal * (mat.costPerUnit || 1),
-          notes: `Uso en orden #${orderNumber}`,
+          quantityUsed: neededM2,
+          costApplied: Number((neededM2 * matched.costPerUnit).toFixed(2)),
+          notes: `Consumo automático por Orden #${orderNumber} (${itm.productName})`,
           createdAt: new Date().toISOString()
         });
       }
     }
   });
 
-  const nextState = {
+  const updatedStore = {
     ...store,
-    orders: [fullOrder, ...store.orders],
-    orderItems: [...formattedItems, ...store.orderItems],
-    payments: [...formattedPayments, ...store.payments],
-    customers: updatedCustomers,
+    orders: [newOrder, ...(store.orders || [])],
+    orderItems: [...newItems, ...(store.orderItems || [])],
+    payments: [...newPayments, ...(store.payments || [])],
     materials: updatedMaterials,
     materialLogs: [...newMaterialLogs, ...(store.materialLogs || [])]
   };
 
-  savePOSStore(nextState);
+  savePOSStoreLocal(updatedStore);
 
-  // Sync to remote Supabase in background
-  syncEntityRemote('pos_orders', fullOrder);
-  formattedItems.forEach((it) => syncEntityRemote('pos_order_items', it));
-  formattedPayments.forEach((p) => syncEntityRemote('pos_payments', p));
+  // Asynchronous Cloud Upserts
+  syncEntityRemote('pos_orders', newOrder);
+  newItems.forEach((itm) => syncEntityRemote('pos_order_items', itm));
+  newPayments.forEach((pay) => syncEntityRemote('pos_payments', pay));
+  newMaterialLogs.forEach((log) => syncEntityRemote('pos_material_usage_logs', log));
 
-  return { state: nextState, order: fullOrder, items: formattedItems, payments: formattedPayments };
+  return { ok: true, updatedStore, order: newOrder, items: newItems, payments: newPayments };
 }
 
-// Update Order Production Stage (Kanban Drag-and-Drop or Dropdown)
-export function updateOrderProductionStage(store, orderId, newStage, notes = '') {
-  const order = store.orders.find((o) => o.id === orderId);
-  if (!order) return store;
+// Function to update production stage on Kanban board
+export function updateOrderProductionStage(store, orderId, newStage, note = '', advisorId = '') {
+  const order = (store.orders || []).find((o) => o.id === orderId);
+  if (!order) return { ok: false, error: 'Orden no encontrada.' };
 
-  const isCompleted = newStage === 'entregado';
+  const history = Array.isArray(order.stageHistory) ? [...order.stageHistory] : [];
+  history.push({
+    stage: newStage,
+    timestamp: new Date().toISOString(),
+    advisorId: advisorId || order.advisorId,
+    note: note || `Cambio de etapa a ${newStage}`
+  });
+
   const updatedOrder = {
     ...order,
     productionStage: newStage,
-    status: isCompleted ? 'entregado' : newStage === 'listo' ? 'listo' : 'en_produccion',
-    productionNotes: notes ? `${order.productionNotes ? order.productionNotes + ' | ' : ''}${notes}` : order.productionNotes,
+    stageHistory: history,
     updatedAt: new Date().toISOString()
   };
 
-  const nextState = {
-    ...store,
-    orders: store.orders.map((o) => o.id === orderId ? updatedOrder : o)
-  };
+  const updatedOrders = (store.orders || []).map((o) => (o.id === orderId ? updatedOrder : o));
+  const updatedStore = { ...store, orders: updatedOrders };
 
-  savePOSStore(nextState);
+  savePOSStoreLocal(updatedStore);
   syncEntityRemote('pos_orders', updatedOrder);
-  return nextState;
+
+  return { ok: true, updatedStore, order: updatedOrder };
 }
 
-// Cancel / Void Order
-export function cancelPOSOrder(store, orderId, reason = 'Cancelado por cliente') {
-  const order = store.orders.find((o) => o.id === orderId);
-  if (!order) return store;
+// Function to cancel an order
+export function cancelPOSOrder(store, orderId, reason = '', advisorId = '') {
+  const order = (store.orders || []).find((o) => o.id === orderId);
+  if (!order) return { ok: false, error: 'Orden no encontrada.' };
+
+  const history = Array.isArray(order.stageHistory) ? [...order.stageHistory] : [];
+  history.push({
+    stage: 'cancelado',
+    timestamp: new Date().toISOString(),
+    advisorId,
+    note: `Cancelado: ${reason}`
+  });
 
   const updatedOrder = {
     ...order,
-    productionStage: 'anulado',
-    status: 'anulado',
+    status: 'cancelled',
+    cancellationReason: reason || 'Cancelado por cliente/taller',
     cancelledAt: new Date().toISOString(),
-    cancellationReason: reason,
+    stageHistory: history,
     updatedAt: new Date().toISOString()
   };
 
-  const nextState = {
-    ...store,
-    orders: store.orders.map((o) => o.id === orderId ? updatedOrder : o)
-  };
+  const updatedOrders = (store.orders || []).map((o) => (o.id === orderId ? updatedOrder : o));
+  const updatedStore = { ...store, orders: updatedOrders };
 
-  savePOSStore(nextState);
+  savePOSStoreLocal(updatedStore);
   syncEntityRemote('pos_orders', updatedOrder);
-  return nextState;
+
+  return { ok: true, updatedStore, order: updatedOrder };
 }
 
-// 1-Click Clone / Repeat Order
-export function clonePOSOrder(store, orderId) {
-  const original = store.orders.find((o) => o.id === orderId);
-  if (!original) return null;
+// Function to add a payment to an existing order (Cobro de saldo posterior)
+export function addOrderPayment(store, { orderId, advisorId, amount, paymentMethod = 'cash', bankName = '', referenceNumber = '', notes = '' }) {
+  const order = (store.orders || []).find((o) => o.id === orderId);
+  if (!order) return { ok: false, error: 'Orden no encontrada.' };
 
-  const originalItems = store.orderItems.filter((it) => it.orderId === orderId);
-  const newOrderNumber = generateOrderNumber(store.orders);
-  const newOrderId = `ord-${Date.now()}`;
+  const payAmount = Number(amount) || 0;
+  if (payAmount <= 0) return { ok: false, error: 'El monto debe ser mayor a 0.' };
 
-  const clonedOrder = {
-    ...original,
-    id: newOrderId,
-    orderNumber: newOrderNumber,
-    jobName: `${original.jobName} (Reorden)`,
-    orderDate: toISODate(),
-    deliveryDate: toISODate(new Date(Date.now() + 2 * 86400000)),
-    productionStage: 'preprensa',
-    status: 'en_produccion',
-    paymentStatus: 'sin_abono',
-    depositAmount: 0,
-    balanceDue: original.totalAmount,
-    artApproved: false,
-    cancelledAt: null,
-    cancellationReason: null,
-    createdAt: new Date().toISOString(),
+  const newDeposit = Number((Number(order.depositAmount || 0) + payAmount).toFixed(2));
+  const newBalance = Number((Number(order.totalAmount || 0) - newDeposit).toFixed(2));
+  const newPaymentStatus = newBalance <= 0 ? 'paid' : 'partial';
+
+  const newPayment = {
+    id: `pay-${Date.now()}`,
+    orderId,
+    advisorId: advisorId || order.advisorId,
+    paymentDate: toISODate(),
+    paymentMethod,
+    amount: payAmount,
+    bankName,
+    referenceNumber,
+    notes: notes || 'Abono posterior registrado en cartera',
+    createdAt: new Date().toISOString()
+  };
+
+  const updatedOrder = {
+    ...order,
+    depositAmount: newDeposit,
+    balanceDue: Math.max(0, newBalance),
+    paymentStatus: newPaymentStatus,
     updatedAt: new Date().toISOString()
   };
 
-  const clonedItems = originalItems.map((it, idx) => ({
-    ...it,
-    id: `item-${newOrderId}-${idx + 1}`,
-    orderId: newOrderId
-  }));
+  const updatedOrders = (store.orders || []).map((o) => (o.id === orderId ? updatedOrder : o));
+  const updatedPayments = [newPayment, ...(store.payments || [])];
+  const updatedStore = { ...store, orders: updatedOrders, payments: updatedPayments };
 
-  const nextState = {
-    ...store,
-    orders: [clonedOrder, ...store.orders],
-    orderItems: [...clonedItems, ...store.orderItems]
-  };
+  savePOSStoreLocal(updatedStore);
+  syncEntityRemote('pos_orders', updatedOrder);
+  syncEntityRemote('pos_payments', newPayment);
 
-  savePOSStore(nextState);
-  syncEntityRemote('pos_orders', clonedOrder);
-  clonedItems.forEach((it) => syncEntityRemote('pos_order_items', it));
-
-  return { state: nextState, order: clonedOrder, items: clonedItems };
+  return { ok: true, updatedStore, order: updatedOrder, payment: newPayment };
 }
 
-// Approve Art Proof
-export function approveOrderArtProof(store, orderId, artUrl = '', approverName = '') {
-  const order = store.orders.find((o) => o.id === orderId);
-  if (!order) return store;
+// Function to clone/reorder past job (1-Click Reorder)
+export function clonePOSOrder(store, sourceOrderId) {
+  const order = (store.orders || []).find((o) => o.id === sourceOrderId);
+  if (!order) return null;
+
+  const items = (store.orderItems || []).filter((i) => i.orderId === sourceOrderId);
+  return {
+    customerName: order.customerName,
+    customerIdentification: order.customerIdentification,
+    customerPhone: order.customerPhone,
+    customerId: order.customerId,
+    jobName: `${order.jobName} (Reorden)`,
+    items: items.map((itm) => ({
+      productName: itm.productName,
+      category: itm.category,
+      calcType: itm.calcType,
+      widthCm: itm.widthCm,
+      heightCm: itm.heightCm,
+      areaM2: itm.areaM2,
+      quantity: itm.quantity,
+      unitPrice: itm.unitPrice,
+      finishing: itm.finishing,
+      eyeletCount: itm.eyeletCount,
+      eyeletType: itm.eyeletType,
+      totalPrice: itm.totalPrice
+    }))
+  };
+}
+
+// Function to approve art proof
+export function approveOrderArtProof(store, orderId, approvedBy = 'Cliente') {
+  const order = (store.orders || []).find((o) => o.id === orderId);
+  if (!order) return { ok: false, error: 'Orden no encontrada.' };
+
+  const history = Array.isArray(order.stageHistory) ? [...order.stageHistory] : [];
+  history.push({
+    stage: 'impresion',
+    timestamp: new Date().toISOString(),
+    advisorId: order.advisorId,
+    note: `Arte aprobado por ${approvedBy}. Avanzado a Impresión.`
+  });
 
   const updatedOrder = {
     ...order,
     artApproved: true,
     artApprovedAt: new Date().toISOString(),
-    artApprovedBy: approverName || order.customerName || 'Cliente',
-    artUrl: artUrl || order.artUrl,
-    productionStage: order.productionStage === 'aprobacion_arte' || order.productionStage === 'preprensa' ? 'impresion' : order.productionStage,
+    artApprovedBy: approvedBy,
+    productionStage: order.productionStage === 'aprobacion_arte' ? 'impresion' : order.productionStage,
+    stageHistory: history,
     updatedAt: new Date().toISOString()
   };
 
-  const nextState = {
-    ...store,
-    orders: store.orders.map((o) => o.id === orderId ? updatedOrder : o)
-  };
+  const updatedOrders = (store.orders || []).map((o) => (o.id === orderId ? updatedOrder : o));
+  const updatedStore = { ...store, orders: updatedOrders };
 
-  savePOSStore(nextState);
+  savePOSStoreLocal(updatedStore);
   syncEntityRemote('pos_orders', updatedOrder);
-  return nextState;
+
+  return { ok: true, updatedStore, order: updatedOrder };
 }
 
-// Add or Update Customer in CRM 360
+// Function to upsert/edit Customer in CRM
 export function upsertCustomer(store, customerData) {
-  const existingIndex = store.customers.findIndex((c) => c.id === customerData.id || (customerData.identification && c.identification === customerData.identification));
-  let updatedCustomers;
+  const isNew = !customerData.id;
+  const customerId = customerData.id || `cust-${Date.now()}`;
+  const now = new Date().toISOString();
 
-  const custObj = {
-    id: customerData.id || `cust-${Date.now()}`,
-    name: customerData.name || '',
+  const customerRecord = {
+    id: customerId,
+    name: customerData.name || 'Cliente Sin Nombre',
     identification: customerData.identification || '',
     phone: customerData.phone || '',
     email: customerData.email || '',
-    address: customerData.address || '',
     city: customerData.city || 'Quito',
+    address: customerData.address || '',
     companyName: customerData.companyName || '',
     isVip: Boolean(customerData.isVip),
-    tags: customerData.tags || [],
     creditLimit: Number(customerData.creditLimit) || 0,
     creditDays: Number(customerData.creditDays) || 0,
+    tags: Array.isArray(customerData.tags) ? customerData.tags : ['General'],
     notes: customerData.notes || '',
-    updatedAt: new Date().toISOString()
+    createdAt: customerData.createdAt || now,
+    updatedAt: now
   };
 
-  if (existingIndex >= 0) {
-    updatedCustomers = store.customers.map((c, i) => i === existingIndex ? { ...c, ...custObj } : c);
+  let updatedCustomers;
+  if (isNew) {
+    updatedCustomers = [customerRecord, ...(store.customers || [])];
   } else {
-    custObj.createdAt = new Date().toISOString();
-    custObj.totalSpent = 0;
-    custObj.orderCount = 0;
-    updatedCustomers = [custObj, ...store.customers];
+    updatedCustomers = (store.customers || []).map((c) => (c.id === customerId ? customerRecord : c));
   }
 
-  const nextState = { ...store, customers: updatedCustomers };
-  savePOSStore(nextState);
-  syncEntityRemote('pos_customers', custObj);
-  return { state: nextState, customer: custObj };
+  const updatedStore = { ...store, customers: updatedCustomers };
+  savePOSStoreLocal(updatedStore);
+  syncEntityRemote('pos_customers', customerRecord);
+
+  return { ok: true, updatedStore, customer: customerRecord };
 }
 
-// ==========================================
-// DUE DATES & ALERTS ENGINE
-// ==========================================
+// Delete Customer
+export function deleteCustomer(store, customerId) {
+  const hasOrders = (store.orders || []).some((o) => o.customerId === customerId);
+  if (hasOrders) {
+    return { ok: false, error: 'No se puede eliminar el cliente porque tiene órdenes históricas asociadas.' };
+  }
+
+  const updatedCustomers = (store.customers || []).filter((c) => c.id !== customerId);
+  const updatedStore = { ...store, customers: updatedCustomers };
+  savePOSStoreLocal(updatedStore);
+
+  if (hasSupabase && supabase) {
+    supabase.from('pos_customers').delete().eq('id', customerId).then(() => {});
+  }
+
+  return { ok: true, updatedStore };
+}
+
+// CRM Activity Logs
+export function logCustomerActivity(store, { customerId, advisorId, activityType, title = '', description, metadata = {} }) {
+  const logId = `clog-${Date.now()}`;
+  const newLog = {
+    id: logId,
+    customerId,
+    advisorId: advisorId || null,
+    activityType: activityType || 'note',
+    title: title || 'Registro de actividad',
+    description: description || '',
+    metadata,
+    createdAt: new Date().toISOString()
+  };
+
+  const updatedLogs = [newLog, ...(store.customerLogs || [])];
+  const updatedStore = { ...store, customerLogs: updatedLogs };
+  savePOSStoreLocal(updatedStore);
+  syncEntityRemote('pos_customer_activity_logs', newLog);
+
+  return { ok: true, updatedStore, log: newLog };
+}
+
+// Products Catalog CRUD
+export function upsertProduct(store, productData) {
+  const isNew = !productData.id;
+  const productId = productData.id || `prod-${Date.now()}`;
+  const now = new Date().toISOString();
+
+  const record = {
+    id: productId,
+    sku: productData.sku || `GIGA-${Math.floor(100 + Math.random() * 900)}`,
+    name: productData.name || 'Nuevo Producto',
+    category: productData.category || 'Gran Formato',
+    parentCategory: productData.parentCategory || productData.category || 'Gran Formato',
+    calcType: productData.calcType || 'area',
+    basePrice: Number(productData.basePrice || 0),
+    minPrice: Number(productData.minPrice || 0),
+    unit: productData.unit || 'm2',
+    priceTiers: Array.isArray(productData.priceTiers) ? productData.priceTiers : [],
+    isActive: productData.isActive !== false,
+    leadTimeDays: Number(productData.leadTimeDays || 2),
+    description: productData.description || '',
+    createdAt: productData.createdAt || now,
+    updatedAt: now
+  };
+
+  let updatedProducts;
+  if (isNew) {
+    updatedProducts = [record, ...(store.products || [])];
+  } else {
+    updatedProducts = (store.products || []).map((p) => (p.id === productId ? record : p));
+  }
+
+  const updatedStore = { ...store, products: updatedProducts };
+  savePOSStoreLocal(updatedStore);
+  syncEntityRemote('pos_products', record);
+
+  return { ok: true, updatedStore, product: record };
+}
+
+export function deleteProduct(store, productId) {
+  const updatedProducts = (store.products || []).filter((p) => p.id !== productId);
+  const updatedStore = { ...store, products: updatedProducts };
+  savePOSStoreLocal(updatedStore);
+
+  if (hasSupabase && supabase) {
+    supabase.from('pos_products').delete().eq('id', productId).then(() => {});
+  }
+
+  return { ok: true, updatedStore };
+}
+
+// Expenses CRUD
+export function createPOSExpense(store, { advisorId, expenseDate, description, amount, category = 'General' }) {
+  const expenseId = `exp-${Date.now()}`;
+  const newExp = {
+    id: expenseId,
+    advisorId,
+    expenseDate: expenseDate || toISODate(),
+    description: description || 'Gasto no especificado',
+    amount: Number(amount) || 0,
+    category,
+    createdAt: new Date().toISOString()
+  };
+
+  const updatedExpenses = [newExp, ...(store.expenses || [])];
+  const updatedStore = { ...store, expenses: updatedExpenses };
+  savePOSStoreLocal(updatedStore);
+  syncEntityRemote('pos_expenses', newExp);
+
+  return { ok: true, updatedStore, expense: newExp };
+}
+
+export function deletePOSExpense(store, expenseId) {
+  const updatedExpenses = (store.expenses || []).filter((e) => e.id !== expenseId);
+  const updatedStore = { ...store, expenses: updatedExpenses };
+  savePOSStoreLocal(updatedStore);
+
+  if (hasSupabase && supabase) {
+    supabase.from('pos_expenses').delete().eq('id', expenseId).then(() => {});
+  }
+
+  return { ok: true, updatedStore };
+}
+
+// Materials Inventory CRUD
+export function createMaterial(store, matData) {
+  const matId = matData.id || `mat-${Date.now()}`;
+  const newMat = {
+    id: matId,
+    name: matData.name || 'Nuevo Sustrato',
+    category: matData.category || 'lona',
+    unit: matData.unit || 'm2',
+    currentStock: Number(matData.currentStock || 0),
+    minStockAlert: Number(matData.minStockAlert || 10),
+    widthM: Number(matData.widthM) || null,
+    lengthM: Number(matData.lengthM) || null,
+    costPerUnit: Number(matData.costPerUnit || 0),
+    supplierName: matData.supplierName || 'Proveedor General'
+  };
+
+  const updatedMaterials = [newMat, ...(store.materials || [])];
+  const updatedStore = { ...store, materials: updatedMaterials };
+  savePOSStoreLocal(updatedStore);
+  syncEntityRemote('pos_materials_inventory', newMat);
+
+  return { ok: true, updatedStore, material: newMat };
+}
+
+export function updateMaterial(store, matData) {
+  const updatedMaterials = (store.materials || []).map((m) => (m.id === matData.id ? { ...m, ...matData } : m));
+  const updatedStore = { ...store, materials: updatedMaterials };
+  savePOSStoreLocal(updatedStore);
+  syncEntityRemote('pos_materials_inventory', matData);
+
+  return { ok: true, updatedStore, material: matData };
+}
+
+// Suppliers CRUD
+export function upsertSupplier(store, supData) {
+  const isNew = !supData.id;
+  const supId = supData.id || `sup-${Date.now()}`;
+  const now = new Date().toISOString();
+
+  const record = {
+    id: supId,
+    name: supData.name || 'Proveedor General',
+    identification: supData.identification || '',
+    contactName: supData.contactName || '',
+    phone: supData.phone || '',
+    email: supData.email || '',
+    city: supData.city || 'Quito',
+    address: supData.address || '',
+    materialsSupplied: Array.isArray(supData.materialsSupplied) ? supData.materialsSupplied : [],
+    paymentTerms: supData.paymentTerms || 'Contado',
+    notes: supData.notes || '',
+    isActive: supData.isActive !== false,
+    createdAt: supData.createdAt || now,
+    updatedAt: now
+  };
+
+  let updatedSuppliers;
+  if (isNew) {
+    updatedSuppliers = [record, ...(store.suppliers || [])];
+  } else {
+    updatedSuppliers = (store.suppliers || []).map((s) => (s.id === supId ? record : s));
+  }
+
+  const updatedStore = { ...store, suppliers: updatedSuppliers };
+  savePOSStoreLocal(updatedStore);
+  syncEntityRemote('pos_suppliers', record);
+
+  return { ok: true, updatedStore, supplier: record };
+}
+
+// Parked Sales (Tickets en espera)
+export function parkPOSSale(store, { advisorId, customerName, customerPhone, cartData, totalAmount, notes = '' }) {
+  const parkId = `park-${Date.now()}`;
+  const record = {
+    id: parkId,
+    advisorId,
+    customerName: customerName || 'Cliente en espera',
+    customerPhone: customerPhone || '',
+    cartData,
+    totalAmount: Number(totalAmount || 0),
+    notes,
+    createdAt: new Date().toISOString()
+  };
+
+  const updatedParked = [record, ...(store.parkedSales || [])];
+  const updatedStore = { ...store, parkedSales: updatedParked };
+  savePOSStoreLocal(updatedStore);
+  syncEntityRemote('pos_parked_sales', record);
+
+  return { ok: true, updatedStore, parkedSale: record };
+}
+
+export function deleteParkedSale(store, parkId) {
+  const updatedParked = (store.parkedSales || []).filter((p) => p.id !== parkId);
+  const updatedStore = { ...store, parkedSales: updatedParked };
+  savePOSStoreLocal(updatedStore);
+
+  if (hasSupabase && supabase) {
+    supabase.from('pos_parked_sales').delete().eq('id', parkId).then(() => {});
+  }
+
+  return { ok: true, updatedStore };
+}
+
+// Public Order Tracking by Token
+export function getOrderPublicTracking(store, trackingTokenOrOrderNumber) {
+  const query = String(trackingTokenOrOrderNumber).trim().toLowerCase();
+  const order = (store.orders || []).find(
+    (o) => String(o.trackingToken).toLowerCase() === query || String(o.orderNumber) === query || String(o.id).toLowerCase() === query
+  );
+  if (!order) return null;
+
+  const items = (store.orderItems || []).filter((i) => i.orderId === order.id);
+  const advisor = (store.advisors || []).find((a) => a.id === order.advisorId);
+
+  return {
+    orderNumber: order.orderNumber,
+    jobName: order.jobName,
+    customerName: order.customerName,
+    orderDate: order.orderDate,
+    deliveryDate: order.deliveryDate,
+    productionStage: order.productionStage,
+    stageHistory: order.stageHistory || [],
+    artUrl: order.artUrl,
+    artApproved: order.artApproved,
+    pickupLocation: order.pickupLocation,
+    pickupPin: order.pickupPin,
+    paymentStatus: order.paymentStatus,
+    advisorName: advisor?.name || 'Asesora Gigaprint',
+    items: items.map((i) => ({
+      productName: i.productName,
+      category: i.category,
+      widthCm: i.widthCm,
+      heightCm: i.heightCm,
+      quantity: i.quantity,
+      finishing: i.finishing
+    }))
+  };
+}
+
+// Calculate due date alerts
 export function calculateDueAlerts(orders = []) {
   const today = toISODate();
-  const activeOrders = orders.filter((o) => o.productionStage !== 'entregado' && o.productionStage !== 'anulado' && o.status !== 'entregado' && o.status !== 'anulado');
+  const activeOrders = orders.filter((o) => o.status === 'active' && o.productionStage !== 'entregado');
 
-  const overdue = [];
-  const dueToday = [];
-  const dueTomorrow = [];
+  const overdue = activeOrders.filter((o) => o.deliveryDate && o.deliveryDate < today);
+  const dueToday = activeOrders.filter((o) => o.deliveryDate && o.deliveryDate === today);
+  const urgent = activeOrders.filter((o) => o.productionPriority === 'urgente');
 
-  const tomorrow = toISODate(new Date(Date.now() + 86400000));
-
-  activeOrders.forEach((o) => {
-    if (!o.deliveryDate) return;
-    if (o.deliveryDate < today) {
-      overdue.push(o);
-    } else if (o.deliveryDate === today) {
-      dueToday.push(o);
-    } else if (o.deliveryDate === tomorrow) {
-      dueTomorrow.push(o);
-    }
-  });
-
-  return { overdue, dueToday, dueTomorrow, totalAlerts: overdue.length + dueToday.length };
+  return {
+    overdueCount: overdue.length,
+    dueTodayCount: dueToday.length,
+    urgentCount: urgent.length,
+    overdueOrders: overdue,
+    dueTodayOrders: dueToday,
+    urgentOrders: urgent
+  };
 }
 
-// ==========================================
-// JOB COSTING & PROFIT MARGIN ENGINE
-// ==========================================
+// Estimate Order Profit Margin (Job Costing)
 export function calculateOrderMargin(order, items = [], materials = []) {
-  const revenue = Number(order.subtotal || order.totalAmount || 0);
-  let materialCost = 0;
+  const revenue = Number(order.totalAmount || 0);
+  let estimatedMaterialCost = 0;
 
-  items.forEach((it) => {
-    if (it.calcType === 'm2' && it.areaM2) {
-      const areaTotal = it.areaM2 * it.quantity;
-      const mat = materials.find((m) => m.name.toLowerCase().includes(it.productName.toLowerCase()) || m.category === it.category?.toLowerCase());
+  items.forEach((itm) => {
+    if (itm.areaM2 && itm.areaM2 > 0) {
+      const area = itm.areaM2 * (itm.quantity || 1);
+      const mat = materials.find((m) => m.name.toLowerCase().includes(itm.productName.toLowerCase().split(' ')[0]));
       const unitCost = mat ? mat.costPerUnit : 1.20;
-      materialCost += areaTotal * unitCost;
-
-      // Finishing costs
-      if (it.finishing === 'ojales_pequenos') materialCost += (Number(it.eyeletCount) || 4) * 0.04 * it.quantity;
-      if (it.finishing === 'ojales_grandes') materialCost += (Number(it.eyeletCount) || 4) * 0.07 * it.quantity;
-    } else {
-      materialCost += (it.unitPrice * 0.40) * it.quantity;
+      estimatedMaterialCost += area * unitCost;
     }
   });
 
-  const estimatedLaborCost = revenue * 0.15; // 15% estimated labor
-  const totalCost = materialCost + estimatedLaborCost;
-  const grossProfit = revenue - totalCost;
-  const marginPercent = revenue > 0 ? (grossProfit / revenue) * 100 : 0;
+  const estimatedLaborCost = items.length * 2.50; // $2.50 labor handling per item
+  const totalCost = Number((estimatedMaterialCost + estimatedLaborCost).toFixed(2));
+  const grossProfit = Number((revenue - totalCost).toFixed(2));
+  const marginPercent = revenue > 0 ? Number(((grossProfit / revenue) * 100).toFixed(1)) : 0;
 
   return {
     revenue,
-    materialCost,
-    estimatedLaborCost,
+    materialCost: Number(estimatedMaterialCost.toFixed(2)),
+    laborCost: estimatedLaborCost,
     totalCost,
     grossProfit,
     marginPercent
   };
 }
 
-// ==========================================
-// BUSINESS LOGIC & CALCULATION ENGINES
-// ==========================================
+// Calculate Daily Cash Reconciliation for specific date and advisor
+export function calculateDailyReconciliation(store, dateStr = toISODate(), advisorId = 'all') {
+  const orders = (store.orders || []).filter(
+    (o) => o.orderDate === dateStr && (advisorId === 'all' || o.advisorId === advisorId) && o.status !== 'cancelled'
+  );
+  const payments = (store.payments || []).filter(
+    (p) => p.paymentDate === dateStr && (advisorId === 'all' || p.advisorId === advisorId)
+  );
+  const expenses = (store.expenses || []).filter(
+    (e) => e.expenseDate === dateStr && (advisorId === 'all' || e.advisorId === advisorId)
+  );
 
-// Calculate Daily Reconciliation (Lunes a Sábado matching Excel)
-export function calculateDailyReconciliation(orders = [], payments = [], expenses = [], advisorId, dateStr) {
-  const dayOrders = orders.filter((o) => (!advisorId || o.advisorId === advisorId) && o.orderDate === dateStr && o.status !== 'anulado');
-  const dayPayments = payments.filter((p) => (!advisorId || p.advisorId === advisorId) && p.paymentDate === dateStr);
-  const dayExpenses = expenses.filter((e) => (!advisorId || e.advisorId === advisorId) && e.expenseDate === dateStr);
+  const totalSales = orders.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
+  const totalDeposits = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const totalBalanceDue = orders.reduce((sum, o) => sum + Number(o.balanceDue || 0), 0);
+  const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
 
-  const totalSales = dayOrders.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
-  const totalDeposits = dayPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-  const totalBalanceDue = dayOrders.reduce((sum, o) => sum + Number(o.balanceDue || 0), 0);
+  const cashAmount = payments.filter((p) => p.paymentMethod === 'cash').reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const transferAmount = payments.filter((p) => p.paymentMethod === 'transfer').reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const checkAmount = payments.filter((p) => p.paymentMethod === 'check').reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const cardAmount = payments.filter((p) => p.paymentMethod === 'card').reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
-  const totalCash = dayPayments.filter((p) => p.paymentMethod === 'cash').reduce((sum, p) => sum + Number(p.amount || 0), 0);
-  const totalTransfer = dayPayments.filter((p) => p.paymentMethod === 'transfer').reduce((sum, p) => sum + Number(p.amount || 0), 0);
-  const totalCheck = dayPayments.filter((p) => p.paymentMethod === 'check').reduce((sum, p) => sum + Number(p.amount || 0), 0);
-  const totalCard = dayPayments.filter((p) => p.paymentMethod === 'card').reduce((sum, p) => sum + Number(p.amount || 0), 0);
-
-  const totalExpensesAmount = dayExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
-  const netIncome = totalDeposits - totalExpensesAmount;
+  const netCash = cashAmount - totalExpenses;
 
   return {
     date: dateStr,
     dayName: getDayNameSpanish(dateStr),
-    orderCount: dayOrders.length,
+    orderCount: orders.length,
     totalSales,
     totalDeposits,
     totalBalanceDue,
-    totalCash,
-    totalTransfer,
-    totalCheck,
-    totalCard,
-    totalExpenses: totalExpensesAmount,
-    netIncome,
-    orders: dayOrders,
-    expenses: dayExpenses
+    totalExpenses,
+    cashAmount,
+    transferAmount,
+    checkAmount,
+    cardAmount,
+    netCash,
+    netTotal: totalDeposits - totalExpenses,
+    orders,
+    payments,
+    expenses
   };
 }
 
-// Calculate Weekly Balance (6 working days: Lunes to Sábado)
-export function calculateWeeklyBalance(orders = [], payments = [], expenses = [], advisor, mondayDateStr) {
-  const [y, m, d] = mondayDateStr.split('-').map(Number);
+// Calculate Weekly Balance Matrix (Monday to Saturday)
+export function calculateWeeklyBalance(store, mondayDate = getMondayOfWeek(), advisorId = 'all') {
   const days = [];
+  const start = new Date(mondayDate);
 
   for (let i = 0; i < 6; i++) {
-    const curDate = new Date(y, m - 1, d + i);
-    const dateStr = toISODate(curDate);
-    const dayData = calculateDailyReconciliation(orders, payments, expenses, advisor?.id, dateStr);
-    days.push(dayData);
+    const d = new Date(start);
+    d.setDate(d.getDate() + i);
+    const dateStr = toISODate(d);
+    days.push(calculateDailyReconciliation(store, dateStr, advisorId));
   }
 
-  const totalSales = days.reduce((sum, day) => sum + day.totalSales, 0);
-  const totalDeposits = days.reduce((sum, day) => sum + day.totalDeposits, 0);
-  const totalBalanceDue = days.reduce((sum, day) => sum + day.totalBalanceDue, 0);
-  const totalCash = days.reduce((sum, day) => sum + day.totalCash, 0);
-  const totalTransfer = days.reduce((sum, day) => sum + day.totalTransfer, 0);
-  const totalCheck = days.reduce((sum, day) => sum + day.totalCheck, 0);
-  const totalCard = days.reduce((sum, day) => sum + day.totalCard, 0);
-  const totalExpenses = days.reduce((sum, day) => sum + day.totalExpenses, 0);
-  const netIncome = days.reduce((sum, day) => sum + day.netIncome, 0);
-
-  const goal = Number(advisor?.weeklyGoal || 3200);
-  const compliancePercent = goal > 0 ? (totalSales / goal) * 100 : 0;
+  const totals = days.reduce(
+    (acc, day) => ({
+      orderCount: acc.orderCount + day.orderCount,
+      totalSales: acc.totalSales + day.totalSales,
+      totalDeposits: acc.totalDeposits + day.totalDeposits,
+      totalBalanceDue: acc.totalBalanceDue + day.totalBalanceDue,
+      totalExpenses: acc.totalExpenses + day.totalExpenses,
+      cashAmount: acc.cashAmount + day.cashAmount,
+      transferAmount: acc.transferAmount + day.transferAmount,
+      checkAmount: acc.checkAmount + day.checkAmount,
+      cardAmount: acc.cardAmount + day.cardAmount,
+      netCash: acc.netCash + day.netCash,
+      netTotal: acc.netTotal + day.netTotal
+    }),
+    {
+      orderCount: 0,
+      totalSales: 0,
+      totalDeposits: 0,
+      totalBalanceDue: 0,
+      totalExpenses: 0,
+      cashAmount: 0,
+      transferAmount: 0,
+      checkAmount: 0,
+      cardAmount: 0,
+      netCash: 0,
+      netTotal: 0
+    }
+  );
 
   return {
-    mondayDate: mondayDateStr,
-    advisorName: advisor?.name || 'General',
-    weeklyGoal: goal,
-    compliancePercent,
+    weekCode: getISOWeekCode(start),
+    mondayDate,
     days,
-    totals: {
-      totalSales,
-      totalDeposits,
-      totalBalanceDue,
-      totalCash,
-      totalTransfer,
-      totalCheck,
-      totalCard,
-      totalExpenses,
-      netIncome
-    }
+    totals
   };
 }
 
-// Export orders list to standard CSV
+// Export Orders to CSV format
 export function exportOrdersToCSV(orders = [], advisors = []) {
-  const advisorMap = advisors.reduce((acc, a) => ({ ...acc, [a.id]: a.name }), {});
   const headers = [
-    'Nro Venta',
-    'Asesora',
-    'Cliente',
-    'Identificacion',
-    'Telefono',
-    'Nombre del Trabajo',
-    'Fecha Compra',
-    'Fecha Entrega',
-    'Fase Produccion',
-    'Estado Pedido',
-    'Estado Pago',
-    'Subtotal ($)',
-    'IVA 15% ($)',
-    'Total Venta ($)',
-    'Abonado ($)',
-    'Por Cobrar ($)'
+    'Numero Orden', 'Fecha', 'Asesora', 'Cliente', 'RUC/CI', 'Telefono',
+    'Nombre Trabajo', 'Etapa', 'Estado Pago', 'Total ($)', 'Abono ($)', 'Saldo ($)', 'Notas'
   ];
 
-  const rows = orders.map((o) => [
-    `"${o.orderNumber || ''}"`,
-    `"${advisorMap[o.advisorId] || 'Sin asignar'}"`,
-    `"${(o.customerName || '').replace(/"/g, '""')}"`,
-    `"${o.customerIdentification || ''}"`,
-    `"${o.customerPhone || ''}"`,
-    `"${(o.jobName || '').replace(/"/g, '""')}"`,
-    `"${o.orderDate || ''}"`,
-    `"${o.deliveryDate || ''}"`,
-    `"${o.productionStage || 'preprensa'}"`,
-    `"${o.status || ''}"`,
-    `"${o.paymentStatus || ''}"`,
-    (Number(o.subtotal) || 0).toFixed(2),
-    (Number(o.taxAmount) || 0).toFixed(2),
-    (Number(o.totalAmount) || 0).toFixed(2),
-    (Number(o.depositAmount) || 0).toFixed(2),
-    (Number(o.balanceDue) || 0).toFixed(2)
-  ]);
+  const rows = orders.map((o) => {
+    const adv = advisors.find((a) => a.id === o.advisorId);
+    return [
+      o.orderNumber,
+      o.orderDate,
+      adv ? adv.name : o.advisorId,
+      `"${(o.customerName || '').replace(/"/g, '""')}"`,
+      `"${o.customerIdentification || ''}"`,
+      `"${o.customerPhone || ''}"`,
+      `"${(o.jobName || '').replace(/"/g, '""')}"`,
+      o.productionStage || 'preprensa',
+      o.paymentStatus || 'pending',
+      Number(o.totalAmount || 0).toFixed(2),
+      Number(o.depositAmount || 0).toFixed(2),
+      Number(o.balanceDue || 0).toFixed(2),
+      `"${(o.notes || '').replace(/"/g, '""')}"`
+    ];
+  });
 
-  const csvContent = 'data:text/csv;charset=utf-8,﻿' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-  const encodedUri = encodeURI(csvContent);
+  const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
-  link.setAttribute('href', encodedUri);
-  link.setAttribute('download', `Gigaprint_Ventas_${toISODate()}.csv`);
+  link.setAttribute('href', url);
+  link.setAttribute('download', `gigaprint_ventas_${toISODate()}.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
