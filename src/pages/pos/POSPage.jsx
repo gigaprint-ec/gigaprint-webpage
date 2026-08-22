@@ -25,7 +25,9 @@ import {
   Wrench,
   Percent,
   PauseCircle,
-  PlayCircle
+  PlayCircle,
+  Truck,
+  UploadCloud
 } from 'lucide-react';
 import {
   loadPOSStore,
@@ -60,12 +62,15 @@ import { POSCustomerCRM } from './POSCustomerCRM';
 import { POSInventoryMaterials } from './POSInventoryMaterials';
 import { POSProductManager } from './POSProductManager';
 import { POSPaymentCollectionModal } from './POSPaymentCollectionModal';
+import { POSSRIInvoiceModal } from './POSSRIInvoiceModal';
+import { POSPurchaseOrdersManager } from './POSPurchaseOrdersManager';
+import { SupabaseFileUploader } from '../../components/studio/SupabaseFileUploader';
 
 export function POSPage() {
   const [store, setStore] = useState(loadPOSStore);
   const [session, setSession] = useState(getPOSSession);
   const [syncStatus, setSyncStatus] = useState('synced');
-  const [activeTab, setActiveTab] = useState('cashier'); // 'cashier' | 'kanban' | 'crm' | 'products' | 'orders' | 'inventory' | 'weekly' | 'expenses'
+  const [activeTab, setActiveTab] = useState('cashier'); // 'cashier' | 'kanban' | 'crm' | 'products' | 'orders' | 'inventory' | 'purchases' | 'weekly' | 'expenses'
 
   // Cashier Form State
   const [customerName, setCustomerName] = useState('');
@@ -78,6 +83,7 @@ export function POSPage() {
   const [productionPriority, setProductionPriority] = useState('normal');
   const [productionNotes, setProductionNotes] = useState('');
   const [artUrl, setArtUrl] = useState('');
+  const [showUploader, setShowUploader] = useState(false);
   const [applyIVA, setApplyIVA] = useState(false);
   const [shippingCost, setShippingCost] = useState(0);
   const [discountPercent, setDiscountPercent] = useState(0);
@@ -103,6 +109,7 @@ export function POSPage() {
   const [workOrderData, setWorkOrderData] = useState(null);
   const [artProofOrder, setArtProofOrder] = useState(null);
   const [collectionOrder, setCollectionOrder] = useState(null);
+  const [sriOrder, setSriOrder] = useState(null);
   const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
   const [shiftAction, setShiftAction] = useState('open'); // 'open' | 'close'
   const [shiftCashAmount, setShiftCashAmount] = useState('');
@@ -537,6 +544,13 @@ export function POSPage() {
         </button>
         <button
           type="button"
+          className={`pos-nav-tab ${activeTab === 'purchases' ? 'active' : ''}`}
+          onClick={() => setActiveTab('purchases')}
+        >
+          <Truck size={15} /> Órdenes de Compra (PO)
+        </button>
+        <button
+          type="button"
           className={`pos-nav-tab ${activeTab === 'weekly' ? 'active' : ''}`}
           onClick={() => setActiveTab('weekly')}
         >
@@ -675,6 +689,29 @@ export function POSPage() {
                     onChange={(e) => setJobName(e.target.value)}
                     placeholder="Ej. Lona 3x2m para inauguración farmacia"
                   />
+                </div>
+
+                {/* Cloud File Uploader for Artwork */}
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setShowUploader(!showUploader)}
+                    className="pos-nav-tab"
+                    style={{ fontSize: '11px', padding: '6px 10px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <UploadCloud size={13} /> {artUrl ? '✓ Archivo Adjunto (Cambiar)' : '+ Adjuntar Arte / Vector PDF/AI'}
+                  </button>
+
+                  {showUploader && (
+                    <div style={{ marginTop: '8px' }}>
+                      <SupabaseFileUploader
+                        onUploadComplete={(url) => {
+                          setArtUrl(url);
+                          setShowUploader(false);
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1080,6 +1117,7 @@ export function POSPage() {
                   filteredOrdersList.map((ord) => {
                     const items = (store.orderItems || []).filter((i) => i.orderId === ord.id);
                     const adv = (store.advisors || []).find((a) => a.id === ord.advisorId);
+                    const cust = (store.customers || []).find((c) => c.id === ord.customerId || c.name === ord.customerName);
                     const isOverdue = ord.deliveryDate && ord.deliveryDate < toISODate() && ord.productionStage !== 'entregado';
 
                     return (
@@ -1102,6 +1140,17 @@ export function POSPage() {
                         </td>
                         <td style={{ textAlign: 'right' }}>
                           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
+                            {/* SRI Electronic Invoice Button */}
+                            <button
+                              type="button"
+                              className="pos-nav-tab"
+                              style={{ padding: '4px 8px', fontSize: '11px', background: '#f0fdf4', color: '#166534', fontWeight: 800 }}
+                              onClick={() => setSriOrder({ order: ord, items, customer: cust, advisor: adv })}
+                              title="Emitir / Ver Factura Electrónica SRI"
+                            >
+                              <ShieldCheck size={13} /> Factura SRI
+                            </button>
+
                             {ord.balanceDue > 0 && (
                               <button
                                 type="button"
@@ -1153,14 +1202,21 @@ export function POSPage() {
         />
       )}
 
-      {/* TAB 7: WEEKLY CASH RECONCILIATION */}
+      {/* TAB 7: PURCHASES TO SUPPLIERS */}
+      {activeTab === 'purchases' && (
+        <POSPurchaseOrdersManager
+          store={store}
+          onStoreUpdate={(updated) => setStore(updated)}
+        />
+      )}
+
+      {/* TAB 8: WEEKLY CASH RECONCILIATION */}
       {activeTab === 'weekly' && (
         <div className="pos-card" style={{ display: 'grid', gap: '16px' }}>
           <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Calendar size={20} style={{ color: 'var(--orange)' }} />
             Cuadre Semanal de Caja (Formato Excel Lunes a Sábado)
           </h2>
-          {/* Render standard weekly balance table */}
           {(() => {
             const balance = calculateWeeklyBalance(store, getMondayOfWeek(), currentAdvisorId);
             return (
@@ -1214,7 +1270,7 @@ export function POSPage() {
         </div>
       )}
 
-      {/* TAB 8: PETTY CASH EXPENSES */}
+      {/* TAB 9: PETTY CASH EXPENSES */}
       {activeTab === 'expenses' && (
         <div className="pos-card" style={{ display: 'grid', gap: '16px' }}>
           <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1344,6 +1400,17 @@ export function POSPage() {
             setStore(updatedStore);
             setReceiptOrder(updatedOrder);
           }}
+        />
+      )}
+
+      {sriOrder && (
+        <POSSRIInvoiceModal
+          order={sriOrder.order}
+          items={sriOrder.items}
+          customer={sriOrder.customer}
+          advisor={sriOrder.advisor}
+          isOpen={Boolean(sriOrder)}
+          onClose={() => setSriOrder(null)}
         />
       )}
 
