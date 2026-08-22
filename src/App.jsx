@@ -801,7 +801,9 @@ function SmartQuotePage() {
   const [heightCm, setHeightCm] = useState(100);
   const [quantity, setQuantity] = useState(1);
   const [designLevel, setDesignLevel] = useState('none');
-  const [finishing, setFinishing] = useState('none');
+  const [finishing, setFinishing] = useState('none'); // 'none' | 'small' | 'large' | 'bolsillo'
+  const [eyeletPreset, setEyeletPreset] = useState('corners'); // 'corners' | 'every50' | 'every30' | 'custom'
+  const [customEyelets, setCustomEyelets] = useState(4);
   const [installation, setInstallation] = useState(false);
   const [selection, setSelection] = useState({});
 
@@ -809,8 +811,8 @@ function SmartQuotePage() {
     taxRate: 15,
     designAdaptationPrice: 5,
     designFromScratchPrice: 15,
-    eyeletSmallPrice: 1.5,
-    eyeletLargePrice: 3.5,
+    eyeletSmallPrice: 0.30,
+    eyeletLargePrice: 0.50,
     disclaimer: 'Los valores son referenciales y se confirman con especificaciones y arte final.'
   };
 
@@ -845,19 +847,71 @@ function SmartQuotePage() {
   const effectiveQuantity = Math.max(minQuantity, quantity);
   const tiers = getPriceTiers(selectedProduct, safeSelection);
 
+  // Dynamic eyelet perimeter calculations
+  const calculatedPerimeter50 = useMemo(() => {
+    const w = Math.max(1, Math.ceil(widthCm / 50));
+    const h = Math.max(1, Math.ceil(heightCm / 50));
+    return Math.max(4, 2 * (w + h));
+  }, [widthCm, heightCm]);
+
+  const calculatedPerimeter30 = useMemo(() => {
+    const w = Math.max(1, Math.ceil(widthCm / 30));
+    const h = Math.max(1, Math.ceil(heightCm / 30));
+    return Math.max(4, 2 * (w + h));
+  }, [widthCm, heightCm]);
+
+  const effectiveEyeletCount = useMemo(() => {
+    if (finishing === 'none' || finishing === 'bolsillo') return 0;
+    if (eyeletPreset === 'corners') return 4;
+    if (eyeletPreset === 'every50') return calculatedPerimeter50;
+    if (eyeletPreset === 'every30') return calculatedPerimeter30;
+    return Math.max(1, Number(customEyelets) || 1);
+  }, [finishing, eyeletPreset, calculatedPerimeter50, calculatedPerimeter30, customEyelets]);
+
+  const eyeletUnitPrice = finishing === 'small' ? Number(calcSettings.eyeletSmallPrice || 0.30) : finishing === 'large' ? Number(calcSettings.eyeletLargePrice || 0.50) : 0;
+  const finishingCostPerPiece = finishing === 'bolsillo' ? 4.0 : (effectiveEyeletCount * eyeletUnitPrice);
+  const finishingCost = isArea ? finishingCostPerPiece * effectiveQuantity : 0;
+  const totalEyeletsAllPieces = effectiveEyeletCount * effectiveQuantity;
+
+  // 2D Canvas dynamic grommets positioning
+  const canvasGrommets = useMemo(() => {
+    if (finishing !== 'small' && finishing !== 'large') return [];
+    if (effectiveEyeletCount === 4) {
+      return [
+        { key: 'tl', className: 'top-left' },
+        { key: 'tr', className: 'top-right' },
+        { key: 'bl', className: 'bottom-left' },
+        { key: 'br', className: 'bottom-right' }
+      ];
+    }
+    const list = [
+      { key: 'tl', className: 'top-left' },
+      { key: 'tr', className: 'top-right' },
+      { key: 'bl', className: 'bottom-left' },
+      { key: 'br', className: 'bottom-right' }
+    ];
+    const remaining = Math.max(0, effectiveEyeletCount - 4);
+    const horizEach = Math.max(0, Math.round((remaining * (widthCm / Math.max(1, widthCm + heightCm))) / 2));
+    const vertEach = Math.max(0, Math.round((remaining - (horizEach * 2)) / 2));
+
+    for (let i = 1; i <= horizEach; i++) {
+      const pct = (i / (horizEach + 1)) * 100;
+      list.push({ key: `t-${i}`, style: { top: '7px', left: `${pct}%`, transform: 'translateX(-50%)' } });
+      list.push({ key: `b-${i}`, style: { bottom: '7px', left: `${pct}%`, transform: 'translateX(-50%)' } });
+    }
+    for (let j = 1; j <= vertEach; j++) {
+      const pct = (j / (vertEach + 1)) * 100;
+      list.push({ key: `l-${j}`, style: { top: `${pct}%`, left: '7px', transform: 'translateY(-50%)' } });
+      list.push({ key: `r-${j}`, style: { top: `${pct}%`, right: '7px', transform: 'translateY(-50%)' } });
+    }
+    return list;
+  }, [finishing, effectiveEyeletCount, widthCm, heightCm]);
+
   const designCost = designLevel === 'adaptation'
     ? Number(calcSettings.designAdaptationPrice || 5)
     : designLevel === 'full'
       ? Number(calcSettings.designFromScratchPrice || 15)
       : 0;
-
-  const finishingCost = isArea && finishing === 'esquinas'
-    ? Number(calcSettings.eyeletSmallPrice || 1.5) * effectiveQuantity
-    : isArea && finishing === 'perimetral'
-      ? Number(calcSettings.eyeletLargePrice || 3.5) * effectiveQuantity
-      : isArea && finishing === 'bolsillo'
-        ? 4.0 * effectiveQuantity
-        : 0;
 
   const installationCost = installation && isArea && selectedProduct?.price_inst
     ? Math.max(0, (Number(selectedProduct.price_inst) - Number(selectedProduct.price || 0)) * ((widthCm / 100) * (heightCm / 100)) * effectiveQuantity)
@@ -896,6 +950,8 @@ function SmartQuotePage() {
     setQuantity(Math.max(1, Number(product.minQuantity || 1), mode === 'lotes' ? 1000 : mode === 'unidades' ? 12 : 1));
     setDesignLevel('none');
     setFinishing('none');
+    setEyeletPreset('corners');
+    setCustomEyelets(4);
     setInstallation(false);
     setIsDropdownOpen(false);
   };
@@ -915,13 +971,13 @@ function SmartQuotePage() {
       ? 'Diseño profesional desde cero'
       : 'Arte listo del cliente';
 
-  const readableFinishing = finishing === 'esquinas'
-    ? 'Ojaletes en 4 esquinas'
-    : finishing === 'perimetral'
-      ? 'Ojaletes perimetrales cada 50 cm'
-      : finishing === 'bolsillo'
-        ? 'Bolsillo para tubo'
-        : 'Corte al ras / Sin ojaletes';
+  const readableFinishing = finishing === 'bolsillo'
+    ? 'Bolsillo para tubo'
+    : finishing === 'small'
+      ? `${effectiveEyeletCount} ojales pequeños ($${eyeletUnitPrice.toFixed(2)} c/u)`
+      : finishing === 'large'
+        ? `${effectiveEyeletCount} ojales grandes ($${eyeletUnitPrice.toFixed(2)} c/u)`
+        : 'Corte al ras / Sin ojales';
 
   const add = () => {
     if (!selectedProduct) return;
@@ -1215,37 +1271,31 @@ function SmartQuotePage() {
                   {/* 2D Proportional Canvas Aspect Preview */}
                   <div className="quote-proportional-canvas-wrap">
                     <div className="canvas-header">
-                      <span><Sparkles size={14} /> Vista previa de proporción</span>
+                      <span><Sparkles size={14} /> Vista previa de proporción y acabados</span>
                       <small>{widthCm > heightCm ? 'Formato Horizontal' : widthCm === heightCm ? 'Formato Cuadrado' : 'Formato Vertical'}</small>
                     </div>
                     <div className="canvas-viewport">
                       <div
-                        className={`proportional-banner ${finishing === 'perimetral' ? 'with-perimeter' : finishing === 'esquinas' ? 'with-corners' : ''}`}
+                        className={`proportional-banner ${finishing !== 'none' ? 'with-finishing' : ''}`}
                         style={{
                           aspectRatio: `${Math.max(10, widthCm)} / ${Math.max(10, heightCm)}`,
                           maxWidth: '100%',
                           maxHeight: '160px'
                         }}
                       >
-                        {(finishing === 'esquinas' || finishing === 'perimetral') && (
-                          <>
-                            <span className="canvas-grommet top-left" />
-                            <span className="canvas-grommet top-right" />
-                            <span className="canvas-grommet bottom-left" />
-                            <span className="canvas-grommet bottom-right" />
-                          </>
-                        )}
-                        {finishing === 'perimetral' && (
-                          <>
-                            <span className="canvas-grommet top-mid" />
-                            <span className="canvas-grommet bottom-mid" />
-                            <span className="canvas-grommet mid-left" />
-                            <span className="canvas-grommet mid-right" />
-                          </>
-                        )}
+                        {canvasGrommets.map((grommet) => (
+                          <span
+                            key={grommet.key}
+                            className={`canvas-grommet ${finishing === 'large' ? 'large' : ''} ${grommet.className || ''}`}
+                            style={grommet.style}
+                          />
+                        ))}
                         <div className="canvas-inner-label">
                           <strong>{selectedProduct?.name}</strong>
                           <span>{widthCm} × {heightCm} cm · {quote.area.toFixed(2)} m²</span>
+                          {(finishing === 'small' || finishing === 'large') && (
+                            <small style={{ fontSize: '9px', opacity: 0.85 }}>{effectiveEyeletCount} ojales {finishing === 'small' ? 'pequeños' : 'grandes'}</small>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1314,7 +1364,7 @@ function SmartQuotePage() {
                     </div>
                   </div>
 
-                  {/* Finishing Options for Area Products */}
+                  {/* Finishing & Custom Eyelets Options */}
                   <div className="finishing-select-group">
                     <label>Acabados y confección</label>
                     <div className="design-options-grid">
@@ -1326,38 +1376,44 @@ function SmartQuotePage() {
                           onChange={() => setFinishing('none')}
                         />
                         <div className="design-option-copy">
-                          <b>Corte al ras / Sin ojaletes</b>
-                          <small>Listo para enmarcar, montar o clavar.</small>
+                          <b>Corte al ras / Sin ojales</b>
+                          <small>Listo para enmarcar, montar o tensar.</small>
                         </div>
                         <span className="design-option-price">$0</span>
                       </label>
 
-                      <label className={`design-option-card ${finishing === 'esquinas' ? 'active' : ''}`}>
+                      <label className={`design-option-card ${finishing === 'small' ? 'active' : ''}`}>
                         <input
                           type="radio"
                           name="finishing"
-                          checked={finishing === 'esquinas'}
-                          onChange={() => setFinishing('esquinas')}
+                          checked={finishing === 'small'}
+                          onChange={() => {
+                            setFinishing('small');
+                            if (eyeletPreset === 'custom' && customEyelets < 4) setCustomEyelets(4);
+                          }}
                         />
                         <div className="design-option-copy">
-                          <b>Ojaletes en 4 esquinas</b>
-                          <small>Ojaletes metálicos en esquinas para sujeción rápida.</small>
+                          <b>Ojales Pequeños (10 mm)</b>
+                          <small>Ojales metálicos estándar para colgar o tensar.</small>
                         </div>
-                        <span className="design-option-price">+{money(Number(calcSettings.eyeletSmallPrice || 1.5))}</span>
+                        <span className="design-option-price">$0.30 c/u</span>
                       </label>
 
-                      <label className={`design-option-card ${finishing === 'perimetral' ? 'active' : ''}`}>
+                      <label className={`design-option-card ${finishing === 'large' ? 'active' : ''}`}>
                         <input
                           type="radio"
                           name="finishing"
-                          checked={finishing === 'perimetral'}
-                          onChange={() => setFinishing('perimetral')}
+                          checked={finishing === 'large'}
+                          onChange={() => {
+                            setFinishing('large');
+                            if (eyeletPreset === 'custom' && customEyelets < 4) setCustomEyelets(4);
+                          }}
                         />
                         <div className="design-option-copy">
-                          <b>Ojaletes perimetrales</b>
-                          <small>Distribuidos cada 50 cm en todo el perímetro.</small>
+                          <b>Ojales Grandes Reforzados (15 mm)</b>
+                          <small>Ojales industriales para exterior y alto viento.</small>
                         </div>
-                        <span className="design-option-price">+{money(Number(calcSettings.eyeletLargePrice || 3.5))}</span>
+                        <span className="design-option-price">$0.50 c/u</span>
                       </label>
 
                       <label className={`design-option-card ${finishing === 'bolsillo' ? 'active' : ''}`}>
@@ -1374,6 +1430,108 @@ function SmartQuotePage() {
                         <span className="design-option-price">+$4.00</span>
                       </label>
                     </div>
+
+                    {/* Interactive Eyelet Customizer Panel */}
+                    {(finishing === 'small' || finishing === 'large') && (
+                      <div className="eyelet-customizer-panel">
+                        <div className="eyelet-panel-head">
+                          <label>Configuración de Ojales {finishing === 'small' ? 'Pequeños ($0.30 c/u)' : 'Grandes ($0.50 c/u)'}</label>
+                          <span>{effectiveEyeletCount} ojales por pieza</span>
+                        </div>
+
+                        {/* Distribution Presets */}
+                        <div className="eyelet-presets-row">
+                          <button
+                            type="button"
+                            className={`eyelet-preset-btn ${eyeletPreset === 'corners' ? 'active' : ''}`}
+                            onClick={() => setEyeletPreset('corners')}
+                          >
+                            4 Esquinas (4 ojales)
+                          </button>
+                          <button
+                            type="button"
+                            className={`eyelet-preset-btn ${eyeletPreset === 'every50' ? 'active' : ''}`}
+                            onClick={() => setEyeletPreset('every50')}
+                          >
+                            Perimetral c/50 cm ({calculatedPerimeter50} ojales)
+                          </button>
+                          <button
+                            type="button"
+                            className={`eyelet-preset-btn ${eyeletPreset === 'every30' ? 'active' : ''}`}
+                            onClick={() => setEyeletPreset('every30')}
+                          >
+                            Perimetral c/30 cm ({calculatedPerimeter30} ojales)
+                          </button>
+                          <button
+                            type="button"
+                            className={`eyelet-preset-btn ${eyeletPreset === 'custom' ? 'active' : ''}`}
+                            onClick={() => {
+                              setEyeletPreset('custom');
+                              setCustomEyelets(effectiveEyeletCount);
+                            }}
+                          >
+                            Personalizado
+                          </button>
+                        </div>
+
+                        {/* Custom Stepper */}
+                        <div className="eyelet-stepper-row">
+                          <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 600 }}>
+                            Cantidad por pieza:
+                          </span>
+                          <div className="eyelet-stepper-box">
+                            <button
+                              type="button"
+                              className="eyelet-stepper-btn"
+                              onClick={() => {
+                                setEyeletPreset('custom');
+                                setCustomEyelets(Math.max(1, effectiveEyeletCount - 1));
+                              }}
+                              disabled={effectiveEyeletCount <= 1}
+                              aria-label="Disminuir un ojal"
+                            >
+                              <Minus size={15} />
+                            </button>
+                            <input
+                              type="number"
+                              min="1"
+                              value={effectiveEyeletCount}
+                              onChange={(e) => {
+                                setEyeletPreset('custom');
+                                setCustomEyelets(Math.max(1, parseInt(e.target.value, 10) || 1));
+                              }}
+                              className="eyelet-stepper-input"
+                              aria-label="Cantidad exacta de ojales"
+                            />
+                            <button
+                              type="button"
+                              className="eyelet-stepper-btn"
+                              onClick={() => {
+                                setEyeletPreset('custom');
+                                setCustomEyelets(effectiveEyeletCount + 1);
+                              }}
+                              aria-label="Aumentar un ojal"
+                            >
+                              <Plus size={15} />
+                            </button>
+                          </div>
+
+                          <div className="quantity-quick-increments">
+                            <button type="button" className="quick-inc-btn" onClick={() => { setEyeletPreset('custom'); setCustomEyelets(effectiveEyeletCount + 2); }}>+2</button>
+                            <button type="button" className="quick-inc-btn" onClick={() => { setEyeletPreset('custom'); setCustomEyelets(effectiveEyeletCount + 4); }}>+4</button>
+                            <button type="button" className="quick-inc-btn" onClick={() => { setEyeletPreset('custom'); setCustomEyelets(effectiveEyeletCount + 8); }}>+8</button>
+                          </div>
+                        </div>
+
+                        <div className="eyelet-calc-badge">
+                          <Sparkles size={14} style={{ color: 'var(--orange)' }} />
+                          <span>
+                            Costo de acabados: <strong>{effectiveEyeletCount} ojales × ${eyeletUnitPrice.toFixed(2)} = {money(effectiveEyeletCount * eyeletUnitPrice)} por pieza</strong>
+                            {effectiveQuantity > 1 && ` (Total ${totalEyeletsAllPieces} ojales = ${money(finishingCost)})`}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Installation Option */}
