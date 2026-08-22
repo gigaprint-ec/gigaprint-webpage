@@ -251,11 +251,11 @@ export function POSCustomerCRM({ store, setStore, onReorder }) {
 
                   {stats.totalBalanceDue > 0 ? (
                     <span style={{ fontSize: '10px', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', background: '#fee2e2', color: '#dc2626' }}>
-                      Debe: $${stats.totalBalanceDue.toFixed(2)}
+                      Debe: ${stats.totalBalanceDue.toFixed(2)}
                     </span>
                   ) : (
                     <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--orange-dark)' }}>
-                      $${stats.totalSpent.toFixed(2)}
+                      ${stats.totalSpent.toFixed(2)}
                     </span>
                   )}
                 </div>
@@ -381,7 +381,7 @@ export function POSCustomerCRM({ store, setStore, onReorder }) {
               <div style={{ padding: '12px', borderRadius: '10px', background: 'var(--paper)', border: '1px solid var(--line)', textAlign: 'center' }}>
                 <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: '700' }}>TOTAL HISTÓRICO (LTV)</span>
                 <strong style={{ display: 'block', fontSize: '18px', fontWeight: '900', color: 'var(--orange-dark)', marginTop: '4px' }}>
-                  $${(selectedStats?.totalSpent || 0).toFixed(2)}
+                  ${(selectedStats?.totalSpent || 0).toFixed(2)}
                 </strong>
               </div>
 
@@ -395,7 +395,7 @@ export function POSCustomerCRM({ store, setStore, onReorder }) {
               <div style={{ padding: '12px', borderRadius: '10px', background: (selectedStats?.totalBalanceDue || 0) > 0 ? '#fee2e2' : '#dcfce7', border: '1px solid var(--line)', textAlign: 'center' }}>
                 <span style={{ fontSize: '11px', color: (selectedStats?.totalBalanceDue || 0) > 0 ? '#991b1b' : '#166534', fontWeight: '700' }}>DEUDA PENDIENTE</span>
                 <strong style={{ display: 'block', fontSize: '18px', fontWeight: '900', color: (selectedStats?.totalBalanceDue || 0) > 0 ? '#dc2626' : '#16a34a', marginTop: '4px' }}>
-                  $${(selectedStats?.totalBalanceDue || 0).toFixed(2)}
+                  ${(selectedStats?.totalBalanceDue || 0).toFixed(2)}
                 </strong>
               </div>
             </div>
@@ -457,10 +457,10 @@ export function POSCustomerCRM({ store, setStore, onReorder }) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                       <div style={{ textAlign: 'right' }}>
                         <strong style={{ fontSize: '14px', color: 'var(--ink)', display: 'block' }}>
-                          $${Number(ord.totalAmount || 0).toFixed(2)}
+                          ${Number(ord.totalAmount || 0).toFixed(2)}
                         </strong>
                         <span style={{ fontSize: '11px', fontWeight: '700', color: ord.balanceDue > 0 ? '#dc2626' : '#16a34a' }}>
-                          {ord.balanceDue > 0 ? `Saldo: $${Number(ord.balanceDue).toFixed(2)}` : 'Pagado 100%'}
+                          {ord.balanceDue > 0 ? `Saldo: ${Number(ord.balanceDue).toFixed(2)}` : 'Pagado 100%'}
                         </span>
                       </div>
 
