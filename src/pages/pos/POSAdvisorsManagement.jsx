@@ -40,8 +40,11 @@ import {
   subscribePOSRealtime
 } from '../../lib/posStore';
 
-export function POSAdvisorsManagement() {
-  const [store, setStore] = useState(loadPOSStore);
+export function POSAdvisorsManagement({ store: parentStore, setStore: parentSetStore }) {
+  const [localStore, setLocalStore] = useState(loadPOSStore);
+  const store = parentStore || localStore;
+  const setStore = parentSetStore || setLocalStore;
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAdvisor, setEditingAdvisor] = useState(null);
   const [copiedAll, setCopiedAll] = useState(false);
@@ -54,20 +57,22 @@ export function POSAdvisorsManagement() {
   const currentMonday = getMondayOfWeek();
   const currentWeekCode = getISOWeekCode();
 
-  // Load from remote Supabase on mount and subscribe to Realtime changes
+  // Load from remote Supabase on mount and subscribe to Realtime changes if standalone
   useEffect(() => {
-    fetchRemotePOSStore().then((remote) => {
-      if (remote && remote.advisors) setStore(remote);
-    });
+    if (!parentStore) {
+      fetchRemotePOSStore().then((remote) => {
+        if (remote && remote.advisors) setLocalStore(remote);
+      });
 
-    const unsubscribe = subscribePOSRealtime((updatedStore) => {
-      if (updatedStore && updatedStore.advisors) setStore(updatedStore);
-    });
+      const unsubscribe = subscribePOSRealtime((updatedStore) => {
+        if (updatedStore && updatedStore.advisors) setLocalStore(updatedStore);
+      });
 
-    return () => {
-      if (typeof unsubscribe === 'function') unsubscribe();
-    };
-  }, []);
+      return () => {
+        if (typeof unsubscribe === 'function') unsubscribe();
+      };
+    }
+  }, [parentStore]);
 
   const showToast = (msg) => {
     setToastMessage(msg);

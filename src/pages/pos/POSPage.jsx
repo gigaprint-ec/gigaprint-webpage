@@ -1527,7 +1527,7 @@ export function POSPage() {
           TAB 10: ADVISORS & CREDENTIALS MANAGEMENT
           ---------------------------------------------------------------------- */}
       {activeTab === 'advisors' && (
-        <POSAdvisorsManagement />
+        <POSAdvisorsManagement store={store} setStore={setStore} />
       )}
 
       {/* ----------------------------------------------------------------------

@@ -427,8 +427,9 @@ export async function fetchRemotePOSStore() {
 export function subscribePOSRealtime(onUpdate) {
   if (!hasSupabase || !supabase) return () => {};
 
+  const channelName = `pos-realtime-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
   const channel = supabase
-    .channel('pos-realtime-all-channels')
+    .channel(channelName)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'pos_orders' }, () => {
       fetchRemotePOSStore().then(onUpdate);
     })
