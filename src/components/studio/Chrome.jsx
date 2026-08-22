@@ -2,7 +2,21 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowUp, Bell, Calculator, Check, Command, Home, Moon, Palette, Search, ShoppingBag, Sun, X } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
-export function ThemeToggle({ theme, onChange }) { const dark = theme === 'dark'; return <button type="button" className="theme-toggle" onClick={() => onChange?.(dark ? 'light' : 'dark')} aria-label="Cambiar modo de color">{dark ? <Sun size={15} /> : <Moon size={15} />}<span>{dark ? 'Claro' : 'Oscuro'}</span></button>; }
+export function ThemeToggle({ theme, onChange, compact = true }) {
+  const dark = theme === 'dark';
+  return (
+    <button
+      type="button"
+      className={`theme-toggle ${compact ? 'theme-toggle-compact' : ''}`}
+      onClick={() => onChange?.(dark ? 'light' : 'dark')}
+      aria-label={dark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+      title={dark ? 'Modo claro' : 'Modo oscuro'}
+    >
+      {dark ? <Sun size={16} /> : <Moon size={16} />}
+      {!compact && <span>{dark ? 'Claro' : 'Oscuro'}</span>}
+    </button>
+  );
+}
 
 export function ToastViewport({ items = [], onDismiss }) { return <div className="studio-toasts" aria-live="polite">{items.map((item) => <div className={`studio-toast ${item.type || 'success'}`} key={item.id}><Check size={15} /><span>{item.message}</span><button type="button" onClick={() => onDismiss?.(item.id)}><X size={13} /></button></div>)}</div>; }
 

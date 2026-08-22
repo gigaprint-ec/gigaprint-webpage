@@ -44,8 +44,13 @@ export function Brand({ compact = false }) {
   );
 }
 
-export function Button({ children, to, onClick, variant = 'primary', className = '', type = 'button' }) {
-  const content = <>{children}<ArrowUpRight size={16} /></>;
+export function Button({ children, to, onClick, variant = 'primary', className = '', type = 'button', showArrow = true }) {
+  const content = (
+    <>
+      {children}
+      {showArrow && <ArrowUpRight size={15} />}
+    </>
+  );
   return to ? (
     <Link className={`button button-${variant} ${className}`} to={to}>{content}</Link>
   ) : (
@@ -227,11 +232,11 @@ export function Header() {
   const [open, setOpen] = React.useState(false);
   const items = [
     { to: '/', label: 'Inicio' },
-    { to: '/gigaprint', label: 'Gigaprint' },
-    { to: '/promociones', label: 'Promociones' },
     { to: '/tienda', label: 'Tienda' },
-    { to: '/cotizador', label: 'Cotizador' },
-    { to: '/seguimiento', label: 'Rastrear Pedido' },
+    { to: '/cotizador', label: 'Cotizador', badge: '✨' },
+    { to: '/promociones', label: 'Promos', badge: '%' },
+    { to: '/seguimiento', label: 'Rastrear', badge: '🔍' },
+    { to: '/gigaprint', label: 'Nosotros' },
     { to: '/contacto', label: 'Contacto' }
   ];
   return (
@@ -240,8 +245,15 @@ export function Header() {
         <Brand />
         <nav className={open ? 'main-nav open' : 'main-nav'}>
           {items.map((item) => (
-            <NavLink key={item.to} end={item.to === '/'} to={item.to} onClick={() => setOpen(false)}>
-              {item.label}
+            <NavLink
+              key={item.to}
+              end={item.to === '/'}
+              to={item.to}
+              onClick={() => setOpen(false)}
+              className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+            >
+              <span>{item.label}</span>
+              {item.badge && <span className="nav-item-badge">{item.badge}</span>}
             </NavLink>
           ))}
           <Link className="cart-link" to="/carrito" onClick={() => setOpen(false)}>
@@ -250,11 +262,12 @@ export function Header() {
         </nav>
         <div className="header-actions">
           <SearchCommand />
-          <ThemeToggle theme={theme} onChange={setTheme} />
-          <Link className="desktop-cart" to="/carrito" aria-label="Ver carrito">
-            <ShoppingBag size={18} /><b>{cart.length}</b>
+          <ThemeToggle theme={theme} onChange={setTheme} compact={true} />
+          <Link className="desktop-cart" to="/carrito" aria-label="Ver carrito" title="Carrito de compras">
+            <ShoppingBag size={18} />
+            {cart.length > 0 && <b>{cart.length}</b>}
           </Link>
-          <Button to="/cotizador" className="header-cta">Cotiza tu proyecto</Button>
+          <Button to="/cotizador" className="header-cta" showArrow={true}>Cotizar</Button>
           <button className="menu-toggle" onClick={() => setOpen(!open)} aria-label="Abrir menú">
             {open ? <X /> : <Menu />}
           </button>

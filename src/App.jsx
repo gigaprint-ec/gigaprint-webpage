@@ -18,7 +18,118 @@ const EditorPage = lazy(() => import('./pages/EditorPage').then((module) => ({ d
 function HomePage() {
   const { data, addToCart } = useSite();
   const calculatorSettings = data.calculatorSettings || { taxRate: 15, designAdaptationPrice: 5, designFromScratchPrice: 15, disclaimer: 'Los valores son referenciales y pueden variar según acabados, instalación y condiciones del proyecto.' };
-  return <PageShell><section className="hero"><div className="container hero-grid"><div className="hero-copy"><span className="eyebrow orange">{data.settings.heroKicker}</span><h1>{data.settings.heroTitle}<em> en grande.</em></h1><p>{data.settings.heroText}</p><div className="hero-buttons"><Button to="/cotizador">Cotiza tu proyecto</Button><Button to="/tienda" variant="ghost">Ver soluciones <ArrowRight size={16} /></Button></div><div className="hero-proof"><div className="avatar-stack"><span>G</span><span>+</span><span>∞</span></div><p><strong>Hecho para destacar</strong><br />Diseño, producción e instalación en un mismo equipo.</p></div></div><div className="hero-art"><div className="hero-orbit orbit-one"></div><div className="hero-orbit orbit-two"></div><div className="hero-card card-main"><img src={media.hero} alt="Impresión de gran formato" /><span className="hero-card-label">Producción propia</span></div><div className="hero-float float-top"><Sparkles size={16} /><span><b>+100</b><small>ideas producidas</small></span></div><div className="hero-float float-bottom"><span className="pulse-dot"></span><span><b>Tu marca</b><small>lista para verse</small></span></div><span className="hero-sticker">IDEAS<br />QUE<br /><b>CRECEN</b></span></div></div></section><div className="marquee"><div>RÓTULOS <span>✦</span> IMPRESIÓN <span>✦</span> NEONES <span>✦</span> LÁSER <span>✦</span> VINILES <span>✦</span> DISEÑO <span>✦</span> </div></div><section className="section"><div className="container"><SectionHeading eyebrow="Todo lo que tu marca necesita" title="Una idea. Muchas formas de hacerla visible." text="Nos encargamos de la parte que hace que una marca pase de verse bien a quedarse en la cabeza." action={<Button to="/gigaprint" variant="link">Conoce Gigaprint <ArrowRight size={15} /></Button>} /><div className="services-grid">{data.services.map((service, index) => <ServiceCard key={service.id} service={service} index={index} />)}</div></div></section><section className="section dark-section"><div className="container process-section"><SectionHeading eyebrow="Así trabajamos" title="Del primer mensaje a la instalación." text="Un proceso claro, sin vueltas y con acompañamiento en cada decisión." /><div className="process-grid"><div className="process-intro"><span className="big-number">01</span><h3>Cuéntanos qué tienes en mente.</h3><p>Puede ser un boceto, una foto de referencia o solo una idea. Nosotros la aterrizamos.</p><Button to="/contacto" variant="outline">Hablar con el equipo</Button></div><div className="process-steps"><div><b>02</b><span><strong>Te proponemos</strong><small>Materiales, medidas y una solución que sí funciona para tu presupuesto.</small></span></div><div><b>03</b><span><strong>Lo producimos</strong><small>Diseño, fabricación y acabados con atención al detalle.</small></span></div><div><b>04</b><span><strong>Lo instalamos</strong><small>Te entregamos una pieza lista para ser protagonista.</small></span></div></div></div></div></section><section className="section"><div className="container"><SectionHeading eyebrow="Lo más pedido" title="Soluciones que ya están listas para despegar." action={<Button to="/tienda" variant="link">Ver toda la tienda <ArrowRight size={15} /></Button>} /><div className="product-grid">{data.products.filter((product) => product.featured).map((product) => <ProductCard key={product.id} product={product} onAdd={(item) => addToCart({ ...item, cartId: `${item.id}-${Date.now()}` })} />)}</div></div></section><section className="section editable-home-section"><div className="container"><BlockRenderer blocks={data.homeBlocks || []} /></div></section><section className="cta-section"><div className="container cta-card"><div><span className="eyebrow">No tienes que llegar con todo resuelto</span><h2>Tu próxima gran idea<br /><em>empieza aquí.</em></h2></div><Button to="/cotizador">Empezar cotización</Button></div></section></PageShell>;
+  return (
+    <PageShell>
+      <section className="hero">
+        <div className="container hero-grid">
+          <div className="hero-copy">
+            <span className="eyebrow orange">{data.settings.heroKicker}</span>
+            <h1>{data.settings.heroTitle}<em> en grande.</em></h1>
+            <p>{data.settings.heroText}</p>
+            <div className="hero-buttons">
+              <Button to="/cotizador">Cotiza tu proyecto</Button>
+              <Button to="/tienda" variant="ghost">Ver soluciones</Button>
+            </div>
+            <div className="hero-proof">
+              <div className="avatar-stack"><span>G</span><span>+</span><span>∞</span></div>
+              <p><strong>Hecho para destacar</strong><br />Diseño, producción e instalación en un mismo equipo.</p>
+            </div>
+          </div>
+          <div className="hero-art">
+            <div className="hero-orbit orbit-one"></div>
+            <div className="hero-orbit orbit-two"></div>
+            <div className="hero-card card-main">
+              <img src={media.hero} alt="Impresión de gran formato" />
+              <span className="hero-card-label">Producción propia</span>
+            </div>
+            <div className="hero-float float-top">
+              <Sparkles size={16} />
+              <span><b>+100</b><small>ideas producidas</small></span>
+            </div>
+            <div className="hero-float float-bottom">
+              <span className="pulse-dot"></span>
+              <span><b>Tu marca</b><small>lista para verse</small></span>
+            </div>
+            <span className="hero-sticker">IDEAS<br />QUE<br /><b>CRECEN</b></span>
+          </div>
+        </div>
+      </section>
+
+      <div className="marquee">
+        <div>RÓTULOS <span>✦</span> IMPRESIÓN <span>✦</span> NEONES <span>✦</span> LÁSER <span>✦</span> VINILES <span>✦</span> DISEÑO <span>✦</span> </div>
+      </div>
+
+      <section className="section">
+        <div className="container">
+          <SectionHeading
+            eyebrow="Todo lo que tu marca necesita"
+            title="Una idea. Muchas formas de hacerla visible."
+            text="Nos encargamos de la parte que hace que una marca pase de verse bien a quedarse en la cabeza."
+            action={<Button to="/gigaprint" variant="link">Conoce Gigaprint</Button>}
+          />
+          <div className="services-grid">
+            {data.services.map((service, index) => (
+              <ServiceCard key={service.id} service={service} index={index} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="section dark-section">
+        <div className="container process-section">
+          <SectionHeading
+            eyebrow="Así trabajamos"
+            title="Del primer mensaje a la instalación."
+            text="Un proceso claro, sin vueltas y con acompañamiento en cada decisión."
+          />
+          <div className="process-grid">
+            <div className="process-intro">
+              <span className="big-number">01</span>
+              <h3>Cuéntanos qué tienes en mente.</h3>
+              <p>Puede ser un boceto, una foto de referencia o solo una idea. Nosotros la aterrizamos.</p>
+              <Button to="/contacto" variant="outline">Hablar con el equipo</Button>
+            </div>
+            <div className="process-steps">
+              <div><b>02</b><span><strong>Te proponemos</strong><small>Materiales, medidas y una solución que sí funciona para tu presupuesto.</small></span></div>
+              <div><b>03</b><span><strong>Lo producimos</strong><small>Diseño, fabricación y acabados con atención al detalle.</small></span></div>
+              <div><b>04</b><span><strong>Lo instalamos</strong><small>Te entregamos una pieza lista para ser protagonista.</small></span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="section">
+        <div className="container">
+          <SectionHeading
+            eyebrow="Lo más pedido"
+            title="Soluciones que ya están listas para despegar."
+            action={<Button to="/tienda" variant="link">Ver toda la tienda</Button>}
+          />
+          <div className="product-grid">
+            {data.products.filter((product) => product.featured).map((product) => (
+              <ProductCard key={product.id} product={product} onAdd={(item) => addToCart({ ...item, cartId: `${item.id}-${Date.now()}` })} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="section editable-home-section">
+        <div className="container">
+          <BlockRenderer blocks={data.homeBlocks || []} />
+        </div>
+      </section>
+
+      <section className="cta-section">
+        <div className="container cta-card">
+          <div>
+            <span className="eyebrow">No tienes que llegar con todo resuelto</span>
+            <h2>Tu próxima gran idea<br /><em>empieza aquí.</em></h2>
+          </div>
+          <Button to="/cotizador">Empezar cotización</Button>
+        </div>
+      </section>
+    </PageShell>
+  );
 }
 
 function AboutPage() {
