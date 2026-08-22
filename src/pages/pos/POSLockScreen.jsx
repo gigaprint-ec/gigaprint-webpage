@@ -18,7 +18,8 @@ import {
   getMondayOfWeek
 } from '../../lib/posStore';
 
-export function POSLockScreen({ advisors = [], onAuthenticated }) {
+export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess }) {
+  const handleAuthCallback = onAuthenticated || onUnlockSuccess || (() => {});
   const [selectedAdvisorId, setSelectedAdvisorId] = useState(advisors[0]?.id || '');
   const [pinInput, setPinInput] = useState('');
   const [loginMode, setLoginMode] = useState('advisor'); // 'advisor' | 'admin'
@@ -89,7 +90,7 @@ export function POSLockScreen({ advisors = [], onAuthenticated }) {
 
     const res = authenticateAdvisor(advisors, selectedAdvisorId, pinInput);
     if (res.ok) {
-      onAuthenticated(res.session);
+      handleAuthCallback(res.session);
     } else {
       triggerError(res.error || 'PIN incorrecto.');
     }
@@ -104,7 +105,7 @@ export function POSLockScreen({ advisors = [], onAuthenticated }) {
 
     const res = authenticateAdmin(adminPass);
     if (res.ok) {
-      onAuthenticated(res.session);
+      handleAuthCallback(res.session);
     } else {
       triggerError(res.error || 'Contraseña incorrecta.');
     }
