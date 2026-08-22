@@ -68,6 +68,7 @@ import { POSInventoryMaterials } from './POSInventoryMaterials';
 import { POSProductManager } from './POSProductManager';
 import { POSPaymentCollectionModal } from './POSPaymentCollectionModal';
 import { POSSRIInvoiceModal } from './POSSRIInvoiceModal';
+import { POSAdvisorsManagement } from './POSAdvisorsManagement';
 import { POSPurchaseOrdersManager } from './POSPurchaseOrdersManager';
 import { SupabaseFileUploader } from '../../components/studio/SupabaseFileUploader';
 
@@ -591,6 +592,13 @@ export function POSPage() {
             onClick={() => setActiveTab('expenses')}
           >
             <DollarSign size={16} /> Caja Chica
+          </button>
+          <button
+            type="button"
+            className={`pos-nav-tab ${activeTab === 'advisors' ? 'active' : ''}`}
+            onClick={() => setActiveTab('advisors')}
+          >
+            <Users size={16} /> Equipo & PINs
           </button>
         </nav>
       </div>
@@ -1513,6 +1521,13 @@ export function POSPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {/* ----------------------------------------------------------------------
+          TAB 10: ADVISORS & CREDENTIALS MANAGEMENT
+          ---------------------------------------------------------------------- */}
+      {activeTab === 'advisors' && (
+        <POSAdvisorsManagement />
       )}
 
       {/* ----------------------------------------------------------------------
