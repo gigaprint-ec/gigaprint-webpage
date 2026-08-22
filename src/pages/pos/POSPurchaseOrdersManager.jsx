@@ -295,8 +295,8 @@ export function POSPurchaseOrdersManager({ store, onStoreUpdate }) {
 
       {/* MODAL: CREATE PURCHASE ORDER */}
       {isModalOpen && (
-        <div className="pos-modal-overlay">
-          <div className="pos-modal-card" style={{ maxWidth: '620px' }}>
+        <div className="pos-modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', backdropFilter: 'blur(4px)' }}>
+          <div className="pos-modal-card" style={{ maxWidth: '620px', borderRadius: '16px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', width: '100%' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 900 }}>Nueva Orden de Compra</h2>
               <button type="button" onClick={() => setIsModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
@@ -419,8 +419,8 @@ export function POSPurchaseOrdersManager({ store, onStoreUpdate }) {
 
       {/* PRINTABLE PO MODAL */}
       {selectedPOForPrint && (
-        <div className="pos-modal-overlay">
-          <div className="pos-modal-card" style={{ maxWidth: '650px', background: '#fff', color: '#000', padding: '24px' }}>
+        <div className="pos-modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', backdropFilter: 'blur(4px)' }}>
+          <div className="pos-modal-card" style={{ maxWidth: '650px', background: '#fff', color: '#000', padding: '24px', borderRadius: '16px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', width: '100%' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #000', paddingBottom: '12px' }}>
               <div>
                 <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 900, color: '#ea580c' }}>GIGAPRINT — ORDEN DE COMPRA</h2>

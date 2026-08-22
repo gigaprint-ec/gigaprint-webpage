@@ -54,8 +54,8 @@ export function POSPaymentCollectionModal({ order, store, advisorId, onClose, on
   };
 
   return (
-    <div className="pos-modal-overlay">
-      <div className="pos-modal-card" style={{ maxWidth: '480px' }}>
+    <div className="pos-modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', backdropFilter: 'blur(4px)' }}>
+      <div className="pos-modal-card" style={{ maxWidth: '480px', borderRadius: '16px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', width: '100%' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <DollarSign size={22} style={{ color: '#16a34a' }} />

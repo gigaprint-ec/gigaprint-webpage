@@ -73,8 +73,8 @@ export function POSSRIInvoiceModal({ order, items = [], customer, advisor, isOpe
   };
 
   return (
-    <div className="pos-modal-overlay">
-      <div className="pos-modal-card" style={{ maxWidth: '820px', maxHeight: '92vh', overflowY: 'auto', background: '#fff', color: '#000', padding: '24px' }}>
+    <div className="pos-modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', backdropFilter: 'blur(4px)' }}>
+      <div className="pos-modal-card" style={{ maxWidth: '820px', maxHeight: '92vh', overflowY: 'auto', background: '#fff', color: '#000', padding: '24px', borderRadius: '16px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', width: '100%' }}>
         
         {/* Top Header Actions */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px', marginBottom: '16px' }}>
