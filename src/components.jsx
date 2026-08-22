@@ -25,7 +25,7 @@ import {
 import { media, money, themePresets, assetPath } from './data';
 import { resourceUrls } from './data/resourceManifest';
 import { getProductCalcType } from './catalog';
-import { useSite } from './store';
+import { useSite, useAuth } from './store';
 import {
   ContextMenu,
   MotionObserver,
@@ -103,6 +103,11 @@ export function BottomSheet({ isOpen, onClose }) {
           <button type="button" className="bottom-sheet-item" onClick={() => handleNav('/promociones')}>
             <Percent size={20} />
             <span>Promociones del Mes</span>
+            <ChevronRight size={16} className="bs-arrow" />
+          </button>
+          <button type="button" className="bottom-sheet-item" onClick={() => handleNav('/seguimiento')}>
+            <Search size={20} />
+            <span>Rastrear mi Pedido</span>
             <ChevronRight size={16} className="bs-arrow" />
           </button>
           <button type="button" className="bottom-sheet-item" onClick={() => handleNav('/contacto')}>
@@ -226,6 +231,7 @@ export function Header() {
     { to: '/promociones', label: 'Promociones' },
     { to: '/tienda', label: 'Tienda' },
     { to: '/cotizador', label: 'Cotizador' },
+    { to: '/seguimiento', label: 'Rastrear Pedido' },
     { to: '/contacto', label: 'Contacto' }
   ];
   return (
@@ -264,39 +270,41 @@ export function Footer() {
       <div className="container footer-grid">
         <div className="footer-brand">
           <Brand />
-          <p>Publicidad, impresión y fabricación visual para marcas que quieren verse en grande.</p>
+          <p>Publicidad, impresión gran formato y fabricación visual para marcas que quieren verse en grande.</p>
           <div className="socials">
-            <a href="https://instagram.com" aria-label="Instagram"><Camera size={17} /></a>
-            <a href="https://wa.me/593999999999" aria-label="WhatsApp"><MessageCircle size={17} /></a>
+            <a href="https://instagram.com/gigaprint.ec" target="_blank" rel="noreferrer" aria-label="Instagram"><Camera size={17} /></a>
+            <a href="https://wa.me/593987654321" target="_blank" rel="noreferrer" aria-label="WhatsApp"><MessageCircle size={17} /></a>
             <a href="mailto:hola@gigaprint.ec" aria-label="Correo"><Mail size={17} /></a>
           </div>
         </div>
         <div>
           <h4>Explora</h4>
-          <Link to="/gigaprint">Nosotros</Link>
+          <Link to="/gigaprint">Nosotros & Taller</Link>
           <Link to="/promociones">Promociones</Link>
-          <Link to="/tienda">Tienda</Link>
+          <Link to="/tienda">Catálogo Tienda</Link>
+          <Link to="/seguimiento">🔍 Rastrear mi Pedido</Link>
           <Link to="/contacto">Contacto</Link>
         </div>
         <div>
           <h4>Soluciones</h4>
-          <Link to="/cotizador">Cotizador online</Link>
-          <Link to="/tienda?categoria=Gran%20formato">Gran formato</Link>
-          <Link to="/tienda?categoria=Rótulos">Rótulos</Link>
-          <Link to="/tienda?categoria=Personalizados">Personalizados</Link>
+          <Link to="/cotizador">Cotizador online (m² / volumen)</Link>
+          <Link to="/tienda?familia=Gran%20formato">Gran formato & Lonas</Link>
+          <Link to="/tienda?familia=Rótulos%20y%20Fachadas">Rótulos & Letras 3D</Link>
+          <Link to="/tienda?familia=Textil%20y%20Promocionales">Textil & Promocionales</Link>
         </div>
         <div className="footer-contact">
-          <h4>Hablemos</h4>
-          <p><MapPin size={15} /> Quito, Ecuador</p>
-          <p><MessageCircle size={15} /> +593 99 999 9999</p>
+          <h4>Taller Matriz</h4>
+          <p><MapPin size={15} /> Av. de la Prensa N58-120 y Vaca de Castro, Quito</p>
+          <p><MessageCircle size={15} /> +593 98 765 4321</p>
           <p><Mail size={15} /> hola@gigaprint.ec</p>
         </div>
       </div>
       <div className="container footer-bottom">
-        <span>© 2026 Gigaprint. Todos los derechos reservados.</span>
+        <span>© 2026 Gigaprint Publicidad & Impresión S.A.S. RUC 1792345678001. Todos los derechos reservados.</span>
         <div style={{ display: 'flex', gap: '16px' }}>
-          <Link to="/pos">🛒 Punto de Venta (POS)</Link>
-          <Link to="/admin">Panel admin</Link>
+          <Link to="/seguimiento">🔍 Rastrear Pedido</Link>
+          <Link to="/pos">🛒 Terminal POS</Link>
+          <Link to="/admin">Panel Admin</Link>
         </div>
       </div>
     </footer>
@@ -497,32 +505,80 @@ export function CartSummary({ compact = false }) {
 export function AdminNav() {
   const location = useLocation();
   const { theme, setTheme } = useSite();
-  const items = [
-    ['/admin', 'Resumen'],
-    ['/admin/pos', '🛒 Punto de Venta'],
-    ['/admin/pos/dashboard', '📊 Cuadre Semanal'],
-    ['/admin/pos/asesoras', '👥 Equipo Asesoras'],
-    ['/admin/editor', 'Editor visual'],
-    ['/admin/contenido', 'Contenido'],
-    ['/admin/productos', 'Productos'],
-    ['/admin/temas', 'Temas'],
-    ['/admin/promociones', 'Promociones'],
-    ['/admin/solicitudes', 'Solicitudes']
+  const { logout } = useAuth();
+  
+  const sections = [
+    {
+      title: 'OPERACIONES & VENTAS',
+      items: [
+        ['/admin/pos/dashboard', '📊 Dashboard Ejecutivo', '/admin/pos/dashboard'],
+        ['/admin/pos', '🛒 Punto de Venta & Caja', '/admin/pos'],
+      ]
+    },
+    {
+      title: 'CRM & TALLER',
+      items: [
+        ['/admin/crm', '👥 Clientes & CRM 360°', '/admin/crm'],
+        ['/admin/pos/asesoras', '🔑 Asesoras & PINs Semanales', '/admin/pos/asesoras'],
+      ]
+    },
+    {
+      title: 'WEB & CMS',
+      items: [
+        ['/admin/editor', '🎨 Visual Studio Editor', '/admin/editor'],
+        ['/admin/contenido', '📝 Textos & Contacto', '/admin/contenido'],
+        ['/admin/productos', '📦 Catálogo Web', '/admin/productos'],
+        ['/admin/promociones', '🏷️ Promociones', '/admin/promociones'],
+        ['/admin/temas', '✨ Temas de Temporada', '/admin/temas'],
+        ['/admin/solicitudes', '📬 Solicitudes Web', '/admin/solicitudes']
+      ]
+    }
   ];
+
   return (
     <aside className="admin-sidebar">
-      <Brand compact />
-      <div className="admin-nav-label">Panel Gigaprint</div>
-      <nav>
-        {items.map(([path, label]) => (
-          <NavLink key={path} end={path === '/admin'} className={location.pathname === path ? 'active' : ''} to={path}>
-            {label}
-          </NavLink>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+        <Brand compact />
+        <span style={{ fontSize: '10px', fontWeight: 900, background: 'var(--orange-soft)', color: 'var(--orange-dark)', padding: '2px 6px', borderRadius: '6px' }}>
+          ADMIN
+        </span>
+      </div>
+
+      <nav style={{ display: 'grid', gap: '14px' }}>
+        {sections.map((sec) => (
+          <div key={sec.title} style={{ display: 'grid', gap: '4px' }}>
+            <div style={{ fontSize: '10px', fontWeight: 900, color: 'var(--muted)', letterSpacing: '0.06em', padding: '0 8px' }}>
+              {sec.title}
+            </div>
+            {sec.items.map(([path, label]) => (
+              <NavLink
+                key={path}
+                end={path === '/admin'}
+                className={location.pathname === path ? 'active' : ''}
+                to={path}
+                style={{ padding: '7px 10px', borderRadius: '8px', fontSize: '13px', display: 'flex', alignItems: 'center', textDecoration: 'none' }}
+              >
+                {label}
+              </NavLink>
+            ))}
+          </div>
         ))}
       </nav>
-      <div className="admin-sidebar-footer">
-        <ThemeToggle theme={theme} onChange={setTheme} />
-        <Link to="/" className="admin-back">← Volver al sitio</Link>
+
+      <div className="admin-sidebar-footer" style={{ marginTop: 'auto', paddingTop: '14px', borderTop: '1px solid var(--line)', display: 'grid', gap: '8px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <ThemeToggle theme={theme} onChange={setTheme} />
+          <button
+            type="button"
+            onClick={logout}
+            style={{ border: 'none', background: 'none', color: '#dc2626', fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}
+          >
+            Salir
+          </button>
+        </div>
+        <Link to="/" className="admin-back" style={{ fontSize: '12px', fontWeight: 700 }}>
+          ← Ver Sitio Web
+        </Link>
       </div>
     </aside>
   );

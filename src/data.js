@@ -66,10 +66,10 @@ export const initialData = {
   settings: {
     brand: 'Gigaprint',
     slogan: 'Tus ideas en grande',
-    phone: '+593 99 999 9999',
+    phone: '+593 98 765 4321',
     email: 'hola@gigaprint.ec',
-    address: 'Quito, Ecuador · Atención con cita previa',
-    whatsapp: '593999999999',
+    address: 'Av. de la Prensa N58-120 y Vaca de Castro, Quito - Ecuador',
+    whatsapp: '593987654321',
     themePreset: 'default',
     heroKicker: 'Publicidad que se ve. Marcas que se recuerdan.',
     heroTitle: 'Haz que tu marca ocupe espacio.',
