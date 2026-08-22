@@ -950,7 +950,7 @@
   z-index: 99;
   background: var(--paper);
   border-top: 1px solid var(--line);
-  padding: 10px 16px;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
   box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.12);
   align-items: center;
   justify-content: space-between;

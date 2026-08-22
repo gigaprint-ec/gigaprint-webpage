@@ -1,36 +1,370 @@
+import React from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { ArrowUpRight, Check, ChevronRight, Camera, Mail, MapPin, Menu, MessageCircle, Minus, Moon, Plus, Search, ShoppingBag, Sparkles, Sun, X } from 'lucide-react';
+import {
+  ArrowUpRight,
+  Camera,
+  Check,
+  ChevronRight,
+  Home,
+  Mail,
+  MapPin,
+  Menu,
+  MessageCircle,
+  Minus,
+  Moon,
+  Percent,
+  Plus,
+  Search,
+  ShoppingBag,
+  Sparkles,
+  Store,
+  Sun,
+  X,
+  Zap
+} from 'lucide-react';
 import { media, money, themePresets } from './data';
 import { resourceUrls } from './data/resourceManifest';
 import { getProductCalcType } from './catalog';
 import { useSite } from './store';
-import { ContextMenu, MotionObserver, SearchCommand, SeasonalThemeLayer, ThemeToggle, ToastViewport, contextIcons } from './components/studio/Chrome';
+import {
+  ContextMenu,
+  MotionObserver,
+  SearchCommand,
+  SeasonalThemeLayer,
+  ThemeToggle,
+  ToastViewport,
+  contextIcons
+} from './components/studio/Chrome';
 
 export function Brand({ compact = false }) {
-  return <Link className={`brand brand-svg ${compact ? 'brand-compact' : ''}`} to="/" aria-label="Gigaprint — Tus ideas en grande"><img className="brand-logo-image" src={media.logoDark} alt="Gigaprint — Tus ideas en grande" /></Link>;
+  return (
+    <Link className={`brand brand-svg ${compact ? 'brand-compact' : ''}`} to="/" aria-label="Gigaprint — Tus ideas en grande">
+      <img className="brand-logo-image" src={media.logoDark} alt="Gigaprint — Tus ideas en grande" />
+    </Link>
+  );
 }
 
 export function Button({ children, to, onClick, variant = 'primary', className = '', type = 'button' }) {
   const content = <>{children}<ArrowUpRight size={16} /></>;
-  return to ? <Link className={`button button-${variant} ${className}`} to={to}>{content}</Link> : <button type={type} onClick={onClick} className={`button button-${variant} ${className}`}>{content}</button>;
+  return to ? (
+    <Link className={`button button-${variant} ${className}`} to={to}>{content}</Link>
+  ) : (
+    <button type={type} onClick={onClick} className={`button button-${variant} ${className}`}>{content}</button>
+  );
+}
+
+export function ScrollToTop() {
+  const { pathname } = useLocation();
+  React.useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [pathname]);
+  return null;
+}
+
+export function BottomSheet({ isOpen, onClose }) {
+  const { theme, setTheme } = useSite();
+  const navigate = useNavigate();
+
+  React.useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const handleNav = (to) => {
+    onClose();
+    navigate(to);
+  };
+
+  return (
+    <>
+      <div className="bottom-sheet-backdrop" onClick={onClose} aria-hidden="true" />
+      <div className="bottom-sheet-panel" role="dialog" aria-label="Menú principal">
+        <div className="bottom-sheet-handle" />
+        <div className="bottom-sheet-head">
+          <Brand compact />
+          <button className="bottom-sheet-close" onClick={onClose} aria-label="Cerrar menú">
+            <X size={20} />
+          </button>
+        </div>
+        <div className="bottom-sheet-items">
+          <button type="button" className="bottom-sheet-item" onClick={() => handleNav('/gigaprint')}>
+            <Sparkles size={20} />
+            <span>Nosotros & Taller</span>
+            <ChevronRight size={16} className="bs-arrow" />
+          </button>
+          <button type="button" className="bottom-sheet-item" onClick={() => handleNav('/promociones')}>
+            <Percent size={20} />
+            <span>Promociones del Mes</span>
+            <ChevronRight size={16} className="bs-arrow" />
+          </button>
+          <button type="button" className="bottom-sheet-item" onClick={() => handleNav('/contacto')}>
+            <Mail size={20} />
+            <span>Contacto & Ubicación</span>
+            <ChevronRight size={16} className="bs-arrow" />
+          </button>
+          <div className="bottom-sheet-separator" />
+          <div className="bottom-sheet-utilities">
+            <button
+              type="button"
+              className="bs-util-btn"
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            >
+              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+              <span>{theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}</span>
+            </button>
+            <button
+              type="button"
+              className="bs-util-btn"
+              onClick={() => handleNav('/admin')}
+            >
+              <ArrowUpRight size={18} />
+              <span>Acceso Admin</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+export function BottomNavBar() {
+  const { cart } = useSite();
+  const location = useLocation();
+  const [sheetOpen, setSheetOpen] = React.useState(false);
+
+  // No renderizar en rutas de admin
+  if (location.pathname.startsWith('/admin')) {
+    return null;
+  }
+
+  // En el cotizador, la barra sticky de cotización toma precedencia en móvil
+  const isQuoter = location.pathname === '/cotizador';
+  if (isQuoter) {
+    return null;
+  }
+
+  const isCurrent = (path) => {
+    if (path === '/') return location.pathname === '/';
+    return location.pathname.startsWith(path);
+  };
+
+  return (
+    <>
+      <nav className="bottom-nav-bar" aria-label="Navegación inferior">
+        <div className="bnb-items">
+          <Link
+            to="/"
+            className={`bnb-item ${isCurrent('/') && location.pathname === '/' ? 'active' : ''}`}
+            aria-label="Inicio"
+          >
+            <Home size={22} />
+            <span>Inicio</span>
+          </Link>
+
+          <Link
+            to="/tienda"
+            className={`bnb-item ${isCurrent('/tienda') ? 'active' : ''}`}
+            aria-label="Tienda"
+          >
+            <Store size={22} />
+            <span>Tienda</span>
+          </Link>
+
+          <Link
+            to="/cotizador"
+            className="bnb-item bnb-cta"
+            aria-label="Cotizador Inteligente"
+          >
+            <div className="bnb-cta-circle">
+              <Zap size={22} />
+            </div>
+            <span>Cotizar</span>
+          </Link>
+
+          <Link
+            to="/carrito"
+            className={`bnb-item ${isCurrent('/carrito') ? 'active' : ''}`}
+            aria-label="Carrito de compras"
+          >
+            <div className="bnb-icon-wrapper">
+              <ShoppingBag size={22} />
+              {cart.length > 0 && <span className="bnb-badge">{cart.length}</span>}
+            </div>
+            <span>Carrito</span>
+          </Link>
+
+          <button
+            type="button"
+            className={`bnb-item ${sheetOpen ? 'active' : ''}`}
+            onClick={() => setSheetOpen(true)}
+            aria-label="Más opciones"
+          >
+            <Menu size={22} />
+            <span>Menú</span>
+          </button>
+        </div>
+      </nav>
+      <BottomSheet isOpen={sheetOpen} onClose={() => setSheetOpen(false)} />
+    </>
+  );
 }
 
 export function Header() {
   const { cart, theme, setTheme } = useSite();
   const [open, setOpen] = React.useState(false);
-  const items = [{ to: '/', label: 'Inicio' }, { to: '/gigaprint', label: 'Gigaprint' }, { to: '/promociones', label: 'Promociones' }, { to: '/tienda', label: 'Tienda' }, { to: '/cotizador', label: 'Cotizador' }, { to: '/contacto', label: 'Contacto' }];
-  return <header className="site-header"><div className="container header-inner"><Brand /><nav className={open ? 'main-nav open' : 'main-nav'}>{items.map((item) => <NavLink key={item.to} end={item.to === '/'} to={item.to} onClick={() => setOpen(false)}>{item.label}</NavLink>)}<Link className="cart-link" to="/carrito" onClick={() => setOpen(false)}><ShoppingBag size={17} /> <span>Carrito</span><b>{cart.length}</b></Link></nav><div className="header-actions"><SearchCommand /><ThemeToggle theme={theme} onChange={setTheme} /><Link className="desktop-cart" to="/carrito" aria-label="Ver carrito"><ShoppingBag size={18} /><b>{cart.length}</b></Link><Button to="/cotizador" className="header-cta">Cotiza tu proyecto</Button><button className="menu-toggle" onClick={() => setOpen(!open)} aria-label="Abrir menú">{open ? <X /> : <Menu />}</button></div></div></header>;
+  const items = [
+    { to: '/', label: 'Inicio' },
+    { to: '/gigaprint', label: 'Gigaprint' },
+    { to: '/promociones', label: 'Promociones' },
+    { to: '/tienda', label: 'Tienda' },
+    { to: '/cotizador', label: 'Cotizador' },
+    { to: '/contacto', label: 'Contacto' }
+  ];
+  return (
+    <header className="site-header">
+      <div className="container header-inner">
+        <Brand />
+        <nav className={open ? 'main-nav open' : 'main-nav'}>
+          {items.map((item) => (
+            <NavLink key={item.to} end={item.to === '/'} to={item.to} onClick={() => setOpen(false)}>
+              {item.label}
+            </NavLink>
+          ))}
+          <Link className="cart-link" to="/carrito" onClick={() => setOpen(false)}>
+            <ShoppingBag size={17} /> <span>Carrito</span><b>{cart.length}</b>
+          </Link>
+        </nav>
+        <div className="header-actions">
+          <SearchCommand />
+          <ThemeToggle theme={theme} onChange={setTheme} />
+          <Link className="desktop-cart" to="/carrito" aria-label="Ver carrito">
+            <ShoppingBag size={18} /><b>{cart.length}</b>
+          </Link>
+          <Button to="/cotizador" className="header-cta">Cotiza tu proyecto</Button>
+          <button className="menu-toggle" onClick={() => setOpen(!open)} aria-label="Abrir menú">
+            {open ? <X /> : <Menu />}
+          </button>
+        </div>
+      </div>
+    </header>
+  );
 }
 
 export function Footer() {
-  return <footer className="site-footer"><div className="container footer-grid"><div className="footer-brand"><Brand /><p>Publicidad, impresión y fabricación visual para marcas que quieren verse en grande.</p><div className="socials"><a href="https://instagram.com" aria-label="Instagram"><Camera size={17} /></a><a href="https://wa.me/593999999999" aria-label="WhatsApp"><MessageCircle size={17} /></a><a href="mailto:hola@gigaprint.ec" aria-label="Correo"><Mail size={17} /></a></div></div><div><h4>Explora</h4><Link to="/gigaprint">Nosotros</Link><Link to="/promociones">Promociones</Link><Link to="/tienda">Tienda</Link><Link to="/contacto">Contacto</Link></div><div><h4>Soluciones</h4><Link to="/cotizador">Cotizador online</Link><Link to="/tienda?categoria=Gran%20formato">Gran formato</Link><Link to="/tienda?categoria=Rótulos">Rótulos</Link><Link to="/tienda?categoria=Personalizados">Personalizados</Link></div><div className="footer-contact"><h4>Hablemos</h4><p><MapPin size={15} /> Quito, Ecuador</p><p><MessageCircle size={15} /> +593 99 999 9999</p><p><Mail size={15} /> hola@gigaprint.ec</p></div></div><div className="container footer-bottom"><span>© 2026 Gigaprint. Todos los derechos reservados.</span><Link to="/admin">Acceso admin</Link></div></footer>;
+  return (
+    <footer className="site-footer">
+      <div className="container footer-grid">
+        <div className="footer-brand">
+          <Brand />
+          <p>Publicidad, impresión y fabricación visual para marcas que quieren verse en grande.</p>
+          <div className="socials">
+            <a href="https://instagram.com" aria-label="Instagram"><Camera size={17} /></a>
+            <a href="https://wa.me/593999999999" aria-label="WhatsApp"><MessageCircle size={17} /></a>
+            <a href="mailto:hola@gigaprint.ec" aria-label="Correo"><Mail size={17} /></a>
+          </div>
+        </div>
+        <div>
+          <h4>Explora</h4>
+          <Link to="/gigaprint">Nosotros</Link>
+          <Link to="/promociones">Promociones</Link>
+          <Link to="/tienda">Tienda</Link>
+          <Link to="/contacto">Contacto</Link>
+        </div>
+        <div>
+          <h4>Soluciones</h4>
+          <Link to="/cotizador">Cotizador online</Link>
+          <Link to="/tienda?categoria=Gran%20formato">Gran formato</Link>
+          <Link to="/tienda?categoria=Rótulos">Rótulos</Link>
+          <Link to="/tienda?categoria=Personalizados">Personalizados</Link>
+        </div>
+        <div className="footer-contact">
+          <h4>Hablemos</h4>
+          <p><MapPin size={15} /> Quito, Ecuador</p>
+          <p><MessageCircle size={15} /> +593 99 999 9999</p>
+          <p><Mail size={15} /> hola@gigaprint.ec</p>
+        </div>
+      </div>
+      <div className="container footer-bottom">
+        <span>© 2026 Gigaprint. Todos los derechos reservados.</span>
+        <Link to="/admin">Acceso admin</Link>
+      </div>
+    </footer>
+  );
 }
 
-function GlobalContextMenu({ admin = false }) { const navigate = useNavigate(); const { theme, setTheme, siteTheme } = useSite(); const items = admin ? [{ label: 'Ir al resumen', icon: contextIcons.home, onClick: () => navigate('/admin') }, { label: 'Editar productos', icon: contextIcons.store, onClick: () => navigate('/admin/productos') }, { label: 'Editar temas', icon: contextIcons.palette, onClick: () => navigate('/admin/temas') }, { label: theme === 'dark' ? 'Usar modo claro' : 'Usar modo oscuro', icon: theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />, onClick: () => setTheme(theme === 'dark' ? 'light' : 'dark') }, { label: siteTheme === 'default' ? 'Abrir temas de temporada' : 'Volver al tema base', icon: contextIcons.palette, onClick: () => navigate('/admin/temas') }] : [{ label: 'Ir al inicio', icon: contextIcons.home, onClick: () => navigate('/') }, { label: 'Abrir tienda', icon: contextIcons.store, onClick: () => navigate('/tienda') }, { label: 'Abrir cotizador', icon: contextIcons.quote, onClick: () => navigate('/cotizador') }, { label: theme === 'dark' ? 'Usar modo claro' : 'Usar modo oscuro', icon: theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />, onClick: () => setTheme(theme === 'dark' ? 'light' : 'dark') }, { label: 'Volver arriba', icon: contextIcons.top, onClick: () => window.scrollTo({ top: 0, behavior: 'smooth' }) }]; return <ContextMenu items={items} />; }
+function GlobalContextMenu({ admin = false }) {
+  const navigate = useNavigate();
+  const { theme, setTheme, siteTheme } = useSite();
+  const items = admin
+    ? [
+        { label: 'Ir al resumen', icon: contextIcons.home, onClick: () => navigate('/admin') },
+        { label: 'Editar productos', icon: contextIcons.store, onClick: () => navigate('/admin/productos') },
+        { label: 'Editar temas', icon: contextIcons.palette, onClick: () => navigate('/admin/temas') },
+        {
+          label: theme === 'dark' ? 'Usar modo claro' : 'Usar modo oscuro',
+          icon: theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />,
+          onClick: () => setTheme(theme === 'dark' ? 'light' : 'dark')
+        },
+        {
+          label: siteTheme === 'default' ? 'Abrir temas de temporada' : 'Volver al tema base',
+          icon: contextIcons.palette,
+          onClick: () => navigate('/admin/temas')
+        }
+      ]
+    : [
+        { label: 'Ir al inicio', icon: contextIcons.home, onClick: () => navigate('/') },
+        { label: 'Abrir tienda', icon: contextIcons.store, onClick: () => navigate('/tienda') },
+        { label: 'Abrir cotizador', icon: contextIcons.quote, onClick: () => navigate('/cotizador') },
+        {
+          label: theme === 'dark' ? 'Usar modo claro' : 'Usar modo oscuro',
+          icon: theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />,
+          onClick: () => setTheme(theme === 'dark' ? 'light' : 'dark')
+        },
+        { label: 'Volver arriba', icon: contextIcons.top, onClick: () => window.scrollTo({ top: 0, behavior: 'smooth' }) }
+      ];
+  return <ContextMenu items={items} />;
+}
 
-export function PageShell({ children, className = '' }) { const { toast, siteTheme } = useSite(); const preset = themePresets.find((item) => item.id === siteTheme) || themePresets[0]; return <><SeasonalThemeLayer preset={preset} /><GlobalContextMenu /><MotionObserver /><Header /><main className={className}>{children}</main><Footer /><ToastViewport items={toast ? [{ id: 'global', message: toast }] : []} /></>; }
+export function PageShell({ children, className = '' }) {
+  const { toast, siteTheme } = useSite();
+  const preset = themePresets.find((item) => item.id === siteTheme) || themePresets[0];
+  return (
+    <>
+      <ScrollToTop />
+      <SeasonalThemeLayer preset={preset} />
+      <GlobalContextMenu />
+      <MotionObserver />
+      <Header />
+      <main className={className}>{children}</main>
+      <Footer />
+      <BottomNavBar />
+      <ToastViewport items={toast ? [{ id: 'global', message: toast }] : []} />
+    </>
+  );
+}
 
-export function SectionHeading({ eyebrow, title, text, action }) { return <div className="section-heading"><div><span className="eyebrow">{eyebrow}</span><h2>{title}</h2></div><div className="section-heading-side">{text && <p>{text}</p>}{action}</div></div>; }
+export function SectionHeading({ eyebrow, title, text, action }) {
+  return (
+    <div className="section-heading">
+      <div>
+        <span className="eyebrow">{eyebrow}</span>
+        <h2>{title}</h2>
+      </div>
+      <div className="section-heading-side">
+        {text && <p>{text}</p>}
+        {action}
+      </div>
+    </div>
+  );
+}
 
 export function ServiceCard({ service, index = 0 }) {
   const isArea = service.id === 'impresion' || service.id === 'rotulos';
@@ -98,7 +432,6 @@ export function ProductCard({ product, onAdd }) {
 export function CartSummary({ compact = false }) {
   const { cart, updateCartItem, removeCartItem, data } = useSite();
   const total = cart.reduce((sum, item) => sum + (item.price || 0) * item.quantity, 0);
-  const subtotal = cart.reduce((sum, item) => sum + (Number(item.quoteBreakdown?.subtotal ?? item.price) || 0) * item.quantity, 0);
   const whatsappNumber = data?.settings?.whatsapp || '593999999999';
 
   if (!cart.length) return (
@@ -158,13 +491,72 @@ export function CartSummary({ compact = false }) {
   );
 }
 
-export function AdminNav() { const location = useLocation(); const { theme, setTheme } = useSite(); const items = [['/admin','Resumen'],['/admin/editor','Editor visual'],['/admin/contenido','Contenido'],['/admin/productos','Productos'],['/admin/temas','Temas'],['/admin/promociones','Promociones'],['/admin/solicitudes','Solicitudes']]; return <aside className="admin-sidebar"><Brand compact /><div className="admin-nav-label">Panel Gigaprint</div><nav>{items.map(([path, label]) => <NavLink key={path} end={path === '/admin'} className={location.pathname === path ? 'active' : ''} to={path}>{label}</NavLink>)}</nav><div className="admin-sidebar-footer"><ThemeToggle theme={theme} onChange={setTheme} /><Link to="/" className="admin-back">← Volver al sitio</Link></div></aside>; }
+export function AdminNav() {
+  const location = useLocation();
+  const { theme, setTheme } = useSite();
+  const items = [
+    ['/admin', 'Resumen'],
+    ['/admin/editor', 'Editor visual'],
+    ['/admin/contenido', 'Contenido'],
+    ['/admin/productos', 'Productos'],
+    ['/admin/temas', 'Temas'],
+    ['/admin/promociones', 'Promociones'],
+    ['/admin/solicitudes', 'Solicitudes']
+  ];
+  return (
+    <aside className="admin-sidebar">
+      <Brand compact />
+      <div className="admin-nav-label">Panel Gigaprint</div>
+      <nav>
+        {items.map(([path, label]) => (
+          <NavLink key={path} end={path === '/admin'} className={location.pathname === path ? 'active' : ''} to={path}>
+            {label}
+          </NavLink>
+        ))}
+      </nav>
+      <div className="admin-sidebar-footer">
+        <ThemeToggle theme={theme} onChange={setTheme} />
+        <Link to="/" className="admin-back">← Volver al sitio</Link>
+      </div>
+    </aside>
+  );
+}
 
-export function AdminShell({ children }) { const { toast, siteTheme } = useSite(); const preset = themePresets.find((item) => item.id === siteTheme) || themePresets[0]; return <div className="admin-shell"><SeasonalThemeLayer preset={preset} /><GlobalContextMenu admin /><MotionObserver /><AdminNav /><section className="admin-content">{children}</section><ToastViewport items={toast ? [{ id: 'admin', message: toast }] : []} /></div>; }
+export function AdminShell({ children }) {
+  const { toast, siteTheme } = useSite();
+  const preset = themePresets.find((item) => item.id === siteTheme) || themePresets[0];
+  return (
+    <div className="admin-shell">
+      <SeasonalThemeLayer preset={preset} />
+      <GlobalContextMenu admin />
+      <MotionObserver />
+      <AdminNav />
+      <section className="admin-content">{children}</section>
+      <ToastViewport items={toast ? [{ id: 'admin', message: toast }] : []} />
+    </div>
+  );
+}
 
-export function AdminHeader({ eyebrow, title, text, action }) { return <header className="admin-header"><div><span className="eyebrow">{eyebrow}</span><h1>{title}</h1>{text && <p>{text}</p>}</div>{action}</header>; }
+export function AdminHeader({ eyebrow, title, text, action }) {
+  return (
+    <header className="admin-header">
+      <div>
+        <span className="eyebrow">{eyebrow}</span>
+        <h1>{title}</h1>
+        {text && <p>{text}</p>}
+      </div>
+      {action}
+    </header>
+  );
+}
 
-export const imageLibrary = [media.lona, media.vinil, media.letrero, media.laser, media.stickers, media.workspace, ...resourceUrls.filter((item) => item.type === 'image').map((item) => item.url)];
+export const imageLibrary = [
+  media.lona,
+  media.vinil,
+  media.letrero,
+  media.laser,
+  media.stickers,
+  media.workspace,
+  ...resourceUrls.filter((item) => item.type === 'image').map((item) => item.url)
+];
 
-// React is imported lazily here to keep the shared component file compact.
-import React from 'react';
