@@ -40,7 +40,7 @@ export function POSAdvisorsManagement() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    pin: '1234',
+    pin: '123456',
     weeklyPin: '',
     weeklyPassword: '',
     phone: '',
@@ -56,7 +56,7 @@ export function POSAdvisorsManagement() {
 
   const openCreateModal = () => {
     setEditingAdvisor(null);
-    const tempPin = String(Math.floor(1000 + Math.random() * 9000));
+    const tempPin = String(Math.floor(100000 + Math.random() * 900000));
     setFormData({
       name: '',
       email: '',
@@ -76,9 +76,9 @@ export function POSAdvisorsManagement() {
     setFormData({
       name: advisor.name || '',
       email: advisor.email || '',
-      pin: advisor.weeklyPin || advisor.pin || '1234',
-      weeklyPin: advisor.weeklyPin || advisor.pin || '1234',
-      weeklyPassword: advisor.weeklyPassword || `${advisor.name.toLowerCase()}-${advisor.pin || '1234'}`,
+      pin: advisor.weeklyPin || advisor.pin || '123456',
+      weeklyPin: advisor.weeklyPin || advisor.pin || '123456',
+      weeklyPassword: advisor.weeklyPassword || `${advisor.name.toLowerCase()}-${advisor.pin || '123456'}`,
       phone: advisor.phone || '',
       role: advisor.role || 'asesora',
       weeklyGoal: advisor.weeklyGoal || 3200,
@@ -330,7 +330,7 @@ export function POSAdvisorsManagement() {
                   {adv.name}
                 </b>
                 <span style={{ fontSize: '11px', color: 'var(--muted)' }}>
-                  PIN: <code style={{ fontWeight: 800, color: 'var(--orange-dark)', background: 'var(--orange-soft)', padding: '1px 5px', borderRadius: '4px' }}>{adv.weeklyPin || adv.pin || '1234'}</code>
+                  PIN: <code style={{ fontWeight: 800, color: 'var(--orange-dark)', background: 'var(--orange-soft)', padding: '1px 5px', borderRadius: '4px' }}>{adv.weeklyPin || adv.pin || '123456'}</code>
                 </span>
               </div>
               <button
@@ -440,10 +440,10 @@ export function POSAdvisorsManagement() {
                   </span>
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '2px' }}>
                     <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--ink)' }}>
-                      PIN: <code style={{ color: 'var(--orange-dark)', background: 'var(--orange-soft)', padding: '2px 6px', borderRadius: '4px' }}>{advisor.weeklyPin || advisor.pin || '1234'}</code>
+                      PIN (6d): <code style={{ color: 'var(--orange-dark)', background: 'var(--orange-soft)', padding: '2px 6px', borderRadius: '4px' }}>{advisor.weeklyPin || advisor.pin || '123456'}</code>
                     </span>
                     <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
-                      Clave: <b>{advisor.weeklyPassword || `${advisor.name.toLowerCase()}-1234`}</b>
+                      Clave: <b>{advisor.weeklyPassword || `${advisor.name.toLowerCase()}-123456`}</b>
                     </span>
                   </div>
                 </div>
@@ -566,11 +566,12 @@ export function POSAdvisorsManagement() {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div className="pos-form-group">
-                  <label>PIN de Caja (4 dígitos) *</label>
+                  <label>PIN de Caja (6 dígitos) *</label>
                   <input
                     type="text"
                     required
-                    maxLength={4}
+                    maxLength={6}
+                    placeholder="Ej. 849201"
                     value={formData.weeklyPin}
                     onChange={(e) => setFormData({
                       ...formData,

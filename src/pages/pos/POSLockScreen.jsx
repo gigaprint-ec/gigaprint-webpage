@@ -37,9 +37,20 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess 
     const handleKeyDown = (e) => {
       if (loginMode === 'advisor') {
         if (e.key >= '0' && e.key <= '9') {
-          if (pinInput.length < 8) {
-            setPinInput((prev) => prev + e.key);
+          if (pinInput.length < 6) {
+            const nextPin = pinInput + e.key;
+            setPinInput(nextPin);
             setErrorMsg('');
+            if (nextPin.length === 6) {
+              setTimeout(() => {
+                const res = authenticateAdvisor(advisors, selectedAdvisorId, nextPin);
+                if (res.ok) {
+                  handleAuthCallback(res.session);
+                } else {
+                  triggerError(res.error || 'PIN de 6 dígitos incorrecto.');
+                }
+              }, 120);
+            }
           }
         } else if (e.key === 'Backspace') {
           setPinInput((prev) => prev.slice(0, -1));
@@ -55,12 +66,23 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess 
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [pinInput, loginMode, selectedAdvisorId]);
+  }, [pinInput, loginMode, selectedAdvisorId, advisors]);
 
   const handleKeypadPress = (num) => {
-    if (pinInput.length < 8) {
-      setPinInput((prev) => prev + num);
+    if (pinInput.length < 6) {
+      const nextPin = pinInput + num;
+      setPinInput(nextPin);
       setErrorMsg('');
+      if (nextPin.length === 6) {
+        setTimeout(() => {
+          const res = authenticateAdvisor(advisors, selectedAdvisorId, nextPin);
+          if (res.ok) {
+            handleAuthCallback(res.session);
+          } else {
+            triggerError(res.error || 'PIN de 6 dígitos incorrecto.');
+          }
+        }, 120);
+      }
     }
   };
 
@@ -84,7 +106,7 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess 
   const handleAdvisorSubmit = (e) => {
     if (e) e.preventDefault();
     if (!pinInput.trim()) {
-      triggerError('Por favor ingresa tu PIN de 4 dígitos o contraseña.');
+      triggerError('Por favor ingresa tu PIN de 6 dígitos.');
       return;
     }
 
@@ -92,7 +114,7 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess 
     if (res.ok) {
       handleAuthCallback(res.session);
     } else {
-      triggerError(res.error || 'PIN incorrecto.');
+      triggerError(res.error || 'PIN de 6 dígitos incorrecto.');
     }
   };
 
@@ -113,7 +135,7 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess 
 
   return (
     <div className="pos-lock-screen-wrapper">
-      <div className="pos-lock-modal-card">
+      <div className={`pos-lock-modal-card ${isShaking ? 'pos-shake' : ''}`}>
         {/* Brand & Week Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '14px', borderBottom: '1px solid var(--pos-border)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -197,17 +219,17 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderRadius: '11px', background: '#f8fafc', border: '1px solid var(--pos-border)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
                 <Key size={16} style={{ color: 'var(--pos-primary)' }} />
-                <span>Ingresa el PIN de <b>{selectedAdvisor?.name}</b>:</span>
+                <span>Ingresa el PIN (6 dígitos) de <b>{selectedAdvisor?.name}</b>:</span>
               </div>
               <small style={{ color: 'var(--pos-text-muted)', fontSize: '11px', fontWeight: 700 }}>
                 Lunes {currentMonday}
               </small>
             </div>
 
-            {/* PIN Mask Display */}
+            {/* PIN Mask Display (6 Digits) */}
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '14px', padding: '16px', background: '#f8fafc', borderRadius: '14px', border: '1.5px solid var(--pos-border)' }}>
-              <div style={{ display: 'flex', gap: '14px' }}>
-                {[0, 1, 2, 3].map((idx) => (
+              <div style={{ display: 'flex', gap: '12px' }}>
+                {[0, 1, 2, 3, 4, 5].map((idx) => (
                   <span
                     key={idx}
                     style={{
@@ -222,11 +244,6 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess 
                   />
                 ))}
               </div>
-              {pinInput.length > 4 && (
-                <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--pos-primary)' }}>
-                  ({pinInput.length} dígitos)
-                </span>
-              )}
             </div>
 
             {/* Error Message */}

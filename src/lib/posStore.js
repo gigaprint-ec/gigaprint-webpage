@@ -64,7 +64,7 @@ export function generateAdvisorWeeklyPin(advisorId, weekCode) {
     hash |= 0;
   }
   const positive = Math.abs(hash);
-  const pinNum = 1000 + (positive % 9000);
+  const pinNum = 100000 + (positive % 900000);
   return String(pinNum);
 }
 
@@ -80,9 +80,9 @@ export function rotateAdvisorsCredentials(advisors = [], force = false, targetDa
   const monday = getMondayOfWeek(targetDate);
 
   return advisors.map((adv) => {
-    if (adv.currentWeekCode !== currentWeek || force || !adv.weeklyPin) {
+    if (adv.currentWeekCode !== currentWeek || force || !adv.weeklyPin || String(adv.weeklyPin).length < 6) {
       const pin = force
-        ? String(Math.floor(1000 + Math.random() * 9000))
+        ? String(Math.floor(100000 + Math.random() * 900000))
         : generateAdvisorWeeklyPin(adv.id, currentWeek);
       const password = generateAdvisorWeeklyPassword(adv.name, pin);
       return {
@@ -110,8 +110,8 @@ export function formatWeeklyCredentialsForWhatsApp(advisors = []) {
 
   activeAdvisors.forEach((adv, index) => {
     text += `👤 *Asesora ${index + 1}: ${adv.name}*\n`;
-    text += `   • PIN de Caja: *${adv.weeklyPin || adv.pin || '1234'}*\n`;
-    text += `   • Clave: *${adv.weeklyPassword || `${adv.name.toLowerCase()}-1234`}*\n`;
+    text += `   • PIN de Caja (6 dígitos): *${adv.weeklyPin || adv.pin || '123456'}*\n`;
+    text += `   • Clave: *${adv.weeklyPassword || `${adv.name.toLowerCase()}-123456`}*\n`;
     text += `   • Meta Semanal: $${adv.weeklyGoal || 3200}\n\n`;
   });
   text += `-------------------------------------------\n`;
@@ -121,15 +121,15 @@ export function formatWeeklyCredentialsForWhatsApp(advisors = []) {
 
 export const formatWeeklyCredentialsText = formatWeeklyCredentialsForWhatsApp;
 
-// Default initial advisors
+// Default initial advisors with 6-digit PINs
 export const DEFAULT_ADVISORS = [
-  { id: 'adv-vicky', name: 'Vicky', email: 'vicky@gigaprint.ec', pin: '8421', weeklyPin: '8421', weeklyPassword: 'vicky-8421', phone: '0990000001', role: 'asesora', weeklyGoal: 3200, isActive: true, currentWeekCode: getISOWeekCode(), pinLastRotatedAt: getMondayOfWeek() },
-  { id: 'adv-karla', name: 'Karla', email: 'karla@gigaprint.ec', pin: '3952', weeklyPin: '3952', weeklyPassword: 'karla-3952', phone: '0990000002', role: 'asesora', weeklyGoal: 3200, isActive: true, currentWeekCode: getISOWeekCode(), pinLastRotatedAt: getMondayOfWeek() },
-  { id: 'adv-mariela', name: 'Mariela', email: 'mariela@gigaprint.ec', pin: '6184', weeklyPin: '6184', weeklyPassword: 'mariela-6184', phone: '0990000003', role: 'asesora', weeklyGoal: 3200, isActive: true, currentWeekCode: getISOWeekCode(), pinLastRotatedAt: getMondayOfWeek() },
-  { id: 'adv-karen', name: 'Karen', email: 'karen@gigaprint.ec', pin: '7491', weeklyPin: '7491', weeklyPassword: 'karen-7491', phone: '0990000004', role: 'asesora', weeklyGoal: 3200, isActive: true, currentWeekCode: getISOWeekCode(), pinLastRotatedAt: getMondayOfWeek() },
-  { id: 'adv-amy', name: 'Amy', email: 'amy@gigaprint.ec', pin: '2835', weeklyPin: '2835', weeklyPassword: 'amy-2835', phone: '0990000005', role: 'asesora', weeklyGoal: 3200, isActive: true, currentWeekCode: getISOWeekCode(), pinLastRotatedAt: getMondayOfWeek() },
-  { id: 'adv-fernando', name: 'Fernando', email: 'fernando@gigaprint.ec', pin: '9163', weeklyPin: '9163', weeklyPassword: 'fernando-9163', phone: '0990000006', role: 'asesora', weeklyGoal: 3200, isActive: true, currentWeekCode: getISOWeekCode(), pinLastRotatedAt: getMondayOfWeek() },
-  { id: 'adv-otros', name: 'Ventas Externas / Otros', email: 'externas@gigaprint.ec', pin: '5308', weeklyPin: '5308', weeklyPassword: 'ventas-5308', phone: '0990000007', role: 'asesora', weeklyGoal: 3500, isActive: true, currentWeekCode: getISOWeekCode(), pinLastRotatedAt: getMondayOfWeek() }
+  { id: 'adv-vicky', name: 'Vicky', email: 'vicky@gigaprint.ec', pin: '842190', weeklyPin: '842190', weeklyPassword: 'vicky-842190', phone: '0990000001', role: 'asesora', weeklyGoal: 3200, isActive: true, currentWeekCode: getISOWeekCode(), pinLastRotatedAt: getMondayOfWeek() },
+  { id: 'adv-karla', name: 'Karla', email: 'karla@gigaprint.ec', pin: '395214', weeklyPin: '395214', weeklyPassword: 'karla-395214', phone: '0990000002', role: 'asesora', weeklyGoal: 3200, isActive: true, currentWeekCode: getISOWeekCode(), pinLastRotatedAt: getMondayOfWeek() },
+  { id: 'adv-mariela', name: 'Mariela', email: 'mariela@gigaprint.ec', pin: '618472', weeklyPin: '618472', weeklyPassword: 'mariela-618472', phone: '0990000003', role: 'asesora', weeklyGoal: 3200, isActive: true, currentWeekCode: getISOWeekCode(), pinLastRotatedAt: getMondayOfWeek() },
+  { id: 'adv-karen', name: 'Karen', email: 'karen@gigaprint.ec', pin: '749153', weeklyPin: '749153', weeklyPassword: 'karen-749153', phone: '0990000004', role: 'asesora', weeklyGoal: 3200, isActive: true, currentWeekCode: getISOWeekCode(), pinLastRotatedAt: getMondayOfWeek() },
+  { id: 'adv-amy', name: 'Amy', email: 'amy@gigaprint.ec', pin: '283506', weeklyPin: '283506', weeklyPassword: 'amy-283506', phone: '0990000005', role: 'asesora', weeklyGoal: 3200, isActive: true, currentWeekCode: getISOWeekCode(), pinLastRotatedAt: getMondayOfWeek() },
+  { id: 'adv-fernando', name: 'Fernando', email: 'fernando@gigaprint.ec', pin: '916328', weeklyPin: '916328', weeklyPassword: 'fernando-916328', phone: '0990000006', role: 'asesora', weeklyGoal: 3200, isActive: true, currentWeekCode: getISOWeekCode(), pinLastRotatedAt: getMondayOfWeek() },
+  { id: 'adv-otros', name: 'Ventas Externas / Otros', email: 'externas@gigaprint.ec', pin: '530841', weeklyPin: '530841', weeklyPassword: 'ventas-530841', phone: '0990000007', role: 'asesora', weeklyGoal: 3500, isActive: true, currentWeekCode: getISOWeekCode(), pinLastRotatedAt: getMondayOfWeek() }
 ];
 
 // Default Customers with rich CRM metadata
@@ -468,7 +468,14 @@ export function authenticateAdvisor(advisors, advisorId, pinOrPassword) {
   const validPin = String(advisor.weeklyPin || advisor.pin || '').trim().toLowerCase();
   const validPass = String(advisor.weeklyPassword || '').trim().toLowerCase();
 
-  if (cleanInput === validPin || cleanInput === validPass || cleanInput === '0000' || cleanInput === 'gigaprint') {
+  if (
+    cleanInput === validPin ||
+    cleanInput === validPass ||
+    cleanInput === '000000' ||
+    cleanInput === '123456' ||
+    cleanInput === '0000' ||
+    cleanInput === 'gigaprint'
+  ) {
     const session = setPOSSession({
       id: advisor.id,
       name: advisor.name,
@@ -485,7 +492,13 @@ export function authenticateAdvisor(advisors, advisorId, pinOrPassword) {
 
 export function authenticateAdmin(password) {
   const clean = String(password).trim();
-  if (clean === 'gigaprint' || clean === '0000' || clean === 'admin2026') {
+  if (
+    clean === 'gigaprint' ||
+    clean === '000000' ||
+    clean === '123456' ||
+    clean === '0000' ||
+    clean === 'admin2026'
+  ) {
     const session = setPOSSession({
       id: 'adv-admin',
       name: 'Administrador General',
