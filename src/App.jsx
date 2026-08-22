@@ -1,6 +1,6 @@
 import React, { lazy, Suspense, useMemo, useState } from 'react';
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowRight, ArrowUpRight, BarChart3, Bell, Building2, Calculator, Check, ChevronDown, ChevronRight, ChevronUp, ClipboardList, Clock, Edit3, ExternalLink, FileCheck, FileText, Image, LayoutDashboard, MessageCircle, Minus, Package, Palette, Pencil, Plus, RefreshCw, Save, Search, Settings2, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Truck, Users, X, Zap } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, BarChart3, Bell, Building2, Calculator, Check, ChevronDown, ChevronRight, ChevronUp, ClipboardList, Clock, Edit3, ExternalLink, FileCheck, FileText, Grid, Image, LayoutDashboard, List, MessageCircle, Minus, Package, Palette, Pencil, Plus, RefreshCw, Save, Search, Settings2, ShieldCheck, SlidersHorizontal, Sparkles, Tag, Trash2, Truck, Users, X, Zap } from 'lucide-react';
 import { categories, initialData, media, money, themePresets, assetPath } from './data';
 import { calculateCatalogQuote, getProductCalcType, getPriceTiers, getTier, getVariantOptions, PARENT_CATEGORIES, getParentCategory, getLeadTimeEstimate } from './catalog';
 import { AuthProvider, useAuth, useSite } from './store';
@@ -160,11 +160,108 @@ function PromotionsPage() {
   );
 }
 
+const CATEGORY_HUB_ITEMS = [
+  {
+    id: 'Gran formato',
+    title: 'Gran Formato',
+    desc: 'Lonas publicitarias, vinilos adhesivos, microperforados y roll ups.',
+    icon: Image,
+    highlight: 'Publicidad Exterior & Eventos'
+  },
+  {
+    id: 'Rótulos y Fachadas',
+    title: 'Rótulos & Fachadas',
+    desc: 'Cajas de luz, letras 3D corpóreas, neón flex y fachadas comerciales.',
+    icon: Sparkles,
+    highlight: 'Identidad Comercial & 3D'
+  },
+  {
+    id: 'Imprenta y Papelería',
+    title: 'Imprenta Comercial',
+    desc: 'Tarjetas de presentación, volantes, carpetas corporativas y facturas SRI.',
+    icon: FileText,
+    highlight: 'Papelería con SRI / RIMPE'
+  },
+  {
+    id: 'Textil y Promocionales',
+    title: 'Textil & Merchandising',
+    desc: 'Camisetas sublimadas, gorras, tazas personalizadas y recuerdos corporativos.',
+    icon: Package,
+    highlight: 'Moda, Eventos & Regalos'
+  },
+  {
+    id: 'Corte y Grabado Láser',
+    title: 'Corte & Grabado Láser',
+    desc: 'Acrílicos con separadores de aluminio, placas de reconocimiento y MDF.',
+    icon: Scissors,
+    highlight: 'Precisión & Señalética'
+  }
+];
+
+const QUICK_SEARCH_TAGS = [
+  '#Lona',
+  '#Vinil',
+  '#RollUp',
+  '#Tarjetas',
+  '#Camisetas',
+  '#Luminoso',
+  '#Acrilico',
+  '#Tazas',
+  '#Microperforado',
+  '#Corporeos'
+];
+
+function ProductRowCompact({ product, onAdd }) {
+  const navigate = useNavigate();
+  const calcType = getProductCalcType(product);
+  const label = calcType === 'm2' ? 'Por m²' : product.pricingMode === 'tier-total' ? 'Por lote' : product.priceScales?.length ? 'Por volumen' : 'Unidad';
+
+  return (
+    <div className="product-list-row">
+      <img className="product-list-thumb" src={assetPath(product.image)} alt={product.name} />
+      <div className="product-list-main">
+        <span className="product-list-category">{product.category}</span>
+        <Link to={`/tienda/${product.id}`} className="product-list-title">{product.name}</Link>
+        <span className="product-list-specs">{product.description}</span>
+      </div>
+      <div className="product-list-badge">
+        <span className="calc-pill">{label}</span>
+      </div>
+      <div className="product-list-pricing">
+        <strong>Desde {money(product.price)}</strong>
+        <small>/ {product.unit}</small>
+      </div>
+      <div className="product-list-actions">
+        <Link to={`/tienda/${product.id}`} className="button button-sm button-ghost" style={{ padding: '6px 12px', fontSize: '11px' }}>
+          Cotizar
+        </Link>
+        <button
+          type="button"
+          className="icon-button"
+          onClick={(e) => {
+            e.preventDefault();
+            if (calcType === 'm2') {
+              navigate(`/tienda/${product.id}`);
+            } else {
+              onAdd(product);
+            }
+          }}
+          aria-label={calcType === 'm2' ? 'Configurar medidas' : 'Agregar al carrito'}
+        >
+          {calcType === 'm2' ? <ArrowUpRight size={16} /> : <Plus size={16} />}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function StorePage() {
   const { data, addToCart } = useSite();
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('featured');
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
+  const [visibleLimit, setVisibleLimit] = useState(12);
 
   const activeParent = searchParams.get('familia') || 'Todos';
   const activeSub = searchParams.get('categoria') || '';
@@ -176,13 +273,24 @@ function StorePage() {
     return Array.from(new Set(items.map((p) => p.category))).filter(Boolean);
   }, [data.products, activeParent]);
 
+  // Counts by parent category
+  const categoryCounts = useMemo(() => {
+    const counts = { Todos: data.products.length };
+    PARENT_CATEGORIES.forEach((cat) => {
+      if (cat !== 'Todos') {
+        counts[cat] = data.products.filter((p) => getParentCategory(p.category) === cat).length;
+      }
+    });
+    return counts;
+  }, [data.products]);
+
   // Filter products by parent family, subcategory, and text search
   const filtered = useMemo(() => {
     return data.products.filter((product) => {
       const parent = getParentCategory(product.category);
       const matchParent = activeParent === 'Todos' || parent === activeParent;
       const matchSub = !activeSub || product.category === activeSub;
-      const term = search.toLowerCase();
+      const term = search.trim().toLowerCase().replace(/^#/, '');
       const matchSearch = !term || `${product.name} ${product.category} ${product.description}`.toLowerCase().includes(term);
       return matchParent && matchSub && matchSearch;
     }).sort((a, b) => {
@@ -193,39 +301,91 @@ function StorePage() {
     });
   }, [data.products, activeParent, activeSub, search, sortBy]);
 
+  // Visible sliced list for progressive loading
+  const visibleProducts = useMemo(() => {
+    return filtered.slice(0, visibleLimit);
+  }, [filtered, visibleLimit]);
+
   const setParentFilter = (parent) => {
+    setVisibleLimit(12);
     const next = new URLSearchParams();
     if (parent !== 'Todos') next.set('familia', parent);
     setSearchParams(next);
   };
 
   const setSubFilter = (sub) => {
+    setVisibleLimit(12);
     const next = new URLSearchParams(searchParams);
     if (sub) next.set('categoria', sub);
     else next.delete('categoria');
     setSearchParams(next);
   };
 
+  const handleTagClick = (tag) => {
+    const cleanTag = tag.replace(/^#/, '');
+    if (search.toLowerCase() === cleanTag.toLowerCase()) {
+      setSearch('');
+    } else {
+      setSearch(cleanTag);
+      setVisibleLimit(12);
+    }
+  };
+
   const add = (item) => addToCart({ ...item, cartId: `${item.id}-${Date.now()}` });
+
+  const progressPercent = Math.min(100, Math.round((visibleProducts.length / Math.max(1, filtered.length)) * 100));
 
   return (
     <PageShell>
       <section className="inner-hero store-hero">
         <div className="container store-hero-grid">
           <div>
-            <span className="eyebrow orange">Tienda Gigaprint</span>
-            <h1>Elige una base.<br /><em>Hazla tuya.</em></h1>
-            <p>Catálogo completo con precios por m², unidad y lotes. Personaliza y cotiza al instante.</p>
+            <span className="eyebrow orange">Catálogo Inteligente Gigaprint</span>
+            <h1>Soluciones Visuales.<br /><em>Directo de Taller.</em></h1>
+            <p>Explora nuestras 5 familias de producción o busca el material exacto que necesitas para tu marca o negocio.</p>
           </div>
           <div className="store-badge">
-            <span>CATÁLOGO<br /><b>2026</b></span>
+            <span>CATÁLOGO<br /><b>{data.products.length}+ ÍTEMS</b></span>
           </div>
         </div>
       </section>
 
       <section className="section store-section">
         <div className="container">
-          {/* Main Parent Categories */}
+          {/* Visual Category Hub: Shown on 'Todos' when not searching */}
+          {activeParent === 'Todos' && !search && (
+            <div className="category-hub-section">
+              <div className="category-hub-heading">
+                <h3>Familias Principales de Producción</h3>
+                <span>Selecciona una categoría para explorar</span>
+              </div>
+              <div className="category-hub-grid">
+                {CATEGORY_HUB_ITEMS.map((hub) => {
+                  const IconComp = hub.icon || Package;
+                  const count = categoryCounts[hub.id] || 0;
+                  return (
+                    <button
+                      key={hub.id}
+                      type="button"
+                      className="category-hub-card"
+                      onClick={() => setParentFilter(hub.id)}
+                    >
+                      <div className="category-hub-top">
+                        <div className="category-hub-icon">
+                          <IconComp size={20} />
+                        </div>
+                        <span className="category-hub-badge">{count} productos</span>
+                      </div>
+                      <h4 className="category-hub-title">{hub.title}</h4>
+                      <p className="category-hub-desc">{hub.desc}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Main Parent Category Tabs */}
           <div className="parent-category-tabs">
             {PARENT_CATEGORIES.map((category) => (
               <button
@@ -234,6 +394,7 @@ function StorePage() {
                 onClick={() => setParentFilter(category)}
               >
                 {category}
+                <span className="parent-tab-badge">{categoryCounts[category] || 0}</span>
               </button>
             ))}
           </div>
@@ -245,31 +406,90 @@ function StorePage() {
                 className={!activeSub ? 'active' : ''}
                 onClick={() => setSubFilter('')}
               >
-                Todas las subcategorías
+                Todas las subcategorías ({filtered.length})
               </button>
-              {availableSubCategories.map((sub) => (
-                <button
-                  key={sub}
-                  className={activeSub === sub ? 'active' : ''}
-                  onClick={() => setSubFilter(sub)}
-                >
-                  {sub}
-                </button>
-              ))}
+              {availableSubCategories.map((sub) => {
+                const subCount = data.products.filter((p) => p.category === sub).length;
+                return (
+                  <button
+                    key={sub}
+                    className={activeSub === sub ? 'active' : ''}
+                    onClick={() => setSubFilter(sub)}
+                  >
+                    {sub} ({subCount})
+                  </button>
+                );
+              })}
             </div>
           )}
 
-          {/* Search & Sort Toolbar */}
+          {/* Quick Tags Bar */}
+          <div className="quick-tags-bar">
+            <span><Tag size={12} /> Búsquedas rápidas:</span>
+            {QUICK_SEARCH_TAGS.map((tag) => {
+              const clean = tag.replace(/^#/, '').toLowerCase();
+              const isActive = search.toLowerCase() === clean;
+              return (
+                <button
+                  key={tag}
+                  type="button"
+                  className={`quick-tag-chip ${isActive ? 'active' : ''}`}
+                  onClick={() => handleTagClick(tag)}
+                >
+                  {tag}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Search, Sorting & View Mode Toolbar */}
           <div className="store-toolbar" style={{ marginTop: '16px' }}>
             <label className="search-box">
               <Search size={16} />
               <input
                 value={search}
-                onChange={(event) => setSearch(event.target.value)}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  setVisibleLimit(12);
+                }}
                 placeholder="Busca por material, producto o medida..."
               />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  style={{ border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--muted)' }}
+                  aria-label="Limpiar búsqueda"
+                >
+                  <X size={15} />
+                </button>
+              )}
             </label>
+
             <div className="store-toolbar-actions">
+              {/* View Mode Switcher */}
+              <div className="store-view-toggle">
+                <button
+                  type="button"
+                  className={`view-toggle-btn ${viewMode === 'grid' ? 'active' : ''}`}
+                  onClick={() => setViewMode('grid')}
+                  title="Vista en cuadrícula"
+                  aria-label="Vista en cuadrícula"
+                >
+                  <Grid size={15} />
+                </button>
+                <button
+                  type="button"
+                  className={`view-toggle-btn ${viewMode === 'list' ? 'active' : ''}`}
+                  onClick={() => setViewMode('list')}
+                  title="Vista en lista compacta"
+                  aria-label="Vista en lista compacta"
+                >
+                  <List size={15} />
+                </button>
+              </div>
+
+              {/* Sorting Select */}
               <select
                 className="store-sorting-select"
                 value={sortBy}
@@ -281,29 +501,79 @@ function StorePage() {
                 <option value="price-desc">Precio: mayor a menor</option>
                 <option value="name">Nombre: A — Z</option>
               </select>
-              <span className="store-count-badge">{filtered.length} productos</span>
+
+              <span className="store-count-badge">
+                {filtered.length} {filtered.length === 1 ? 'producto' : 'productos'}
+              </span>
             </div>
           </div>
 
-          {/* Product Grid */}
+          {/* Product Grid / List Layout */}
           <div className="store-layout">
-            <div className="product-grid full">
-              {filtered.map((product) => (
-                <ProductCard key={product.id} product={product} onAdd={add} />
-              ))}
-              {filtered.length === 0 && (
-                <div className="empty-catalog-state">
-                  <Package size={36} />
-                  <h3>No encontramos productos con esos filtros</h3>
-                  <p>Prueba con otros términos de búsqueda o selecciona otra categoría.</p>
-                  <button className="button button-ghost" onClick={() => { setSearch(''); setParentFilter('Todos'); }}>
-                    Restablecer filtros
+            {viewMode === 'grid' ? (
+              <div className="product-grid full">
+                {visibleProducts.map((product) => (
+                  <ProductCard key={product.id} product={product} onAdd={add} />
+                ))}
+              </div>
+            ) : (
+              <div className="product-list-view">
+                {visibleProducts.map((product) => (
+                  <ProductRowCompact key={product.id} product={product} onAdd={add} />
+                ))}
+              </div>
+            )}
+
+            {/* Empty State */}
+            {filtered.length === 0 && (
+              <div className="empty-catalog-state">
+                <Package size={36} />
+                <h3>No encontramos productos con esos filtros</h3>
+                <p>Prueba con otros términos de búsqueda o selecciona otra categoría.</p>
+                <button
+                  className="button button-ghost"
+                  onClick={() => {
+                    setSearch('');
+                    setParentFilter('Todos');
+                    setVisibleLimit(12);
+                  }}
+                >
+                  Restablecer filtros
+                </button>
+              </div>
+            )}
+
+            {/* Progressive Loading / Pagination Bar */}
+            {filtered.length > visibleProducts.length && (
+              <div className="store-pagination-wrap">
+                <div className="store-pagination-progress">
+                  <span>Mostrando {visibleProducts.length} de {filtered.length} productos</span>
+                  <div className="store-progress-track">
+                    <div className="store-progress-bar" style={{ width: `${progressPercent}%` }} />
+                  </div>
+                </div>
+
+                <div className="store-pagination-buttons">
+                  <button
+                    type="button"
+                    className="store-load-more-btn"
+                    onClick={() => setVisibleLimit((current) => current + 12)}
+                  >
+                    Mostrar más productos (+12)
+                  </button>
+                  <button
+                    type="button"
+                    className="store-show-all-btn"
+                    onClick={() => setVisibleLimit(filtered.length)}
+                  >
+                    Ver todos ({filtered.length})
                   </button>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
-            <aside className="store-aside">
+            {/* Custom Project Aside */}
+            <aside className="store-aside" style={{ marginTop: '24px' }}>
               <div>
                 <span className="eyebrow">¿Necesitas algo especial?</span>
                 <h3>Si no lo ves, probablemente también lo hacemos.</h3>
