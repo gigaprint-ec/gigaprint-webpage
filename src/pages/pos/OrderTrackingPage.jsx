@@ -114,7 +114,7 @@ export function OrderTrackingPage() {
 
         {/* Global Search Bar */}
         <div style={{ background: 'var(--paper)', borderRadius: '20px', border: '1px solid var(--line)', padding: '16px 20px', boxShadow: '0 10px 25px rgba(0,0,0,0.02)' }}>
-          <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <form onSubmit={handleSearchSubmit} className="tracking-search-form" style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
             <div style={{ position: 'relative', flex: '1', minWidth: '240px' }}>
               <Search size={18} style={{ position: 'absolute', left: '14px', top: '14px', color: 'var(--muted)' }} />
               <input
@@ -129,7 +129,7 @@ export function OrderTrackingPage() {
             <button
               type="submit"
               className="pos-submit-order-btn"
-              style={{ padding: '0 24px', height: '46px', fontSize: '14px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}
+              style={{ padding: '0 24px', height: '46px', fontSize: '14px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
             >
               <Search size={16} /> Consultar Estado
             </button>
