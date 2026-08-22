@@ -1,5 +1,5 @@
-import rawCatalog from './data/estebanCatalog.json';
-import { media } from './data/media';
+import rawCatalog from './data/estebanCatalog.json' with { type: 'json' };
+import { media } from './data/media.js';
 
 const numberFromLabel = (value) => {
   const match = String(value ?? '').replace(',', '.').match(/\d+(?:\.\d+)?/);
@@ -9,7 +9,9 @@ const numberFromLabel = (value) => {
 const quantityLabel = (value) => {
   const text = String(value ?? '').trim().toLowerCase();
   if (!text || !/\d/.test(text)) return false;
-  return /^\d+(?:[.,]\d+)?(?:\s*(?:-|–|—|a|x|\/|hasta)\s*\d+(?:[.,]\d+)?)?(?:\s*(?:m2|m²|cm|unidades?|uds?))?$/i.test(text);
+  if (/^precio\s*\d/i.test(text)) return false;
+  if (/^pvp/i.test(text)) return false;
+  return /^\d+(?:[.,]\d+)?(?:\s*(?:-|–|—|a|x|\/|hasta)\s*\d+(?:[.,]\d+)?)?(?:\s*(?:m2|m²|cm|unidades?|uds?|millar|millares|resma|resmas))?$/i.test(text);
 };
 
 const slugify = (value) => String(value ?? '')
@@ -19,31 +21,45 @@ const slugify = (value) => String(value ?? '')
 
 const unique = (items) => Array.from(new Set(items.filter(Boolean)));
 
-function imageFor(category, text = '') {
+export function imageFor(category = '', text = '') {
   const haystack = `${category} ${text}`.toLowerCase();
-  if (haystack.includes('lona') || haystack.includes('campana')) return media.lona;
-  if (haystack.includes('vinil') || haystack.includes('dtf')) return media.vinil;
-  if (haystack.includes('credencial') || haystack.includes('imprenta') || haystack.includes('tarjeta')) return media.stickers;
-  if (haystack.includes('laser') || haystack.includes('acril')) return media.laser;
-  if (haystack.includes('rotulo') || haystack.includes('letrero')) return media.letrero;
+  if (haystack.includes('taz') || haystack.includes('souvenir') || haystack.includes('almohada') || haystack.includes('plato') || haystack.includes('llavero') || haystack.includes('tomatodo')) return media.taza;
+  if (haystack.includes('gorra') || haystack.includes('vicera') || haystack.includes('visera') || haystack.includes('abanico')) return media.gorra;
+  if (haystack.includes('camiseta') || haystack.includes('polo') || haystack.includes('body') || haystack.includes('sublimacion') || haystack.includes('dtf')) return media.camiseta;
+  if (haystack.includes('roll up') || haystack.includes('rollup') || haystack.includes('dummy')) return media.rollupProduct;
+  if (haystack.includes('stand') || haystack.includes('banner x') || haystack.includes('aranita')) return media.stand || media.bannerX;
+  if (haystack.includes('bolso') || haystack.includes('mochila') || haystack.includes('funda') || haystack.includes('cambrella') || haystack.includes('rodeo')) return media.bolso;
+  if (haystack.includes('placa') || haystack.includes('vidrio') || haystack.includes('acril') || haystack.includes('laser')) return media.placa || media.laser;
+  if (haystack.includes('neon') || haystack.includes('neón')) return media.neon;
+  if (haystack.includes('luminoso') || haystack.includes('caja de luz')) return media.luminoso;
+  if (haystack.includes('corporeo') || haystack.includes('corpóreo') || haystack.includes('rotulo') || haystack.includes('letrero') || haystack.includes('fachada')) return media.letrero;
+  if (haystack.includes('lona') || haystack.includes('campana lonas') || haystack.includes('panaflex') || haystack.includes('banner')) return media.lona;
+  if (haystack.includes('vinil') || haystack.includes('microperforado') || haystack.includes('esmerilado') || haystack.includes('adhesivo')) return media.vinil;
+  if (haystack.includes('credencial') || haystack.includes('imprenta') || haystack.includes('tarjeta') || haystack.includes('volante') || haystack.includes('factura') || haystack.includes('sticker')) return media.stickers;
   return media.stickers;
 }
 
-function isAreaProduct(category, text) {
+export function isAreaProduct(category = '', text = '') {
   const haystack = `${category} ${text}`.toLowerCase();
-  return /campana\s+lonas|\bm2\b|m²/.test(haystack);
+  return /campana\s+lonas|\bm2\b|m²|gran formato/i.test(haystack) || /lona|vinil|microperforado|panaflex|tela.*bandera/i.test(haystack);
 }
 
-function isTotalTierProduct(category) {
-  return /imprenta|precios imprenta/.test(String(category).toLowerCase());
+export function isTotalTierProduct(category = '') {
+  return /imprenta|precios imprenta|radiografia|boutique|fundas camiseta/i.test(String(category).toLowerCase());
 }
 
 function buildGroupKey(row) {
+  const cat = String(row.categoria).trim();
   const productIsQuantity = quantityLabel(row.producto);
   const variantIsQuantity = quantityLabel(row.variante);
-  if (productIsQuantity && !variantIsQuantity) return row.categoria;
-  if (productIsQuantity && variantIsQuantity) return row.categoria;
-  return `${row.categoria}::${row.producto}`;
+  
+  if (['Extras', 'Precios Imprenta', 'Souvenirs'].includes(cat)) {
+    return `${cat}::${row.producto}`;
+  }
+  
+  if (productIsQuantity && !variantIsQuantity) return cat;
+  if (productIsQuantity && variantIsQuantity) return cat;
+  return `${cat}::${row.producto}`;
 }
 
 function buildOptionRows(rows, key) {
@@ -103,8 +119,8 @@ function makeProduct(rows, index) {
     price: basePrice,
     unit: displayUnit,
     image: imageFor(category, name),
-    description: `Tarifas importadas del catálogo de Esteban · ${rows.length} reglas de precio configurables.`,
-    specs: unique([category, options[0] ? 'Variantes seleccionables' : null, pricingMode === 'area' ? 'Cálculo por m²' : 'Precio por volumen']),
+    description: `Tarifas profesionales del catálogo Gigaprint · ${rows.length} reglas de escala y volumen.`,
+    specs: unique([category, options[0] ? 'Variantes seleccionables' : null, pricingMode === 'area' ? 'Cálculo exacto por m²' : pricingMode === 'tier-total' ? 'Precio por lote completo' : 'Escala por volumen']),
     featured: index < 8,
     isPublished: true,
     variantOptions: options,
@@ -162,22 +178,63 @@ export function getTier(product, quantity, selection = {}) {
   return tiers.reduce((current, tier) => Number(quantity) >= Number(tier.qty) ? tier : current, tiers[0] || { qty: 1, price: Number(product?.price) || 0 });
 }
 
+export function getSavingsPercentage(product, quantity, selection = {}) {
+  const tiers = getPriceTiers(product, selection);
+  if (!tiers.length || tiers.length === 1) return 0;
+  const baseTier = tiers[0];
+  const activeTier = getTier(product, quantity, selection);
+  const basePrice = tierPrice(baseTier, product?.price);
+  const activePrice = tierPrice(activeTier, product?.price);
+  if (!basePrice || activePrice >= basePrice) return 0;
+  return Math.round(((basePrice - activePrice) / basePrice) * 100);
+}
+
 export function calculateCatalogQuote(product, config = {}) {
   const mode = product?.pricingMode || (getProductCalcType(product) === 'm2' ? 'area' : 'unit');
   const quantity = Math.max(Number(product?.minQuantity || 1), Number(config.quantity) || 1);
   const width = Math.max(0.01, Number(config.width) || 1);
   const height = Math.max(0.01, Number(config.height) || 1);
   const area = width * height;
-  // Los escalones de Campana Lonas están expresados en m², no en piezas.
-  const tierBasis = mode === 'area' ? area * quantity : quantity;
+  const totalArea = area * quantity;
+  // Los escalones de Campana Lonas están expresados en m² totales, no en piezas.
+  const tierBasis = mode === 'area' ? totalArea : quantity;
   const tier = getTier(product, tierBasis, config.options || {});
+  const tiers = getPriceTiers(product, config.options || {});
+  const baseRate = tierPrice(tiers[0], product?.price);
   const rate = tierPrice(tier, product?.price);
   const design = Number(config.designCost) || 0;
   const extras = (config.extras || []).reduce((sum, extra) => sum + Number(extra.price || 0), 0);
   const optionAdjustment = Number(config.optionAdjustment) || 0;
+  
   const material = mode === 'area' ? area * rate * quantity : mode === 'tier-total' ? rate : rate * quantity;
   const subtotal = Math.max(0, material + design + extras + optionAdjustment);
   const taxRate = Math.max(0, Number(config.taxRate) || 0);
   const tax = subtotal * (taxRate / 100);
-  return { quantity, tier, tierBasis, rate, mode, width, height, area, material, design, extras, optionAdjustment, subtotal, taxRate, tax, total: subtotal + tax };
+  const total = subtotal + tax;
+  const unitEffectivePrice = mode === 'tier-total' ? (total / Math.max(1, Number(tier.qty) || 1)) : (total / quantity);
+  const savingsPercent = baseRate > rate ? Math.round(((baseRate - rate) / baseRate) * 100) : 0;
+
+  return {
+    quantity,
+    tier,
+    tiers,
+    tierBasis,
+    rate,
+    baseRate,
+    mode,
+    width,
+    height,
+    area,
+    totalArea,
+    material,
+    design,
+    extras,
+    optionAdjustment,
+    subtotal,
+    taxRate,
+    tax,
+    total,
+    unitEffectivePrice,
+    savingsPercent,
+  };
 }

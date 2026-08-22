@@ -20,38 +20,262 @@ function PromotionsPage() { const { data } = useSite(); return <PageShell><secti
 
 function StorePage() { const { data, addToCart } = useSite(); const [searchParams, setSearchParams] = useSearchParams(); const [search, setSearch] = useState(''); const activeCategory = searchParams.get('categoria') || 'Todos'; const filtered = data.products.filter((p) => (activeCategory === 'Todos' || p.category === activeCategory) && `${p.name} ${p.description}`.toLowerCase().includes(search.toLowerCase())); const add = (item) => addToCart({ ...item, cartId: `${item.id}-${Date.now()}` }); return <PageShell><section className="inner-hero store-hero"><div className="container store-hero-grid"><div><span className="eyebrow orange">Tienda Gigaprint</span><h1>Elige una base.<br /><em>Hazla tuya.</em></h1><p>Productos listos para personalizar, producir y llevar tu comunicación al siguiente nivel.</p></div><div className="store-badge"><span>CATÁLOGO<br /><b>2026</b></span></div></div></section><section className="section store-section"><div className="container"><div className="store-toolbar"><div className="category-tabs">{categories.map((category) => <button key={category} className={activeCategory === category ? 'active' : ''} onClick={() => setSearchParams(category === 'Todos' ? {} : { categoria: category })}>{category}</button>)}</div><label className="search-box"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Busca una solución" /></label></div><div className="store-layout"><div className="product-grid full">{filtered.map((product) => <ProductCard key={product.id} product={product} onAdd={add} />)}</div><aside className="store-aside"><div><span className="eyebrow">¿Necesitas algo especial?</span><h3>Si no lo ves, probablemente también lo hacemos.</h3><p>Trabajamos proyectos a medida, desde un solo ejemplar hasta producciones grandes.</p><Button to="/contacto" variant="outline">Pedir algo a medida</Button></div><img src={media.laser} alt="Corte láser" /></aside></div></div></section></PageShell>; }
 
-function SmartProductDetailPage() { const { id } = useParams(); const { data, addToCart } = useSite(); const product = data.products.find((item) => item.id === id) || data.products[0]; const [quantity, setQuantity] = useState(Math.max(1, Number(product?.minQuantity || 1))); const [selection, setSelection] = useState({}); const options = getVariantOptions(product); const safeSelection = options.reduce((result, option) => ({ ...result, [option.key]: option.values?.some((value) => value.value === selection[option.key]) ? selection[option.key] : option.values?.[0]?.value }), {}); const tier = getTier(product, quantity, safeSelection); const isArea = getProductCalcType(product) === 'm2'; const add = () => addToCart({ ...product, price: product.pricingMode === 'tier-total' ? tier.price : tier.price, quantity: product.pricingMode === 'tier-total' ? 1 : quantity, cartId: `${product.id}-${Date.now()}`, configFingerprint: `${product.id}:${JSON.stringify({ safeSelection, quantity })}`, variant: [Object.values(safeSelection).filter(Boolean).join(' · '), `${quantity} ${product.pricingMode === 'tier-total' ? 'unidades / lote' : product.unit}`].filter(Boolean).join(' · ') }); return <PageShell><section className="section detail-section"><div className="container detail-grid"><div className="detail-image"><img src={product.image} alt={product.name} /></div><div className="detail-copy"><span className="eyebrow orange">{product.category}</span><h1>{product.name}</h1><p className="detail-description">{product.description}</p><div className="detail-price">Desde <strong>{money(isArea ? product.price : tier.price)}</strong> <span>/ {isArea ? 'm²' : product.pricingMode === 'tier-total' ? 'lote' : product.unit}</span></div>{options.length > 0 && <div className="detail-options">{options.map((option) => <label key={option.key}>{option.label}<select value={safeSelection[option.key] || ''} onChange={(event) => setSelection((current) => ({ ...current, [option.key]: event.target.value }))}>{option.values?.map((value) => <option key={value.id} value={value.value}>{value.label}</option>)}</select></label>)}</div>}{product.sizes?.length > 0 && <div className="detail-size-list"><span>Tamaños disponibles</span><div>{product.sizes.map((size) => <b key={size.id || size.label}>{size.label || size}</b>)}</div></div>}<ul className="spec-list">{(product.specs || []).map((spec) => <li key={spec}><Check size={16} /> {spec}</li>)}</ul><div className="detail-actions"><div className="qty large"><button onClick={() => setQuantity(Math.max(Number(product.minQuantity || 1), quantity - 1))}><X size={16} /></button><span>{quantity}</span><button onClick={() => setQuantity(quantity + 1)}><Plus size={16} /></button></div>{isArea ? <Button to="/cotizador">Configurar medidas</Button> : <Button onClick={add}>Agregar a cotización</Button>}</div><Link to="/cotizador" className="detail-link">¿Quieres personalizarlo con más opciones? Abrir cotizador inteligente <ArrowRight size={14} /></Link></div></div></section></PageShell>; }
+function SmartProductDetailPage() {
+  const { id } = useParams();
+  const { data, addToCart } = useSite();
+  const product = data.products.find((item) => item.id === id) || data.products[0];
+  const [quantity, setQuantity] = useState(Math.max(1, Number(product?.minQuantity || 1)));
+  const [widthCm, setWidthCm] = useState(100);
+  const [heightCm, setHeightCm] = useState(100);
+  const [selection, setSelection] = useState({});
+  const [designLevel, setDesignLevel] = useState('none');
+  
+  const options = getVariantOptions(product);
+  const safeSelection = options.reduce((result, option) => ({
+    ...result,
+    [option.key]: option.values?.some((value) => value.value === selection[option.key])
+      ? selection[option.key]
+      : option.values?.[0]?.value
+  }), {});
+  
+  const isArea = getProductCalcType(product) === 'm2';
+  const calcSettings = data.calculatorSettings || { taxRate: 15, designAdaptationPrice: 5, designFromScratchPrice: 15 };
+  const designCost = designLevel === 'adaptation'
+    ? Number(calcSettings.designAdaptationPrice || 5)
+    : designLevel === 'full'
+      ? Number(calcSettings.designFromScratchPrice || 15)
+      : 0;
+
+  const minQty = Math.max(1, Number(product?.minQuantity || 1));
+  const effectiveQty = Math.max(minQty, quantity);
+  const quote = calculateCatalogQuote(product, {
+    width: widthCm / 100,
+    height: heightCm / 100,
+    quantity: effectiveQty,
+    options: safeSelection,
+    taxRate: Number(calcSettings.taxRate) || 15,
+    designCost
+  });
+  
+  const activeTier = quote.tier;
+  const tiers = quote.tiers || [];
+  const selectionText = Object.values(safeSelection).filter(Boolean).join(' · ');
+  const readableVariant = [
+    selectionText,
+    isArea ? `${widthCm} × ${heightCm} cm` : '',
+    `${effectiveQty} ${product.pricingMode === 'tier-total' ? 'unidades (lote)' : product.unit}`,
+    designLevel === 'adaptation' ? 'Ajuste de diseño' : designLevel === 'full' ? 'Diseño profesional' : ''
+  ].filter(Boolean).join(' · ');
+
+  const add = () => {
+    const fingerprint = `${product.id}:${JSON.stringify({ safeSelection, widthCm: isArea ? widthCm : null, heightCm: isArea ? heightCm : null, quantity: effectiveQty, designLevel })}`;
+    addToCart({
+      ...product,
+      price: quote.total,
+      quantity: 1,
+      cartId: `${product.id}-${Date.now()}`,
+      configFingerprint: fingerprint,
+      variant: readableVariant,
+      quoteBreakdown: quote
+    });
+  };
+
+  return (
+    <PageShell>
+      <section className="section detail-section">
+        <div className="container detail-grid">
+          <div className="detail-image">
+            <img src={product.image} alt={product.name} />
+          </div>
+          <div className="detail-copy">
+            <span className="eyebrow orange">{product.category}</span>
+            <h1>{product.name}</h1>
+            <p className="detail-description">{product.description}</p>
+            <div className="detail-price">
+              Estimado: <strong>{money(quote.total)}</strong>
+              <span> / {isArea ? `${(quote.area * effectiveQty).toFixed(2)} m²` : product.pricingMode === 'tier-total' ? 'lote' : `${effectiveQty} ${product.unit}`}</span>
+            </div>
+
+            {options.length > 0 && (
+              <div className="detail-options">
+                {options.map((option) => (
+                  <label key={option.key}>
+                    {option.label}
+                    <select
+                      value={safeSelection[option.key] || ''}
+                      onChange={(event) => setSelection((current) => ({ ...current, [option.key]: event.target.value }))}
+                    >
+                      {option.values?.map((value) => (
+                        <option key={value.id} value={value.value}>{value.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                ))}
+              </div>
+            )}
+
+            {isArea && (
+              <div className="detail-inline-dimensions">
+                <h4>📐 Medidas en centímetros</h4>
+                <div className="fields two">
+                  <label>
+                    Ancho (cm)
+                    <input
+                      type="number"
+                      min="1"
+                      value={widthCm}
+                      onChange={(e) => setWidthCm(Math.max(1, Number(e.target.value) || 1))}
+                    />
+                  </label>
+                  <label>
+                    Alto (cm)
+                    <input
+                      type="number"
+                      min="1"
+                      value={heightCm}
+                      onChange={(e) => setHeightCm(Math.max(1, Number(e.target.value) || 1))}
+                    />
+                  </label>
+                </div>
+                <div className="detail-area-tag">
+                  Área unitaria: {quote.area.toFixed(2)} m² · Tarifa: {money(quote.rate)} / m²
+                </div>
+              </div>
+            )}
+
+            {tiers.length > 1 && !isArea && (
+              <div className="quote-tiers" style={{ marginTop: '12px', marginBottom: '16px' }}>
+                {tiers.slice(0, 6).map((tier) => (
+                  <button
+                    key={tier.qty}
+                    type="button"
+                    onClick={() => setQuantity(Math.max(minQty, Number(tier.qty)))}
+                    className={effectiveQty >= Number(tier.qty) && activeTier.qty === tier.qty ? 'active' : ''}
+                  >
+                    <span>Desde {tier.qty} {product.pricingMode === 'tier-total' ? 'uds' : product.unit}</span>
+                    <b>{money(tier.price)}{product.pricingMode === 'tier-total' ? ' / lote' : ' / u'}</b>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {product.sizes?.length > 0 && (
+              <div className="detail-size-list">
+                <span>Tamaños disponibles</span>
+                <div>{product.sizes.map((size) => <b key={size.id || size.label}>{size.label || size}</b>)}</div>
+              </div>
+            )}
+
+            <ul className="spec-list">
+              {(product.specs || []).map((spec) => (
+                <li key={spec}><Check size={16} /> {spec}</li>
+              ))}
+            </ul>
+
+            <div className="detail-actions">
+              <div className="qty large">
+                <button type="button" onClick={() => setQuantity(Math.max(minQty, effectiveQty - 1))}><X size={16} /></button>
+                <span>{effectiveQty}</span>
+                <button type="button" onClick={() => setQuantity(effectiveQty + 1)}><Plus size={16} /></button>
+              </div>
+              <Button onClick={add}>Agregar a cotización ({money(quote.total)})</Button>
+            </div>
+
+            <Link to={`/cotizador`} className="detail-link">
+              ¿Quieres personalizar con acabados, instalación o diseño? Abrir cotizador completo <ArrowRight size={14} />
+            </Link>
+          </div>
+        </div>
+      </section>
+    </PageShell>
+  );
+}
 
 function SmartQuotePage() {
   const { data, addToCart } = useSite();
   const [mode, setMode] = useState('medidas');
+  const [categoryFilter, setCategoryFilter] = useState('Todos');
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState('');
   const [widthCm, setWidthCm] = useState(100);
   const [heightCm, setHeightCm] = useState(100);
   const [quantity, setQuantity] = useState(1);
-  const [design, setDesign] = useState(false);
+  const [designLevel, setDesignLevel] = useState('none');
+  const [finishing, setFinishing] = useState('none');
   const [installation, setInstallation] = useState(false);
   const [selection, setSelection] = useState({});
 
-  const areaProducts = useMemo(() => data.products.filter((product) => getProductCalcType(product) === 'm2'), [data.products]);
-  const unitProducts = useMemo(() => data.products.filter((product) => getProductCalcType(product) !== 'm2'), [data.products]);
-  const sourceProducts = mode === 'medidas' ? areaProducts : unitProducts;
-  const selectedProduct = sourceProducts.find((product) => product.id === selectedId) || sourceProducts[0] || data.products[0];
-  const filteredProducts = sourceProducts.filter((product) => `${product.name} ${product.category} ${product.description}`.toLowerCase().includes(search.toLowerCase())).slice(0, 180);
+  const calcSettings = data.calculatorSettings || {
+    taxRate: 15,
+    designAdaptationPrice: 5,
+    designFromScratchPrice: 15,
+    eyeletSmallPrice: 1.5,
+    eyeletLargePrice: 3.5,
+    disclaimer: 'Los valores son referenciales y se confirman con especificaciones y arte final.'
+  };
+
+  const areaProducts = useMemo(() => data.products.filter((p) => getProductCalcType(p) === 'm2'), [data.products]);
+  const lotProducts = useMemo(() => data.products.filter((p) => p.pricingMode === 'tier-total'), [data.products]);
+  const unitProducts = useMemo(() => data.products.filter((p) => getProductCalcType(p) !== 'm2' && p.pricingMode !== 'tier-total'), [data.products]);
+
+  const sourceProducts = mode === 'medidas' ? areaProducts : mode === 'lotes' ? lotProducts : unitProducts;
+  
+  const filteredProducts = sourceProducts.filter((product) => {
+    const matchCategory = categoryFilter === 'Todos' || product.category === categoryFilter ||
+      (categoryFilter === 'Gran formato' && /lona|vinil|microperforado|banner/i.test(`${product.category} ${product.name}`)) ||
+      (categoryFilter === 'Textil' && /camiseta|polo|body|sublimacion|dtf/i.test(`${product.category} ${product.name}`)) ||
+      (categoryFilter === 'Imprenta' && /imprenta|tarjeta|volante|factura|carpeta|credencial/i.test(`${product.category} ${product.name}`)) ||
+      (categoryFilter === 'Promocionales' && /taza|souvenir|gorra|almohada|bolso|mochila/i.test(`${product.category} ${product.name}`)) ||
+      (categoryFilter === 'Rótulos' && /rotulo|letrero|neon|luminoso|acrilico|laser|placa/i.test(`${product.category} ${product.name}`));
+    const matchSearch = `${product.name} ${product.category} ${product.description}`.toLowerCase().includes(search.toLowerCase());
+    return matchCategory && matchSearch;
+  });
+
+  const selectedProduct = sourceProducts.find((p) => p.id === selectedId) || filteredProducts[0] || sourceProducts[0] || data.products[0];
   const variantOptions = getVariantOptions(selectedProduct);
   const safeSelection = variantOptions.reduce((result, option) => {
     const selected = selection[option.key];
     result[option.key] = option.values?.some((value) => value.value === selected) ? selected : option.values?.[0]?.value;
     return result;
   }, {});
+
   const isArea = getProductCalcType(selectedProduct) === 'm2';
   const minQuantity = Math.max(1, Number(selectedProduct?.minQuantity || 1));
   const effectiveQuantity = Math.max(minQuantity, quantity);
   const tiers = getPriceTiers(selectedProduct, safeSelection);
-  const designCost = design ? Number(selectedProduct?.customOptions?.designPrice || selectedProduct?.custom_options?.design_price || calculatorSettings.designAdaptationPrice || 5) : 0;
-  const installationCost = installation && isArea && selectedProduct?.price_inst ? Math.max(0, (Number(selectedProduct.price_inst) - Number(selectedProduct.price || 0)) * ((widthCm / 100) * (heightCm / 100)) * effectiveQuantity) : 0;
-  const quote = calculateCatalogQuote(selectedProduct, { width: widthCm / 100, height: heightCm / 100, quantity: effectiveQuantity, options: safeSelection, taxRate: Number(calculatorSettings.taxRate) || 15, designCost, extras: installationCost ? [{ price: installationCost }] : [] });
+
+  const designCost = designLevel === 'adaptation'
+    ? Number(calcSettings.designAdaptationPrice || 5)
+    : designLevel === 'full'
+      ? Number(calcSettings.designFromScratchPrice || 15)
+      : 0;
+
+  const finishingCost = isArea && finishing === 'esquinas'
+    ? Number(calcSettings.eyeletSmallPrice || 1.5) * effectiveQuantity
+    : isArea && finishing === 'perimetral'
+      ? Number(calcSettings.eyeletLargePrice || 3.5) * effectiveQuantity
+      : isArea && finishing === 'bolsillo'
+        ? 4.0 * effectiveQuantity
+        : 0;
+
+  const installationCost = installation && isArea && selectedProduct?.price_inst
+    ? Math.max(0, (Number(selectedProduct.price_inst) - Number(selectedProduct.price || 0)) * ((widthCm / 100) * (heightCm / 100)) * effectiveQuantity)
+    : 0;
+
+  const extrasList = [];
+  if (finishingCost > 0) extrasList.push({ price: finishingCost, name: 'Acabados' });
+  if (installationCost > 0) extrasList.push({ price: installationCost, name: 'Instalación' });
+
+  const quote = calculateCatalogQuote(selectedProduct, {
+    width: widthCm / 100,
+    height: heightCm / 100,
+    quantity: effectiveQuantity,
+    options: safeSelection,
+    taxRate: Number(calcSettings.taxRate) || 15,
+    designCost,
+    extras: extrasList
+  });
+
   const activeTier = quote.tier;
   const selectionText = Object.values(safeSelection).filter(Boolean).join(' · ');
 
@@ -59,27 +283,562 @@ function SmartQuotePage() {
     setMode(nextMode);
     setSearch('');
     setSelectedId('');
+    setCategoryFilter('Todos');
     setSelection({});
-    setQuantity(nextMode === 'medidas' ? 1 : 12);
+    setQuantity(nextMode === 'medidas' ? 1 : nextMode === 'lotes' ? 1000 : 12);
   };
+
   const chooseProduct = (product) => {
     setSelectedId(product.id);
     setSelection({});
-    setQuantity(Math.max(1, Number(product.minQuantity || 1), mode === 'unidades' ? 12 : 1));
-    setDesign(false);
+    setQuantity(Math.max(1, Number(product.minQuantity || 1), mode === 'lotes' ? 1000 : mode === 'unidades' ? 12 : 1));
+    setDesignLevel('none');
+    setFinishing('none');
     setInstallation(false);
   };
-  const add = () => {
-    if (!selectedProduct) return;
-    const readableVariant = [selectionText, isArea ? `${widthCm} × ${heightCm} cm` : `${effectiveQuantity} unidades`, design ? 'Diseño incluido' : '', installation ? 'Instalación' : ''].filter(Boolean).join(' · ');
-    const fingerprint = `${selectedProduct.id}:${JSON.stringify({ safeSelection, widthCm: isArea ? widthCm : null, heightCm: isArea ? heightCm : null, quantity: effectiveQuantity, design, installation })}`;
-    addToCart({ ...selectedProduct, price: quote.total, cartId: `quote-${Date.now()}`, quantity: 1, variant: readableVariant, configFingerprint: fingerprint, quoteBreakdown: quote });
+
+  const setDimensionPreset = (w, h) => {
+    setWidthCm(w);
+    setHeightCm(h);
   };
 
-  return <PageShell><section className="inner-hero quote-hero"><div className="container"><span className="eyebrow orange">Cotizador inteligente · catálogo Gigaprint</span><h1>El precio correcto<br /><em>empieza con tus datos.</em></h1><p>Las tarifas de Esteban ya están conectadas: elige producto, variante, medida o volumen y recibe una estimación transparente.</p></div></section><section className="section quote-section"><div className="container quote-layout"><div className="quote-main"><div className="mode-toggle"><button className={mode === 'medidas' ? 'active' : ''} onClick={() => chooseMode('medidas')}><Calculator size={18} /> Por medidas</button><button className={mode === 'unidades' ? 'active' : ''} onClick={() => chooseMode('unidades')}><Package size={18} /> Por unidades / escalas</button></div><div className="quote-step"><span>01</span><div className="step-content"><h3>Elige lo que quieres producir</h3><p>Busca entre el catálogo y selecciona una familia de producto.</p><label className="search-box quote-search"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por producto o categoría" /></label><div className="quote-products">{filteredProducts.map((product) => <button key={product.id} className={selectedProduct?.id === product.id ? 'quote-product active' : 'quote-product'} onClick={() => chooseProduct(product)}><img src={product.image} alt="" /><span><b>{product.name}</b><small>{product.category} · {getProductCalcType(product) === 'm2' ? 'precio por m²' : product.pricingMode === 'tier-total' ? 'precio por lote' : 'precio por volumen'}</small></span>{selectedProduct?.id === product.id && <Check size={17} />}</button>)}</div></div></div>{selectedProduct && variantOptions.length > 0 && <div className="quote-step"><span>02</span><div className="step-content"><h3>Configura la variante</h3><p>Estas opciones vienen del catálogo y pueden editarse desde el administrador.</p>{variantOptions.map((option) => <label className="quote-option" key={option.key}><span>{option.label}</span><select value={safeSelection[option.key] || ''} onChange={(event) => setSelection((current) => ({ ...current, [option.key]: event.target.value }))}>{option.values?.map((value) => <option key={value.id} value={value.value}>{value.label}</option>)}</select></label>)}</div></div>}{isArea ? <div className="quote-step"><span>{variantOptions.length ? '03' : '02'}</span><div className="step-content"><h3>Define las medidas</h3><p>Trabajamos en centímetros y calculamos el área real en m².</p><div className="fields two"><label>Ancho (cm)<input type="number" min="1" step="1" value={widthCm} onChange={(event) => setWidthCm(Math.max(1, Number(event.target.value) || 1))} /></label><label>Alto (cm)<input type="number" min="1" step="1" value={heightCm} onChange={(event) => setHeightCm(Math.max(1, Number(event.target.value) || 1))} /></label></div><div className="quote-insight"><span>Área por pieza</span><strong>{quote.area.toFixed(2)} m²</strong><small>Tarifa activa: {money(activeTier.price)} / m²</small></div><label className="range-label">Cantidad <span>{effectiveQuantity}</span></label><input className="range" type="range" min={minQuantity} max={Math.max(minQuantity + 20, 100)} value={effectiveQuantity} onChange={(event) => setQuantity(Number(event.target.value))} />{selectedProduct?.price_inst && <label className="check-option"><input type="checkbox" checked={installation} onChange={(event) => setInstallation(event.target.checked)} /><span><b>Necesito instalación</b><small>Se suma la tarifa de instalación configurada para este producto.</small></span></label>}</div></div> : <div className="quote-step"><span>{variantOptions.length ? '03' : '02'}</span><div className="step-content"><h3>¿Cuántas necesitas?</h3><p>El precio se actualiza automáticamente usando la escala más conveniente.</p><div className="quantity-picker"><button onClick={() => setQuantity(Math.max(minQuantity, effectiveQuantity - 1))}><X size={16} /></button><strong>{effectiveQuantity}</strong><button onClick={() => setQuantity(effectiveQuantity + 1)}><Plus size={16} /></button></div>{tiers.length > 1 && <div className="quote-tiers">{tiers.slice(0, 8).map((tier) => <button key={tier.qty} onClick={() => setQuantity(Math.max(minQuantity, Number(tier.qty)))} className={effectiveQuantity >= Number(tier.qty) && activeTier.qty === tier.qty ? 'active' : ''}><span>Desde {tier.qty}</span><b>{money(tier.price)}{selectedProduct.pricingMode === 'tier-total' ? ' / lote' : ' / u'}</b></button>)}</div>}</div></div>}<div className="quote-step"><span>{isArea || variantOptions.length ? '04' : '03'}</span><div className="step-content"><h3>¿Necesitas diseño?</h3><p>Déjanos tu archivo listo o agrega una adaptación profesional.</p><label className="check-option"><input type="checkbox" checked={design} onChange={(event) => setDesign(event.target.checked)} /><span><b>Necesito diseño / adaptación</b><small>Se agregan {money(designCost || 18)} a la estimación.</small></span></label></div></div></div><aside className="quote-summary-card"><span className="eyebrow">Tu estimación</span><h2>{money(quote.total)}</h2><p>Estimación referencial con IVA incluido. Se confirma al revisar archivos y acabados.</p><div className="summary-line"><span>Producto</span><b>{selectedProduct?.name}</b></div><div className="summary-line"><span>Regla de precio</span><b>{quote.mode === 'area' ? `${money(quote.rate)} / m²` : quote.mode === 'tier-total' ? `Lote desde ${activeTier.qty}` : `${money(quote.rate)} / unidad`}</b></div>{isArea && <div className="summary-line"><span>Área total</span><b>{(quote.area * effectiveQuantity).toFixed(2)} m²</b></div>}{selectionText && <div className="summary-line"><span>Variante</span><b>{selectionText}</b></div>}<div className="summary-line"><span>Diseño</span><b>{design ? money(designCost) : 'No incluido'}</b></div>{installationCost > 0 && <div className="summary-line"><span>Instalación</span><b>+{money(installationCost)}</b></div>}<div className="summary-note"><Check size={15} /> La configuración queda guardada en tu carrito de cotizaciones.</div><button className="button button-primary full-button" onClick={add}>Agregar al carrito de cotizaciones <ArrowRight size={16} /></button><Link to="/contacto" className="summary-contact">¿Prefieres que lo revisemos juntos? <u>Escríbenos</u></Link></aside></div></section></PageShell>;
-}
+  const readableDimensions = isArea
+    ? `${widthCm} × ${heightCm} cm (${quote.area.toFixed(2)} m²)`
+    : `${effectiveQuantity} ${selectedProduct?.pricingMode === 'tier-total' ? 'unidades (lote)' : selectedProduct?.unit || 'unidades'}`;
 
-function QuotePage() { const { data, addToCart } = useSite(); const [mode, setMode] = useState('medidas'); const [productId, setProductId] = useState(data.products[0].id); const [width, setWidth] = useState(2); const [height, setHeight] = useState(1); const [quantity, setQuantity] = useState(1); const [design, setDesign] = useState(false); const product = data.products.find((item) => item.id === productId) || data.products[0]; const area = Math.max(0.01, width * height); const material = product.type === 'm2' ? area * product.price * quantity : product.price * quantity; const total = material + (design ? 18 : 0); const add = () => addToCart({ ...product, price: total, cartId: `${product.id}-quote-${Date.now()}`, quantity: 1, variant: product.type === 'm2' ? `${width} × ${height} m · ${quantity} unidad${quantity > 1 ? 'es' : ''}${design ? ' · diseño incluido' : ''}` : `${quantity} unidades${design ? ' · diseño incluido' : ''}` }); return <PageShell><section className="inner-hero quote-hero"><div className="container"><span className="eyebrow orange">Cotizador inteligente</span><h1>Una estimación clara<br /><em>para empezar.</em></h1><p>Selecciona el material, agrega tus medidas y recibe un precio orientativo al instante. Después afinamos los detalles contigo.</p></div></section><section className="section quote-section"><div className="container quote-layout"><div className="quote-main"><div className="mode-toggle"><button className={mode === 'medidas' ? 'active' : ''} onClick={() => setMode('medidas')}><Calculator size={18} /> Por medidas</button><button className={mode === 'unidades' ? 'active' : ''} onClick={() => setMode('unidades')}><Package size={18} /> Por unidades</button></div><div className="quote-step"><span>01</span><div><h3>¿Qué quieres producir?</h3><p>Elige una solución para comenzar.</p></div></div><div className="quote-products">{data.products.filter((item) => mode === 'medidas' ? item.type === 'm2' : true).map((item) => <button key={item.id} className={product.id === item.id ? 'quote-product active' : 'quote-product'} onClick={() => setProductId(item.id)}><img src={item.image} alt="" /><span><b>{item.name}</b><small>{item.type === 'm2' ? 'Se calcula por m²' : 'Se calcula por unidad'}</small></span>{product.id === item.id && <Check size={17} />}</button>)}</div>{mode === 'medidas' ? <div className="quote-step"><span>02</span><div className="step-content"><h3>Define las medidas</h3><p>Ingresa el ancho y alto en metros.</p><div className="fields two"><label>Ancho (m)<input type="number" min="0.1" step="0.1" value={width} onChange={(e) => setWidth(Number(e.target.value))} /></label><label>Alto (m)<input type="number" min="0.1" step="0.1" value={height} onChange={(e) => setHeight(Number(e.target.value))} /></label></div><label className="range-label">Cantidad <span>{quantity}</span></label><input className="range" type="range" min="1" max="20" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} /></div></div> : <div className="quote-step"><span>02</span><div className="step-content"><h3>¿Cuántas necesitas?</h3><p>Mientras más produces, mejor podemos optimizar tu precio.</p><div className="quantity-picker"><button onClick={() => setQuantity(Math.max(1, quantity - 1))}><X size={16} /></button><strong>{quantity}</strong><button onClick={() => setQuantity(quantity + 1)}><Plus size={16} /></button></div></div></div>}<div className="quote-step"><span>03</span><div className="step-content"><h3>Agrega lo que haga falta</h3><p>Opcional, pero puede ahorrarte un paso.</p><label className="check-option"><input type="checkbox" checked={design} onChange={(e) => setDesign(e.target.checked)} /><span><b>Necesito diseño / adaptación</b><small>Un diseñador ajusta tu idea a producción · +{money(18)}</small></span></label></div></div></div><aside className="quote-summary-card"><span className="eyebrow">Tu estimación</span><h2>{money(total)}</h2><p>Precio orientativo antes de impuestos e instalación.</p><div className="summary-line"><span>Producto</span><b>{product.name}</b></div>{product.type === 'm2' && <div className="summary-line"><span>Área total</span><b>{(area * quantity).toFixed(2)} m²</b></div>}<div className="summary-line"><span>Diseño</span><b>{design ? money(18) : 'No incluido'}</b></div><div className="summary-note"><Check size={15} /> Te confirmamos disponibilidad y tiempos por WhatsApp.</div><button className="button button-primary full-button" onClick={add}>Agregar al carrito de cotizaciones <ArrowRight size={16} /></button><Link to="/contacto" className="summary-contact">¿Prefieres que lo revisemos juntos? <u>Escríbenos</u></Link></aside></div></section></PageShell>; }
+  const readableDesign = designLevel === 'adaptation'
+    ? 'Adaptación / Ajuste de medidas'
+    : designLevel === 'full'
+      ? 'Diseño profesional desde cero'
+      : 'Arte listo del cliente';
+
+  const add = () => {
+    if (!selectedProduct) return;
+    const readableVariant = [
+      selectionText,
+      readableDimensions,
+      designLevel !== 'none' ? readableDesign : '',
+      finishing !== 'none' ? `Acabado: ${finishing}` : '',
+      installation ? 'Instalación incluida' : ''
+    ].filter(Boolean).join(' · ');
+
+    const fingerprint = `${selectedProduct.id}:${JSON.stringify({ safeSelection, widthCm: isArea ? widthCm : null, heightCm: isArea ? heightCm : null, quantity: effectiveQuantity, designLevel, finishing, installation })}`;
+    addToCart({
+      ...selectedProduct,
+      price: quote.total,
+      cartId: `quote-${Date.now()}`,
+      quantity: 1,
+      variant: readableVariant,
+      configFingerprint: fingerprint,
+      quoteBreakdown: quote
+    });
+  };
+
+  const whatsappMessage = encodeURIComponent(
+    `¡Hola Gigaprint! Deseo solicitar una cotización con los siguientes datos:\n\n` +
+    `• *Producto:* ${selectedProduct?.name} (${selectedProduct?.category})\n` +
+    (selectionText ? `• *Variante:* ${selectionText}\n` : '') +
+    `• *Medidas / Cantidad:* ${readableDimensions}\n` +
+    `• *Diseño:* ${readableDesign}\n` +
+    (finishing !== 'none' ? `• *Acabado:* ${finishing}\n` : '') +
+    (installation ? `• *Instalación:* Sí\n` : '') +
+    `• *Subtotal estimado:* ${money(quote.subtotal)}\n` +
+    `• *Total con IVA:* ${money(quote.total)}\n\n` +
+    `¿Podrían confirmarme disponibilidad y tiempo de entrega?`
+  );
+
+  return (
+    <PageShell>
+      <section className="inner-hero quote-hero">
+        <div className="container">
+          <span className="eyebrow orange">Cotizador Inteligente · Gigaprint</span>
+          <h1>Calcula tu proyecto<br /><em>en segundos y con precisión.</em></h1>
+          <p>Elige tu producto, variante, dimensiones o volumen. Tarifas automáticas con escalas reales y transparencia total.</p>
+        </div>
+      </section>
+
+      <section className="section quote-section">
+        <div className="container quote-layout">
+          <div className="quote-main">
+            {/* Mode Toggle */}
+            <div className="mode-toggle three-cols">
+              <button
+                type="button"
+                className={mode === 'medidas' ? 'active' : ''}
+                onClick={() => chooseMode('medidas')}
+              >
+                <Calculator size={17} /> Por medidas (m²)
+              </button>
+              <button
+                type="button"
+                className={mode === 'unidades' ? 'active' : ''}
+                onClick={() => chooseMode('unidades')}
+              >
+                <Package size={17} /> Por volumen / unidades
+              </button>
+              <button
+                type="button"
+                className={mode === 'lotes' ? 'active' : ''}
+                onClick={() => chooseMode('lotes')}
+              >
+                <Layers size={17} /> Por lotes / imprenta
+              </button>
+            </div>
+
+            {/* Step 1: Product Selection */}
+            <div className="quote-step">
+              <span>01</span>
+              <div className="step-content">
+                <h3>Elige lo que vas a producir</h3>
+                <p>Filtra por categoría o busca directamente en nuestro catálogo.</p>
+
+                <div className="quote-category-pills">
+                  {['Todos', 'Gran formato', 'Textil', 'Imprenta', 'Promocionales', 'Rótulos'].map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      className={categoryFilter === cat ? 'active' : ''}
+                      onClick={() => setCategoryFilter(cat)}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+
+                <label className="search-box quote-search">
+                  <Search size={16} />
+                  <input
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Buscar producto (ej. Lona, Camiseta, Tarjetas, Neón, Roll up...)"
+                  />
+                </label>
+
+                <div className="quote-products">
+                  {filteredProducts.slice(0, 40).map((product) => (
+                    <button
+                      key={product.id}
+                      type="button"
+                      className={selectedProduct?.id === product.id ? 'quote-product active' : 'quote-product'}
+                      onClick={() => chooseProduct(product)}
+                    >
+                      <img src={product.image} alt="" />
+                      <span>
+                        <b>{product.name}</b>
+                        <small>
+                          {product.category} · {getProductCalcType(product) === 'm2' ? 'Precio por m²' : product.pricingMode === 'tier-total' ? 'Precio por lote' : 'Escala por volumen'}
+                        </small>
+                      </span>
+                      {selectedProduct?.id === product.id && <Check size={17} />}
+                    </button>
+                  ))}
+                  {filteredProducts.length === 0 && (
+                    <div className="smart-empty" style={{ gridColumn: '1 / -1' }}>
+                      No encontramos productos con ese filtro. Prueba otra categoría o término de búsqueda.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Step 2: Variant Selection */}
+            {selectedProduct && variantOptions.length > 0 && (
+              <div className="quote-step">
+                <span>02</span>
+                <div className="step-content">
+                  <h3>Especificaciones del producto</h3>
+                  <p>Selecciona variante, tipo de tela, acabado o caras impresas.</p>
+                  {variantOptions.map((option) => (
+                    <label className="quote-option" key={option.key}>
+                      <span>{option.label}</span>
+                      <select
+                        value={safeSelection[option.key] || ''}
+                        onChange={(event) => setSelection((current) => ({ ...current, [option.key]: event.target.value }))}
+                      >
+                        {option.values?.map((value) => (
+                          <option key={value.id} value={value.value}>{value.label}</option>
+                        ))}
+                      </select>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Dimensions / Quantity / Tiers */}
+            {isArea ? (
+              <div className="quote-step">
+                <span>{variantOptions.length ? '03' : '02'}</span>
+                <div className="step-content">
+                  <h3>Define las medidas exactas</h3>
+                  <p>Ingresa dimensiones en centímetros o elige un formato habitual.</p>
+
+                  <div className="dimension-presets">
+                    <span>Tamaños comunes:</span>
+                    <button type="button" className="preset-chip" onClick={() => setDimensionPreset(100, 100)}>100 × 100 cm</button>
+                    <button type="button" className="preset-chip" onClick={() => setDimensionPreset(200, 100)}>200 × 100 cm</button>
+                    <button type="button" className="preset-chip" onClick={() => setDimensionPreset(300, 100)}>300 × 100 cm</button>
+                    <button type="button" className="preset-chip" onClick={() => setDimensionPreset(200, 200)}>200 × 200 cm</button>
+                    <button type="button" className="preset-chip" onClick={() => setDimensionPreset(300, 200)}>300 × 200 cm</button>
+                    <button type="button" className="preset-chip" onClick={() => setDimensionPreset(400, 150)}>400 × 150 cm</button>
+                  </div>
+
+                  <div className="fields two">
+                    <label>
+                      Ancho (cm)
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={widthCm}
+                        onChange={(event) => setWidthCm(Math.max(1, Number(event.target.value) || 1))}
+                      />
+                    </label>
+                    <label>
+                      Alto (cm)
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={heightCm}
+                        onChange={(event) => setHeightCm(Math.max(1, Number(event.target.value) || 1))}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="quote-insight">
+                    <span>Área calculada</span>
+                    <strong>{quote.area.toFixed(2)} m² <small>por pieza</small></strong>
+                    <small>Área total del pedido: {(quote.area * effectiveQuantity).toFixed(2)} m² · Tarifa activa: {money(activeTier.price)} / m²</small>
+                  </div>
+
+                  <label className="range-label">
+                    Cantidad de piezas <span>{effectiveQuantity}</span>
+                  </label>
+                  <input
+                    className="range"
+                    type="range"
+                    min={minQuantity}
+                    max={Math.max(minQuantity + 20, 50)}
+                    value={effectiveQuantity}
+                    onChange={(event) => setQuantity(Number(event.target.value))}
+                  />
+
+                  {/* Finishing Options for Area Products */}
+                  <div className="finishing-select-group">
+                    <label>Acabados y confección</label>
+                    <div className="design-options-grid">
+                      <label className={`design-option-card ${finishing === 'none' ? 'active' : ''}`}>
+                        <input
+                          type="radio"
+                          name="finishing"
+                          checked={finishing === 'none'}
+                          onChange={() => setFinishing('none')}
+                        />
+                        <div className="design-option-copy">
+                          <b>Corte al ras / Sin ojaletes</b>
+                          <small>Listo para enmarcar, montar o clavar.</small>
+                        </div>
+                        <span className="design-option-price">$0</span>
+                      </label>
+
+                      <label className={`design-option-card ${finishing === 'esquinas' ? 'active' : ''}`}>
+                        <input
+                          type="radio"
+                          name="finishing"
+                          checked={finishing === 'esquinas'}
+                          onChange={() => setFinishing('esquinas')}
+                        />
+                        <div className="design-option-copy">
+                          <b>Ojaletes en las 4 esquinas</b>
+                          <small>Para templar en postes o vallas pequeñas.</small>
+                        </div>
+                        <span className="design-option-price">+{money(calcSettings.eyeletSmallPrice || 1.50)}</span>
+                      </label>
+
+                      <label className={`design-option-card ${finishing === 'perimetral' ? 'active' : ''}`}>
+                        <input
+                          type="radio"
+                          name="finishing"
+                          checked={finishing === 'perimetral'}
+                          onChange={() => setFinishing('perimetral')}
+                        />
+                        <div className="design-option-copy">
+                          <b>Ojaletes perimetrales cada 50 cm</b>
+                          <small>Máxima resistencia al viento y tensión uniforme.</small>
+                        </div>
+                        <span className="design-option-price">+{money(calcSettings.eyeletLargePrice || 3.50)}</span>
+                      </label>
+
+                      <label className={`design-option-card ${finishing === 'bolsillo' ? 'active' : ''}`}>
+                        <input
+                          type="radio"
+                          name="finishing"
+                          checked={finishing === 'bolsillo'}
+                          onChange={() => setFinishing('bolsillo')}
+                        />
+                        <div className="design-option-copy">
+                          <b>Bolsillo superior e inferior para tubo</b>
+                          <small>Para colgar como pasacalle o banner colgante.</small>
+                        </div>
+                        <span className="design-option-price">+$4.00</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {selectedProduct?.price_inst && (
+                    <label className="check-option" style={{ marginTop: '14px' }}>
+                      <input
+                        type="checkbox"
+                        checked={installation}
+                        onChange={(event) => setInstallation(event.target.checked)}
+                      />
+                      <span>
+                        <b>Incluir servicio de instalación profesional</b>
+                        <small>Un equipo técnico de Gigaprint se encarga del montaje en sitio.</small>
+                      </span>
+                    </label>
+                  )}
+                </div>
+              </div>
+            ) : mode === 'lotes' ? (
+              <div className="quote-step">
+                <span>{variantOptions.length ? '03' : '02'}</span>
+                <div className="step-content">
+                  <h3>Selecciona el tamaño del lote</h3>
+                  <p>En imprenta y empaques, los lotes mayores optimizan drásticamente el costo por unidad.</p>
+                  
+                  <div className="quote-tiers">
+                    {tiers.map((tier) => {
+                      const qty = Number(tier.qty) || 1000;
+                      const unitCost = Number(tier.price) / qty;
+                      const isActive = effectiveQuantity === qty;
+                      return (
+                        <button
+                          key={tier.qty}
+                          type="button"
+                          onClick={() => setQuantity(qty)}
+                          className={isActive ? 'active' : ''}
+                        >
+                          <span>Lote de {qty.toLocaleString()} uds</span>
+                          <b>{money(tier.price)}</b>
+                          <small style={{ color: 'var(--muted)', fontSize: '10px' }}>
+                            ≈ {unitCost < 0.1 ? `$${unitCost.toFixed(3)}` : money(unitCost)} / u
+                          </small>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="quote-step">
+                <span>{variantOptions.length ? '03' : '02'}</span>
+                <div className="step-content">
+                  <h3>¿Cuántas unidades necesitas?</h3>
+                  <p>A mayor volumen, obtienes mejores tarifas automáticas por escala.</p>
+
+                  <div className="quantity-picker">
+                    <button type="button" onClick={() => setQuantity(Math.max(minQuantity, effectiveQuantity - 1))}>
+                      <X size={16} />
+                    </button>
+                    <strong>{effectiveQuantity}</strong>
+                    <button type="button" onClick={() => setQuantity(effectiveQuantity + 1)}>
+                      <Plus size={16} />
+                    </button>
+                  </div>
+
+                  <div className="qty-quick-buttons">
+                    <button type="button" onClick={() => setQuantity(1)}>1</button>
+                    <button type="button" onClick={() => setQuantity(6)}>6</button>
+                    <button type="button" onClick={() => setQuantity(12)}>12</button>
+                    <button type="button" onClick={() => setQuantity(24)}>24</button>
+                    <button type="button" onClick={() => setQuantity(50)}>50</button>
+                    <button type="button" onClick={() => setQuantity(100)}>100</button>
+                  </div>
+
+                  {tiers.length > 1 && (
+                    <div className="quote-tiers">
+                      {tiers.slice(0, 8).map((tier) => {
+                        const tierQty = Number(tier.qty);
+                        const isActive = effectiveQuantity >= tierQty && activeTier.qty === tier.qty;
+                        const basePrice = Number(tiers[0]?.price) || 0;
+                        const discount = basePrice > Number(tier.price) ? Math.round(((basePrice - Number(tier.price)) / basePrice) * 100) : 0;
+                        return (
+                          <button
+                            key={tier.qty}
+                            type="button"
+                            onClick={() => setQuantity(Math.max(minQuantity, tierQty))}
+                            className={isActive ? 'active' : ''}
+                          >
+                            <span>Desde {tier.qty} {selectedProduct?.unit}</span>
+                            <b>{money(tier.price)} / u</b>
+                            {discount > 0 && <span className="tier-discount-badge">-{discount}% dto.</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Step 4: Design Services */}
+            <div className="quote-step">
+              <span>{isArea || variantOptions.length ? '04' : '03'}</span>
+              <div className="step-content">
+                <h3>Servicio de Diseño Gráfico</h3>
+                <p>Garantiza que tus archivos tengan la resolución, sangría y perfil de color óptimos.</p>
+
+                <div className="design-options-grid">
+                  <label className={`design-option-card ${designLevel === 'none' ? 'active' : ''}`}>
+                    <input
+                      type="radio"
+                      name="designLevel"
+                      checked={designLevel === 'none'}
+                      onChange={() => setDesignLevel('none')}
+                    />
+                    <div className="design-option-copy">
+                      <b>Tengo mi arte listo para producción</b>
+                      <small>Revisión técnica de resolución y proporciones incluida sin costo.</small>
+                    </div>
+                    <span className="design-option-price">$0</span>
+                  </label>
+
+                  <label className={`design-option-card ${designLevel === 'adaptation' ? 'active' : ''}`}>
+                    <input
+                      type="radio"
+                      name="designLevel"
+                      checked={designLevel === 'adaptation'}
+                      onChange={() => setDesignLevel('adaptation')}
+                    />
+                    <div className="design-option-copy">
+                      <b>Adaptación y retoque de archivo existente</b>
+                      <small>Ajustamos medidas, textos o formato de tu archivo previo.</small>
+                    </div>
+                    <span className="design-option-price">+{money(calcSettings.designAdaptationPrice || 5)}</span>
+                  </label>
+
+                  <label className={`design-option-card ${designLevel === 'full' ? 'active' : ''}`}>
+                    <input
+                      type="radio"
+                      name="designLevel"
+                      checked={designLevel === 'full'}
+                      onChange={() => setDesignLevel('full')}
+                    />
+                    <div className="design-option-copy">
+                      <b>Diseño profesional desde cero</b>
+                      <small>Un diseñador de Gigaprint crea tu propuesta desde tu idea o referencia.</small>
+                    </div>
+                    <span className="design-option-price">+{money(calcSettings.designFromScratchPrice || 15)}</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Sticky Summary Card */}
+          <aside className="quote-summary-card">
+            <span className="eyebrow">Resumen de Cotización</span>
+            <h2>{money(quote.total)}</h2>
+            <p>{calcSettings.disclaimer || 'Valores referenciales con IVA (15%) incluido.'}</p>
+
+            {quote.savingsPercent > 0 && (
+              <div className="savings-banner">
+                <Sparkles size={16} />
+                <span>¡Estás ahorrando {quote.savingsPercent}% por volumen!</span>
+              </div>
+            )}
+
+            <div className="summary-line">
+              <span>Producto</span>
+              <b>{selectedProduct?.name}</b>
+            </div>
+
+            {selectionText && (
+              <div className="summary-line">
+                <span>Variante / Acabado</span>
+                <b>{selectionText}</b>
+              </div>
+            )}
+
+            <div className="summary-line">
+              <span>{isArea ? 'Medidas y cantidad' : 'Cantidad total'}</span>
+              <b>{readableDimensions}</b>
+            </div>
+
+            <div className="summary-line">
+              <span>Tarifa aplicada</span>
+              <b>
+                {quote.mode === 'area'
+                  ? `${money(quote.rate)} / m²`
+                  : quote.mode === 'tier-total'
+                    ? `${money(quote.rate)} / lote`
+                    : `${money(quote.rate)} / unidad`}
+              </b>
+            </div>
+
+            {designCost > 0 && (
+              <div className="summary-line">
+                <span>Diseño gráfico</span>
+                <b>+{money(designCost)}</b>
+              </div>
+            )}
+
+            {finishingCost > 0 && (
+              <div className="summary-line">
+                <span>Acabados / Ojaletes</span>
+                <b>+{money(finishingCost)}</b>
+              </div>
+            )}
+
+            {installationCost > 0 && (
+              <div className="summary-line">
+                <span>Instalación en sitio</span>
+                <b>+{money(installationCost)}</b>
+              </div>
+            )}
+
+            <div className="summary-line" style={{ borderTop: '2px solid rgba(255,255,255,0.2)', marginTop: '8px' }}>
+              <span>Subtotal (sin IVA)</span>
+              <b>{money(quote.subtotal)}</b>
+            </div>
+
+            <div className="summary-line">
+              <span>IVA ({quote.taxRate}%)</span>
+              <b>{money(quote.tax)}</b>
+            </div>
+
+            <div className="summary-note">
+              <Check size={15} /> Cotización inmediata lista para producción o revisión.
+            </div>
+
+            <button
+              type="button"
+              className="button button-primary full-button"
+              onClick={add}
+            >
+              Agregar al carrito de cotizaciones <ArrowRight size={16} />
+            </button>
+
+            <a
+              href={`https://wa.me/${data.settings?.whatsapp || '593999999999'}?text=${whatsappMessage}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="whatsapp-action-btn"
+            >
+              <MessageCircle size={17} /> Cotizar directo por WhatsApp
+            </a>
+
+            <Link to="/contacto" className="summary-contact">
+              ¿Requieres medidas o acabados especiales? <u>Contáctanos</u>
+            </Link>
+          </aside>
+        </div>
+      </section>
+    </PageShell>
+  );
+}
 
 function ContactPage() { const { data, cart, saveInquiry, saveQuoteRequest } = useSite(); const [sent, setSent] = useState(false); const [form, setForm] = useState({ name: '', company: '', email: '', phone: '', message: '' }); const update = (key) => (event) => setForm({ ...form, [key]: event.target.value }); const submit = async (event) => { event.preventDefault(); await saveInquiry(form); if (cart.length) { const total = cart.reduce((sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1), 0); const subtotal = cart.reduce((sum, item) => sum + (Number(item.quoteBreakdown?.subtotal ?? item.price) || 0) * (Number(item.quantity) || 1), 0); const taxAmount = Math.max(0, total - subtotal); await saveQuoteRequest({ customerName: form.name, customerCompany: form.company, customerEmail: form.email, customerPhone: form.phone, items: cart, subtotal, taxRate: Number(data.calculatorSettings?.taxRate) || 15, taxAmount, total, notes: form.message }); } setSent(true); }; return <PageShell><section className="inner-hero contact-hero"><div className="container"><span className="eyebrow orange">Contacto</span><h1>Hablemos de lo que<br /><em>quieres hacer visible.</em></h1><p>Cuéntanos un poco de tu idea. Si ya tienes medidas, referencias o un presupuesto en mente, mucho mejor.</p></div></section><section className="section contact-section"><div className="container contact-layout"><div className="contact-info"><span className="eyebrow">Resolvemos rápido</span><h2>Una conversación puede ahorrar muchos intentos.</h2><div className="contact-list"><a href={`https://wa.me/${data.settings.whatsapp}`}><MessageCircle /><span><b>WhatsApp</b><small>{data.settings.phone}</small></span></a><a href={`mailto:${data.settings.email}`}><FileText /><span><b>Correo</b><small>{data.settings.email}</small></span></a><div><Building2 /><span><b>Visítanos</b><small>{data.settings.address}</small></span></div></div><div className="contact-mini"><span>Horario de atención</span><b>Lun — Vie / 09:00 — 18:00</b></div></div><div className="contact-form-card">{sent ? <div className="success-state"><div className="success-icon"><Check /></div><h2>¡Gracias por escribirnos!</h2><p>Recibimos tu solicitud y te responderemos muy pronto con los siguientes pasos.</p><Button to="/">Volver al inicio</Button></div> : <form onSubmit={submit}><div className="form-heading"><span className="eyebrow orange">Cuéntanos</span><h2>¿Qué tienes en mente?</h2></div><div className="fields two"><label>Tu nombre<input required value={form.name} onChange={update('name')} placeholder="Nombre y apellido" /></label><label>Empresa (opcional)<input value={form.company} onChange={update('company')} placeholder="Nombre de tu marca" /></label></div><div className="fields two"><label>Correo<input required type="email" value={form.email} onChange={update('email')} placeholder="tu@correo.com" /></label><label>WhatsApp<input required value={form.phone} onChange={update('phone')} placeholder="+593..." /></label></div><label>Cuéntanos sobre el proyecto<textarea required value={form.message} onChange={update('message')} rows="5" placeholder="Quiero un rótulo para..." /></label><button type="submit" className="button button-primary">Enviar solicitud <ArrowRight size={16} /></button><small className="form-footnote">También puedes escribirnos directo por WhatsApp. Respondemos en horario laboral.</small></form>}</div></div></section></PageShell>; }
 
@@ -110,7 +869,6 @@ function SmartProductEditor({ product, onClose }) {
 
 function SmartAdminProducts() { const { data, removeCollectionItem } = useSite(); const [selected, setSelected] = useState(null); const [search, setSearch] = useState(''); const [category, setCategory] = useState('Todos'); const visible = data.products.filter((product) => { const term = search.toLowerCase(); return (category === 'Todos' || product.category === category) && `${product.name} ${product.category}`.toLowerCase().includes(term); }).slice(0, 180); const fresh = { id: `product-${Date.now()}`, name: 'Nuevo producto', category: 'Gran formato', type: 'unit', calcType: 'unit', price: 0, unit: 'unidad', image: media.lona, description: 'Descripción del producto', featured: false, isPublished: true, specs: [], variantOptions: [], priceScales: [], colors: [], sizes: [] }; return <AdminShell><AdminHeader eyebrow="Catálogo inteligente" title="Productos, variantes y precios" text={`${data.products.length} productos listos. Edita variables y escalas desde una sola pantalla.`} action={<Button onClick={() => setSelected(fresh)}>Añadir producto</Button>} /><div className="admin-card catalog-toolbar"><div className="fields two"><label>Buscar producto<input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Ej. lona, camiseta, tarjeta" /></label><label>Categoría<select value={category} onChange={(event) => setCategory(event.target.value)}>{categories.map((item) => <option key={item}>{item}</option>)}</select></label></div><p>Mostrando {visible.length} de {data.products.length}. El catálogo importado conserva precios por m², unidad, lote y volumen.</p></div><div className="admin-card table-card"><div className="data-table-head"><span>Producto</span><span>Categoría / regla</span><span>Desde</span><span>Acciones</span></div>{visible.map((product) => <div className="data-table-row" key={product.id}><div className="table-product"><img src={product.image} alt="" /><span><b>{product.name}</b><small>{product.variantOptions?.length ? `${product.variantOptions.length} variables · ` : ''}{product.priceScales?.length || 0} escalas</small></span></div><span>{product.category}<br /><small>{getProductCalcType(product) === 'm2' ? 'Por medidas' : product.pricingMode === 'tier-total' ? 'Por lote' : 'Por unidad'}</small></span><strong>{money(product.price)} / {product.unit}</strong><div className="row-actions"><button onClick={() => setSelected(product)} title="Editar variables"><Edit3 size={15} /></button><button className="danger" onClick={() => removeCollectionItem('products', product.id)} title="Eliminar"><Trash2 size={15} /></button></div></div>)}{visible.length === 0 && <div className="admin-empty">No hay productos con esos filtros.</div>}</div>{selected && <SmartProductEditor product={selected} onClose={() => setSelected(null)} />}</AdminShell>; }
 
-function ProductEditor({ product, onClose }) { const { data, updateCollectionItem, addCollectionItem } = useSite(); const [draft, setDraft] = useState(product); const isNew = !data.products.find((item) => item.id === product.id); const save = () => { if (isNew) addCollectionItem('products', draft); else updateCollectionItem('products', draft.id, draft); onClose(); }; return <div className="modal-backdrop"><div className="admin-modal"><div className="modal-heading"><div><span className="eyebrow orange">Editor de producto</span><h2>{isNew ? 'Nuevo producto' : draft.name}</h2></div><button onClick={onClose}><X /></button></div><div className="fields"><label>Nombre<input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></label><div className="fields two"><label>Categoría<select value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })}>{categories.filter((c) => c !== 'Todos').map((c) => <option key={c}>{c}</option>)}</select></label><label>Precio base<input type="number" value={draft.price} onChange={(e) => setDraft({ ...draft, price: Number(e.target.value) })} /></label></div><label>Descripción<textarea rows="3" value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} /></label><label>Imagen<select value={draft.image} onChange={(e) => setDraft({ ...draft, image: e.target.value })}>{[media.lona, media.vinil, media.letrero, media.laser, media.stickers].map((img) => <option key={img} value={img}>{img.split('/').pop()}</option>)}</select></label></div><div className="modal-actions"><button className="button button-ghost" onClick={onClose}>Cancelar</button><button className="button button-primary" onClick={save}>Guardar producto <Save size={16} /></button></div></div></div>; }
 
 function AdminPromos() { const { data, updateCollectionItem, removeCollectionItem } = useSite(); return <AdminShell><AdminHeader eyebrow="Campañas" title="Promociones" text="Activa o ajusta ofertas para mover la conversación." /><div className="admin-promo-grid">{data.promotions.map((promo) => <article className={`admin-promo ${promo.active ? '' : 'inactive'}`} key={promo.id}><div><span>{promo.eyebrow}</span><button onClick={() => updateCollectionItem('promotions', promo.id, { active: !promo.active })}>{promo.active ? 'Activa' : 'Pausada'}</button></div><h2>{promo.title}</h2><p>{promo.description}</p><div><strong>{money(promo.price)}</strong><del>{money(promo.oldPrice)}</del><button className="danger-text" onClick={() => removeCollectionItem('promotions', promo.id)}><Trash2 size={14} /></button></div></article>)}</div></AdminShell>; }
 

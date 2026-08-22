@@ -1,6 +1,6 @@
 export function assetPath(value) {
   if (!value || /^(?:https?:|data:|blob:|#)/i.test(value)) return value;
-  const base = import.meta.env.BASE_URL || '/';
+  const base = import.meta.env?.BASE_URL || '/';
   if (value.startsWith(base)) return value;
   return `${base}${String(value).replace(/^\/+/, '')}`;
 }
@@ -28,4 +28,14 @@ export const media = {
   showcaseCampaign: assetPath('/media/showcase/publicidad-creativa-impresora-1.webp'),
   resourcePrices: assetPath('/media/resources/precios-bomba.webp'),
   milagroFlag: assetPath('/media/seasonal/milagro/bandera-milagro-g01.webp'),
+  taza: assetPath('/media/products/tazita.webp'),
+  camiseta: assetPath('/media/products/camiseta.webp'),
+  camiseta1: assetPath('/media/products/camiseta-01.webp'),
+  gorra: assetPath('/media/products/gorra-ejemplo-1.webp'),
+  gorraEcuador: assetPath('/media/products/gorra-ecuador.webp'),
+  placa: assetPath('/media/products/placa-de-vidrio.webp'),
+  stand: assetPath('/media/products/stand.webp'),
+  bannerX: assetPath('/media/products/banner-x.webp'),
+  bolso: assetPath('/media/products/funda-para-stand-publicitario.webp'),
+  rolloLona: assetPath('/media/resources/rollo-de-lona-3d.webp'),
 };

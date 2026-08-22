@@ -90,9 +90,17 @@ export function SiteProvider({ children }) {
   const notify = (message) => { setToast(message); window.setTimeout(() => setToast(''), 2800); };
   const addToCart = (item) => {
     setCart((current) => {
-      const fingerprint = item.configFingerprint || item.variant || item.id;
-      const match = current.find((row) => (row.configFingerprint || row.variant || row.id) === fingerprint && row.id === item.id);
-      return match ? current.map((row) => row === match ? { ...row, quantity: row.quantity + (item.quantity || 1) } : row) : [...current, { ...item, quantity: item.quantity || 1 }];
+      const fingerprint = item.configFingerprint || `${item.id}:${item.variant || 'default'}`;
+      const match = current.find((row) => (row.configFingerprint || `${row.id}:${row.variant || 'default'}`) === fingerprint);
+      if (match) {
+        return current.map((row) => row === match ? { ...row, quantity: row.quantity + (item.quantity || 1) } : row);
+      }
+      return [...current, {
+        ...item,
+        cartId: item.cartId || `cart-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        configFingerprint: fingerprint,
+        quantity: item.quantity || 1
+      }];
     });
     notify('Agregado a tu carrito de cotizaciones');
   };
