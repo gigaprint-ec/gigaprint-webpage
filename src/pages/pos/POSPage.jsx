@@ -21,7 +21,11 @@ import {
   Filter,
   X,
   Target,
-  ArrowRight
+  ArrowRight,
+  Key,
+  Copy,
+  Check,
+  ShieldCheck
 } from 'lucide-react';
 import {
   loadPOSStore,
@@ -29,6 +33,7 @@ import {
   toISODate,
   getDayNameSpanish,
   getMondayOfWeek,
+  getISOWeekCode,
   generateOrderNumber,
   calculateWeeklyBalance,
   calculateDailyReconciliation
@@ -47,6 +52,9 @@ export function POSPage() {
   }, [store.advisors, store.activeAdvisorId]);
 
   const money = (val) => `$${(Number(val) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  const currentMonday = getMondayOfWeek();
+  const currentWeekCode = getISOWeekCode();
 
   // ==========================================
   // CASHIER (NEW ORDER) STATE
@@ -99,6 +107,10 @@ export function POSPage() {
   const [receiptOrder, setReceiptOrder] = useState(null);
   const [receiptItems, setReceiptItems] = useState([]);
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
+
+  // Credentials quick view popup
+  const [showCredsModal, setShowCredsModal] = useState(false);
+  const [copiedCreds, setCopiedCreds] = useState(false);
 
   // Expense Logger State
   const [expenseDesc, setExpenseDesc] = useState('');
@@ -414,6 +426,13 @@ export function POSPage() {
     });
   }, [store.orders, crmSearch, crmStatusFilter]);
 
+  const copyMyCreds = () => {
+    const text = `🔑 Mi Credencial Gigaprint (${currentWeekCode})\n👤 Asesora: ${activeAdvisor.name}\n🔢 PIN de Caja: ${activeAdvisor.weeklyPin || activeAdvisor.pin}\n🔐 Clave: ${activeAdvisor.weeklyPassword}\n🌐 Acceso: https://gigaprint-ec.github.io/gigaprint-webpage/#/admin/pos`;
+    navigator.clipboard.writeText(text);
+    setCopiedCreds(true);
+    setTimeout(() => setCopiedCreds(false), 2500);
+  };
+
   return (
     <div className="pos-container">
       {/* Top Header & Navigation */}
@@ -423,7 +442,29 @@ export function POSPage() {
             <ShoppingCart size={22} style={{ color: 'var(--orange)' }} />
             Punto de Venta & CRM
           </h1>
-          <span>Asesora: {activeAdvisor?.name}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>Asesora: <b>{activeAdvisor?.name}</b></span>
+            <button
+              type="button"
+              onClick={() => setShowCredsModal(true)}
+              title="Ver mi PIN y clave semanal"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '2px 8px',
+                borderRadius: '6px',
+                border: '1px solid rgba(234, 88, 12, 0.4)',
+                background: 'var(--orange-soft)',
+                color: 'var(--orange-dark)',
+                fontSize: '11px',
+                fontWeight: 800,
+                cursor: 'pointer'
+              }}
+            >
+              <Key size={12} /> PIN: {activeAdvisor?.weeklyPin || activeAdvisor?.pin || '1234'}
+            </button>
+          </div>
         </div>
 
         <div className="pos-top-actions">
@@ -437,7 +478,7 @@ export function POSPage() {
             >
               {store.advisors.map((adv) => (
                 <option key={adv.id} value={adv.id}>
-                  {adv.name} {adv.role === 'admin' ? '(Admin)' : ''}
+                  {adv.name} (PIN: {adv.weeklyPin || adv.pin || '1234'})
                 </option>
               ))}
             </select>
@@ -477,7 +518,9 @@ export function POSPage() {
         </div>
       </div>
 
-      {/* TAB 1: NUEVA VENTA / CAJERO (POS) */}
+      {/* =========================================================================
+          TAB 1: NUEVA VENTA / CAJERO (POS)
+          ========================================================================= */}
       {activeTab === 'cashier' && (
         <div className="pos-cashier-grid">
           {/* Left Column: Customer & Products */}
@@ -960,7 +1003,9 @@ export function POSPage() {
         </div>
       )}
 
-      {/* TAB 2: PEDIDOS & CRM (CARTERA) */}
+      {/* =========================================================================
+          TAB 2: PEDIDOS & CRM (CARTERA)
+          ========================================================================= */}
       {activeTab === 'orders' && (
         <div className="pos-card">
           <div className="pos-card-title">
@@ -1089,7 +1134,9 @@ export function POSPage() {
         </div>
       )}
 
-      {/* TAB 3: MI CUADRE SEMANAL (EXCEL FORMAT IDÉNTICO) */}
+      {/* =========================================================================
+          TAB 3: MI CUADRE SEMANAL (EXCEL FORMAT IDÉNTICO)
+          ========================================================================= */}
       {activeTab === 'daily_close' && (
         <div style={{ display: 'grid', gap: '20px' }}>
           {/* Weekly Goal Progress Card */}
@@ -1182,7 +1229,9 @@ export function POSPage() {
         </div>
       )}
 
-      {/* TAB 4: CAJA CHICA & EGRESOS */}
+      {/* =========================================================================
+          TAB 4: CAJA CHICA & EGRESOS
+          ========================================================================= */}
       {activeTab === 'expenses' && (
         <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '20px' }}>
           {/* New Expense Form */}
@@ -1294,7 +1343,82 @@ export function POSPage() {
         </div>
       )}
 
-      {/* MODALS */}
+      {/* =========================================================================
+          MODALS: NEW CUSTOMER & CREDENTIALS QUICK VIEW
+          ========================================================================= */}
+      {showCredsModal && (
+        <div className="pos-modal-overlay" style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.65)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px'
+        }}>
+          <div className="pos-modal-content" style={{
+            background: 'var(--paper)',
+            borderRadius: '20px',
+            width: '100%',
+            maxWidth: '420px',
+            border: '1px solid var(--line)',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
+            padding: '24px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 900, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Key size={18} style={{ color: 'var(--orange)' }} /> Credencial de Acceso
+              </h3>
+              <button type="button" onClick={() => setShowCredsModal(false)} style={{ border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--muted)' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{
+              background: 'var(--bg)',
+              padding: '16px',
+              borderRadius: '12px',
+              border: '1px solid var(--line)',
+              marginBottom: '16px'
+            }}>
+              <div style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>
+                Asesora Activa
+              </div>
+              <strong style={{ fontSize: '18px', color: 'var(--ink)', display: 'block' }}>
+                {activeAdvisor?.name}
+              </strong>
+              <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '2px' }}>
+                Semana activa: <b>{currentWeekCode}</b> (Lunes {currentMonday})
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '14px' }}>
+                <div style={{ background: 'var(--paper)', padding: '10px', borderRadius: '8px', border: '1px solid var(--line)' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--muted)', display: 'block', fontWeight: 700 }}>PIN DE CAJA</span>
+                  <strong style={{ fontSize: '20px', color: 'var(--orange-dark)' }}>{activeAdvisor?.weeklyPin || activeAdvisor?.pin || '1234'}</strong>
+                </div>
+                <div style={{ background: 'var(--paper)', padding: '10px', borderRadius: '8px', border: '1px solid var(--line)' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--muted)', display: 'block', fontWeight: 700 }}>CLAVE WEB</span>
+                  <strong style={{ fontSize: '15px', color: 'var(--ink)' }}>{activeAdvisor?.weeklyPassword || `${activeAdvisor?.name.toLowerCase()}-1234`}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={copyMyCreds}
+                className="pos-submit-order-btn"
+                style={{ flex: 1, padding: '12px', fontSize: '13px' }}
+              >
+                {copiedCreds ? <Check size={16} /> : <Copy size={16} />}
+                {copiedCreds ? '¡Copiado!' : 'Copiar mi credencial'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isNewCustomerModal && (
         <div className="pos-modal-overlay" style={{
           position: 'fixed',

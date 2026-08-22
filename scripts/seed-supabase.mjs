@@ -27,7 +27,15 @@ try {
   await pool.query(`insert into public.pages (id,slug,title,intro,is_published,sort_order) values ('home','home','Inicio',$1,true,0) on conflict (id) do update set intro=excluded.intro,updated_at=now()`, [settings.heroText]);
   for (const [index, block] of initialData.homeBlocks.entries()) await pool.query(`insert into public.page_blocks (id,page_id,block_type,content,sort_order,is_visible) values ($1,'home',$2,$3,$4,$5) on conflict (id) do update set block_type=excluded.block_type,content=excluded.content,sort_order=excluded.sort_order,is_visible=excluded.is_visible,updated_at=now()`, [block.id, block.type, json(cleanAssets(Object.fromEntries(Object.entries(block).filter(([key]) => !['id', 'type', 'visible'].includes(key))))), index, block.visible !== false]);
 
-  console.log(`Seeded ${initialData.services.length} services, ${initialData.products.length} products, ${initialData.promotions.length} promotions and ${initialData.homeBlocks.length} home blocks.`);
+  const { DEFAULT_ADVISORS } = await server.ssrLoadModule('/src/lib/posStore.js');
+  for (const row of DEFAULT_ADVISORS) {
+    await pool.query(`insert into public.pos_advisors (id, name, email, phone, role, weekly_pin, weekly_password, current_week_code, pin_last_rotated_at, weekly_goal, is_active)
+      values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      on conflict (id) do update set name=excluded.name, email=excluded.email, phone=excluded.phone, weekly_pin=excluded.weekly_pin, weekly_password=excluded.weekly_password, current_week_code=excluded.current_week_code, pin_last_rotated_at=excluded.pin_last_rotated_at, weekly_goal=excluded.weekly_goal, is_active=excluded.is_active, updated_at=now()`,
+      [row.id, row.name, row.email, row.phone, row.role || 'asesora', row.weeklyPin || row.pin, row.weeklyPassword, row.currentWeekCode, row.pinLastRotatedAt, Number(row.weeklyGoal) || 3200, row.isActive !== false]);
+  }
+
+  console.log(`Seeded ${initialData.services.length} services, ${initialData.products.length} products, ${initialData.promotions.length} promotions, ${initialData.homeBlocks.length} home blocks and ${DEFAULT_ADVISORS.length} POS advisors.`);
 } finally {
   await pool.end();
   await server.close();
