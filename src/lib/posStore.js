@@ -221,6 +221,7 @@ export const INITIAL_POS_STORE = {
   payments: [],
   expenses: [],
   shifts: [],
+  cashAudits: [],
   materials: DEFAULT_MATERIALS,
   materialLogs: [],
   customerLogs: [],
@@ -263,6 +264,7 @@ export function loadPOSStore() {
     payments: parsed.payments || [],
     expenses: parsed.expenses || [],
     shifts: parsed.shifts || [],
+    cashAudits: parsed.cashAudits || [],
     materials: (parsed.materials && parsed.materials.length > 0) ? parsed.materials : DEFAULT_MATERIALS,
     materialLogs: parsed.materialLogs || [],
     customerLogs: parsed.customerLogs || [],
@@ -1479,3 +1481,323 @@ export function exportOrdersToCSV(orders = [], advisors = []) {
   link.click();
   document.body.removeChild(link);
 }
+
+// -----------------------------------------------------------------------------
+// ADVANCED FINANCIAL & MULTI-TERMINAL ENGINE
+// -----------------------------------------------------------------------------
+
+// Calculate Multi-Terminal Live Status for all Cashiers / Points of Sale
+export function calculateMultiTerminalLiveStatus(store, targetDate = toISODate()) {
+  const advisors = store.advisors || [];
+  const shifts = store.shifts || [];
+  const payments = store.payments || [];
+  const expenses = store.expenses || [];
+  const orders = store.orders || [];
+
+  return advisors.map((adv) => {
+    // Find today's shift for this advisor
+    const todayShifts = shifts.filter((s) => s.advisorId === adv.id && s.shiftDate === targetDate);
+    const activeShift = todayShifts.find((s) => s.status === 'open') || todayShifts[todayShifts.length - 1] || null;
+
+    // Filter today's transactions for this advisor
+    const todayPayments = payments.filter((p) => p.advisorId === adv.id && p.paymentDate === targetDate);
+    const todayExpenses = expenses.filter((e) => e.advisorId === adv.id && e.expenseDate === targetDate);
+    const todayOrders = orders.filter((o) => o.advisorId === adv.id && o.orderDate === targetDate && o.status !== 'cancelled');
+
+    const openingFloat = activeShift ? Number(activeShift.openingCashAmount || 0) : 0;
+    const cashCollected = todayPayments.filter((p) => p.paymentMethod === 'cash').reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    const transfersCollected = todayPayments.filter((p) => p.paymentMethod === 'transfer').reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    const cardsCollected = todayPayments.filter((p) => p.paymentMethod === 'card').reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    const pettyCashExpenses = todayExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+    
+    // Live Cash in Drawer = Opening + Cash Collections - Cash Expenses
+    const currentDrawerCash = Math.max(0, openingFloat + cashCollected - pettyCashExpenses);
+    const totalCollected = cashCollected + transfersCollected + cardsCollected;
+    const totalSales = todayOrders.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
+
+    // Calculate Shift Elapsed Time & Status
+    let status = 'closed';
+    let statusLabel = 'Turno Cerrado';
+    let openTimeFormatted = null;
+    let hoursOpen = 0;
+
+    if (activeShift && activeShift.status === 'open') {
+      status = 'open';
+      statusLabel = 'Turno Abierto';
+      if (activeShift.openedAt) {
+        const openedAtDate = new Date(activeShift.openedAt);
+        openTimeFormatted = openedAtDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        hoursOpen = Math.max(0, (Date.now() - openedAtDate.getTime()) / 3600000);
+        if (hoursOpen > 9) {
+          status = 'review_needed';
+          statusLabel = 'Por Cuadrar (>9h)';
+        }
+      }
+    } else if (todayOrders.length > 0 || todayPayments.length > 0) {
+      status = 'closed_with_sales';
+      statusLabel = 'Caja Cuadrada';
+    }
+
+    return {
+      advisorId: adv.id,
+      advisorName: adv.name,
+      advisorRole: adv.role || 'asesora',
+      phone: adv.phone || '',
+      isActive: adv.isActive !== false,
+      weeklyGoal: Number(adv.weeklyGoal) || 3200,
+      shift: activeShift,
+      status,
+      statusLabel,
+      openTimeFormatted,
+      hoursOpen: Number(hoursOpen.toFixed(1)),
+      openingFloat,
+      cashCollected,
+      transfersCollected,
+      cardsCollected,
+      pettyCashExpenses,
+      currentDrawerCash,
+      totalCollected,
+      totalSales,
+      ordersCount: todayOrders.length
+    };
+  });
+}
+
+// Calculate Debt Aging Matrix (Cuentas por Cobrar & Antigüedad de Cartera)
+export function calculateDebtAgingMatrix(orders = []) {
+  const activeUnpaidOrders = orders.filter(
+    (o) => Number(o.balanceDue || 0) > 0.05 && o.status !== 'cancelled'
+  );
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  let bucket0to15 = 0;
+  let bucket16to30 = 0;
+  let bucket31to60 = 0;
+  let bucketOver60 = 0;
+  let totalDebt = 0;
+
+  const enrichedDebtors = activeUnpaidOrders.map((order) => {
+    const orderDate = new Date(order.orderDate || order.createdAt || today);
+    orderDate.setHours(0, 0, 0, 0);
+    const diffDays = Math.max(0, Math.floor((today.getTime() - orderDate.getTime()) / 86400000));
+    const balance = Number(order.balanceDue || 0);
+
+    totalDebt += balance;
+
+    let bucket = '0-15';
+    let riskLevel = 'low'; // low, medium, high, critical
+    if (diffDays <= 15) {
+      bucket0to15 += balance;
+      bucket = '0-15';
+      riskLevel = 'low';
+    } else if (diffDays <= 30) {
+      bucket16to30 += balance;
+      bucket = '16-30';
+      riskLevel = 'medium';
+    } else if (diffDays <= 60) {
+      bucket31to60 += balance;
+      bucket = '31-60';
+      riskLevel = 'high';
+    } else {
+      bucketOver60 += balance;
+      bucket = '+60';
+      riskLevel = 'critical';
+    }
+
+    return {
+      ...order,
+      daysOverdue: diffDays,
+      debtBucket: bucket,
+      riskLevel
+    };
+  });
+
+  // Sort by highest balance due and days overdue
+  enrichedDebtors.sort((a, b) => b.daysOverdue - a.daysOverdue || b.balanceDue - a.balanceDue);
+
+  return {
+    totalDebt: Number(totalDebt.toFixed(2)),
+    bucket0to15: Number(bucket0to15.toFixed(2)),
+    bucket16to30: Number(bucket16to30.toFixed(2)),
+    bucket31to60: Number(bucket31to60.toFixed(2)),
+    bucketOver60: Number(bucketOver60.toFixed(2)),
+    count: activeUnpaidOrders.length,
+    debtorsList: enrichedDebtors
+  };
+}
+
+// Record Blind Cash Audit with denominations breakdown
+export function recordBlindCashAudit(store, { advisorId, shiftId, denominations = {}, notes = '', declaredCash = 0 }) {
+  const advisor = (store.advisors || []).find((a) => a.id === advisorId);
+  const shifts = store.shifts || [];
+  const shift = shifts.find((s) => s.id === shiftId) || null;
+
+  const today = toISODate();
+  // Calculate expected cash in drawer
+  const payments = (store.payments || []).filter((p) => p.advisorId === advisorId && p.paymentDate === today && p.paymentMethod === 'cash');
+  const expenses = (store.expenses || []).filter((e) => e.advisorId === advisorId && e.expenseDate === today);
+  const openingFloat = shift ? Number(shift.openingCashAmount || 0) : 0;
+  const cashCollected = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const cashExpenses = expenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+  const expectedCash = Number((openingFloat + cashCollected - cashExpenses).toFixed(2));
+
+  const totalDeclared = Number((Number(declaredCash) || Object.entries(denominations).reduce((sum, [denom, qty]) => {
+    return sum + (Number(denom) * (Number(qty) || 0));
+  }, 0)).toFixed(2));
+
+  const discrepancy = Number((totalDeclared - expectedCash).toFixed(2));
+  const isBalanced = Math.abs(discrepancy) <= 0.05;
+
+  const auditRecord = {
+    id: `audit-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    date: today,
+    timestamp: new Date().toISOString(),
+    advisorId,
+    advisorName: advisor ? advisor.name : 'Asesora',
+    shiftId: shiftId || null,
+    denominations,
+    totalDeclared,
+    expectedCash,
+    discrepancy,
+    isBalanced,
+    status: isBalanced ? 'balanced' : discrepancy > 0 ? 'surplus' : 'shortage',
+    notes: notes.trim()
+  };
+
+  const updatedAudits = [auditRecord, ...(store.cashAudits || [])];
+  const updatedStore = { ...store, cashAudits: updatedAudits };
+
+  savePOSStoreLocal(updatedStore);
+  syncEntityRemote('pos_cash_audits', auditRecord);
+
+  return { ok: true, updatedStore, auditRecord };
+}
+
+// Calculate High-Speed Dynamic Print Item Price & Finishings
+export function calculatePrintItemPrice({
+  product,
+  widthCm = 0,
+  heightCm = 0,
+  quantity = 1,
+  finishingType = 'none',
+  eyeletCount = 0,
+  customUnitPrice = null,
+  customerVipTier = null
+}) {
+  if (!product) {
+    return { areaM2: 0, perimeterM: 0, unitRate: 0, baseItemSubtotal: 0, finishingSubtotal: 0, totalItemPrice: 0 };
+  }
+
+  const qty = Math.max(1, Number(quantity) || 1);
+  const isArea = product.calcType === 'area';
+  const widthM = Number(widthCm) / 100;
+  const heightM = Number(heightCm) / 100;
+  const areaM2 = isArea && widthM > 0 && heightM > 0 ? widthM * heightM : 0;
+  const perimeterM = isArea && widthM > 0 && heightM > 0 ? 2 * (widthM + heightM) : 0;
+
+  // Pricing Tier resolution
+  let unitRate = customUnitPrice !== null && customUnitPrice !== ''
+    ? Number(customUnitPrice)
+    : Number(product.basePrice || 7.50);
+
+  if (customerVipTier === 'mayorista' && product.wholesalePrice) {
+    unitRate = Number(product.wholesalePrice);
+  } else if (customerVipTier === 'agencia' && product.agencyPrice) {
+    unitRate = Number(product.agencyPrice);
+  }
+
+  // Finishing calculation
+  let finishingUnitCost = 0;
+  if (finishingType === 'ojales_pequenos') {
+    finishingUnitCost += (Number(eyeletCount) || 4) * 0.30;
+  } else if (finishingType === 'ojales_grandes' || finishingType === 'ojales_reforzados') {
+    finishingUnitCost += (Number(eyeletCount) || 4) * 0.50;
+  } else if (finishingType === 'bolsillo' || finishingType === 'bolsillo_tubo') {
+    finishingUnitCost += 4.00;
+  } else if (finishingType === 'dobladillo_perimetral') {
+    finishingUnitCost += perimeterM * 0.75;
+  } else if (finishingType === 'laminado_protector') {
+    finishingUnitCost += areaM2 * 3.50;
+  }
+
+  const baseItemSubtotal = isArea ? (areaM2 * unitRate * qty) : (unitRate * qty);
+  const finishingSubtotal = finishingUnitCost * qty;
+  const totalItemPrice = Number((baseItemSubtotal + finishingSubtotal).toFixed(2));
+
+  return {
+    areaM2: Number(areaM2.toFixed(3)),
+    perimeterM: Number(perimeterM.toFixed(2)),
+    unitRate,
+    baseItemSubtotal: Number(baseItemSubtotal.toFixed(2)),
+    finishingSubtotal: Number(finishingSubtotal.toFixed(2)),
+    totalItemPrice
+  };
+}
+
+// Export Full Comprehensive Financial Report to CSV
+export function exportFullFinancialReportToCSV(metrics, orders = [], advisors = [], agingData = {}) {
+  const lines = [];
+  lines.push('=== GIGAPRINT — REPORTE FINANCIERO Y EJECUTIVO DE VENTAS ===');
+  lines.push(`Fecha de Emisión:,${new Date().toLocaleString()}`);
+  lines.push(`Rango de Análisis:,${metrics.dateRangeLabel || 'Período Seleccionado'}`);
+  lines.push('');
+  
+  lines.push('--- RESUMEN EJECUTIVO (KPIs) ---');
+  lines.push(`Facturación Bruta:,$${Number(metrics.grossSales || 0).toFixed(2)}`);
+  lines.push(`Recaudación Real (Cobros):,$${Number(metrics.totalDeposited || 0).toFixed(2)}`);
+  lines.push(`Cartera por Cobrar (Saldos):,$${Number(metrics.balanceDue || 0).toFixed(2)}`);
+  lines.push(`Gastos de Caja Menor:,$${Number(metrics.totalExpenses || 0).toFixed(2)}`);
+  lines.push(`Margen Bruto Estimado:,$${Number(metrics.grossProfit || 0).toFixed(2)} (${metrics.marginPercent || 0}%)`);
+  lines.push(`Ticket Promedio:,$${Number(metrics.averageTicket || 0).toFixed(2)}`);
+  lines.push(`Total Trabajos / Órdenes:,${metrics.orderCount || orders.length}`);
+  lines.push('');
+
+  lines.push('--- RECAUDACIÓN POR MÉTODO DE PAGO ---');
+  lines.push(`Efectivo en Gavetas:,$${Number(metrics.paymentMethods?.cash || 0).toFixed(2)}`);
+  lines.push(`Transferencias Bancarias:,$${Number(metrics.paymentMethods?.transfer || 0).toFixed(2)}`);
+  lines.push(`Tarjetas Datafast / Medianet:,$${Number(metrics.paymentMethods?.card || 0).toFixed(2)}`);
+  lines.push(`Cheques:,$${Number(metrics.paymentMethods?.check || 0).toFixed(2)}`);
+  lines.push('');
+
+  if (agingData && agingData.totalDebt > 0) {
+    lines.push('--- ANTIGÜEDAD DE CARTERA (CUENTAS POR COBRAR) ---');
+    lines.push(`Corriente (0-15 días):,$${Number(agingData.bucket0to15 || 0).toFixed(2)}`);
+    lines.push(`Crédito Corto (16-30 días):,$${Number(agingData.bucket16to30 || 0).toFixed(2)}`);
+    lines.push(`Vencido (31-60 días):,$${Number(agingData.bucket31to60 || 0).toFixed(2)}`);
+    lines.push(`Mora Crítica (+60 días):,$${Number(agingData.bucketOver60 || 0).toFixed(2)}`);
+    lines.push(`Total Cartera Activa:,$${Number(agingData.totalDebt || 0).toFixed(2)}`);
+    lines.push('');
+  }
+
+  lines.push('--- LIBRO DETALLADO DE ÓRDENES ---');
+  lines.push('Numero,Fecha,Asesora,Cliente,RUC/CI,Telefono,Trabajo,Etapa,Total ($),Abono ($),Saldo ($)');
+  orders.forEach((o) => {
+    const adv = advisors.find((a) => a.id === o.advisorId);
+    lines.push([
+      o.orderNumber,
+      o.orderDate,
+      adv ? adv.name : (o.advisorId || 'Ventas'),
+      `"${(o.customerName || '').replace(/"/g, '""')}"`,
+      `"${o.customerIdentification || ''}"`,
+      `"${o.customerPhone || ''}"`,
+      `"${(o.jobName || '').replace(/"/g, '""')}"`,
+      o.productionStage || 'preprensa',
+      Number(o.totalAmount || 0).toFixed(2),
+      Number(o.depositAmount || 0).toFixed(2),
+      Number(o.balanceDue || 0).toFixed(2)
+    ].join(','));
+  });
+
+  const csvContent = lines.join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', `gigaprint_reporte_financiero_${toISODate()}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+

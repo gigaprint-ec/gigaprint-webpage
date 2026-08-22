@@ -71,6 +71,7 @@ import { POSSRIInvoiceModal } from './POSSRIInvoiceModal';
 import { POSAdvisorsManagement } from './POSAdvisorsManagement';
 import { POSPurchaseOrdersManager } from './POSPurchaseOrdersManager';
 import { SupabaseFileUploader } from '../../components/studio/SupabaseFileUploader';
+import { POSProductQuickMatrix } from './components/POSProductQuickMatrix';
 
 export function POSPage() {
   const [store, setStore] = useState(loadPOSStore);
@@ -152,6 +153,21 @@ export function POSPage() {
   const activeShift = useMemo(() => {
     return getActiveCashShift(store.shifts || [], currentAdvisorId);
   }, [store.shifts, currentAdvisorId]);
+
+  // Selected Customer Resolution & Debt Calculation
+  const selectedCustomerObj = useMemo(() => {
+    if (customerId) return (store.customers || []).find((c) => c.id === customerId) || null;
+    if (customerIdentification) return (store.customers || []).find((c) => c.identification === customerIdentification) || null;
+    if (customerName) return (store.customers || []).find((c) => c.name.toLowerCase() === customerName.toLowerCase()) || null;
+    return null;
+  }, [store.customers, customerId, customerIdentification, customerName]);
+
+  const customerDebt = useMemo(() => {
+    if (!customerName && !customerId) return 0;
+    return (store.orders || [])
+      .filter((o) => (o.customerId === customerId || (o.customerName && o.customerName.toLowerCase() === customerName.toLowerCase())) && Number(o.balanceDue) > 0.05 && o.status !== 'cancelled')
+      .reduce((sum, o) => sum + Number(o.balanceDue || 0), 0);
+  }, [store.orders, customerId, customerName]);
 
   // Due date alerts
   const dueAlerts = useMemo(() => {
@@ -435,6 +451,28 @@ export function POSPage() {
     setActiveTab('cashier');
   };
 
+  // Keyboard Shortcuts Listener for fast cashier counter flow
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (activeTab !== 'cashier') return;
+
+      if (e.key === 'F1') {
+        e.preventDefault();
+        const searchInput = document.getElementById('pos-customer-search-input');
+        if (searchInput) searchInput.focus();
+      } else if (e.key === 'F6') {
+        e.preventDefault();
+        handleParkSale();
+      } else if (e.key === 'F9' || (e.ctrlKey && e.key === 'Enter')) {
+        e.preventDefault();
+        handleSubmitOrder();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeTab, cartItems, customerName, customerIdentification, customerPhone, totalAmount, payments]);
+
   // Lock Screen Check
   if (!session) {
     return (
@@ -638,41 +676,65 @@ export function POSPage() {
                   <h3 className="pos-card-title">
                     <Users size={17} /> Datos del Cliente & Trabajo
                   </h3>
-                  {customerId && (
-                    <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--pos-success-dark)', background: 'var(--pos-success-soft)', padding: '3px 10px', borderRadius: '999px', border: '1px solid var(--pos-success-border)' }}>
-                      ✓ Cliente CRM Vinculado
-                    </span>
-                  )}
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    {selectedCustomerObj?.isVip && (
+                      <span style={{ fontSize: '11px', fontWeight: 800, color: '#b45309', background: '#fef3c7', padding: '3px 10px', borderRadius: '999px', border: '1px solid #fde68a' }}>
+                        ⭐ VIP / Mayorista
+                      </span>
+                    )}
+                    {customerId && (
+                      <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--pos-success-dark)', background: 'var(--pos-success-soft)', padding: '3px 10px', borderRadius: '999px', border: '1px solid var(--pos-success-border)' }}>
+                        ✓ CRM Vinculado
+                      </span>
+                    )}
+                  </div>
                 </div>
+
+                {customerDebt > 0 && (
+                  <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 800, color: '#dc2626' }}>
+                      <AlertTriangle size={15} />
+                      <span>⚠️ Este cliente mantiene un saldo pendiente de: <strong>${customerDebt.toFixed(2)}</strong></span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('orders')}
+                      style={{ background: '#dc2626', color: '#fff', border: 'none', borderRadius: '6px', padding: '3px 8px', fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}
+                    >
+                      Ver Detalle
+                    </button>
+                  </div>
+                )}
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: '12px' }}>
                   <div>
-                    <label className="pos-label required">Nombre / Empresa</label>
+                    <label className="pos-label required">Nombre / Razón Social (F1)</label>
                     <div className="pos-input-group">
                       <div className="pos-input-icon-left"><Users size={14} /></div>
                       <input
+                        id="pos-customer-search-input"
                         type="text"
                         className="pos-input pos-input-with-icon"
                         value={customerName}
                         onChange={(e) => setCustomerName(e.target.value)}
-                        placeholder="Escribe para buscar o nuevo cliente..."
+                        placeholder="Escribe para buscar cliente o nuevo..."
                       />
                     </div>
                     {/* Quick CRM Auto-suggestions */}
                     {customerName.length > 1 && !customerId && (
                       <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginTop: '6px' }}>
                         {(store.customers || [])
-                          .filter((c) => c.name.toLowerCase().includes(customerName.toLowerCase()))
-                          .slice(0, 3)
+                          .filter((c) => c.name.toLowerCase().includes(customerName.toLowerCase()) || (c.identification && c.identification.includes(customerName)))
+                          .slice(0, 4)
                           .map((c) => (
                             <button
                               key={c.id}
                               type="button"
                               onClick={() => handleSelectCustomerSuggestion(c)}
                               className="pos-cat-pill"
-                              style={{ padding: '3px 8px', fontSize: '11px' }}
+                              style={{ padding: '3px 8px', fontSize: '11px', background: '#fff' }}
                             >
-                              + {c.name}
+                              + {c.name} {c.isVip ? '⭐' : ''}
                             </button>
                           ))}
                       </div>
@@ -688,13 +750,13 @@ export function POSPage() {
                         className="pos-input pos-input-with-icon"
                         value={customerIdentification}
                         onChange={(e) => setCustomerIdentification(e.target.value)}
-                        placeholder="17..."
+                        placeholder="1790012345001"
                       />
                     </div>
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '10px' }}>
                   <div>
                     <label className="pos-label required">WhatsApp de Contacto</label>
                     <div className="pos-input-group">
@@ -704,7 +766,7 @@ export function POSPage() {
                         className="pos-input pos-input-with-icon"
                         value={customerPhone}
                         onChange={(e) => setCustomerPhone(e.target.value)}
-                        placeholder="099... o +593"
+                        placeholder="0991234567"
                       />
                     </div>
                   </div>
@@ -722,8 +784,8 @@ export function POSPage() {
                   </div>
                 </div>
 
-                <div>
-                  <label className="pos-label">Descripción del Trabajo / Rótulo</label>
+                <div style={{ marginTop: '10px' }}>
+                  <label className="pos-label">Descripción del Trabajo / Proyecto</label>
                   <div className="pos-input-group">
                     <div className="pos-input-icon-left"><FileText size={14} /></div>
                     <input
@@ -731,18 +793,18 @@ export function POSPage() {
                       className="pos-input pos-input-with-icon"
                       value={jobName}
                       onChange={(e) => setJobName(e.target.value)}
-                      placeholder="Ej. Lona 3x2m para inauguración farmacia con ojales"
+                      placeholder="Ej. Lona Frontlit 3x2m con dobladillo y ojales cada 30cm"
                     />
                   </div>
                 </div>
 
                 {/* Cloud File Uploader for Artwork */}
-                <div>
+                <div style={{ marginTop: '10px' }}>
                   <button
                     type="button"
                     onClick={() => setShowUploader(!showUploader)}
                     className="pos-cat-pill"
-                    style={{ padding: '8px 14px', display: 'inline-flex', alignItems: 'center', gap: '7px', fontSize: '12px' }}
+                    style={{ padding: '8px 14px', display: 'inline-flex', alignItems: 'center', gap: '7px', fontSize: '12px', background: '#fff' }}
                   >
                     <UploadCloud size={14} />
                     {artUrl ? '✓ Archivo Adjunto (Clic para cambiar)' : '+ Adjuntar Arte / Vector PDF / AI'}
@@ -761,193 +823,29 @@ export function POSPage() {
                 </div>
               </div>
 
-              {/* Card 2: Product & Substrate Configurator */}
+              {/* Card 2: Visual Product Matrix & Dynamic Area Calculator */}
               <div className="pos-card">
-                <div className="pos-card-header">
+                <div className="pos-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <h3 className="pos-card-title">
-                    <Package size={17} /> Agregar Producto / Sustrato
+                    <Package size={17} /> Catálogo de Sustratos & Calculadora m²
                   </h3>
+                  <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 800 }}>
+                    {store.products?.length || 0} materiales disponibles
+                  </span>
                 </div>
 
-                {/* Category Pills Filter */}
-                <div>
-                  <label className="pos-label">Filtrar por Categoría</label>
-                  <div className="pos-cat-pills-row">
-                    {productCategories.map((cat) => (
-                      <button
-                        key={cat}
-                        type="button"
-                        className={`pos-cat-pill ${selectedCategory === cat ? 'active' : ''}`}
-                        onClick={() => setSelectedCategory(cat)}
-                      >
-                        {cat === 'all' ? '✦ Todos' : cat}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Product Dropdown Selector */}
-                <div>
-                  <label className="pos-label required">Seleccionar Producto</label>
-                  <select
-                    className="pos-select"
-                    value={selectedProductId || selectedProduct?.id || ''}
-                    onChange={(e) => setSelectedProductId(e.target.value)}
-                  >
-                    {filteredProductOptions.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} — ${Number(p.basePrice).toFixed(2)}/{p.unit} ({p.category})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Dimension Inputs (When calcType === 'area') */}
-                {selectedProduct?.calcType === 'area' && (
-                  <div style={{ display: 'grid', gap: '10px' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.2fr', gap: '12px', alignItems: 'end' }}>
-                      <div>
-                        <label className="pos-label required">Ancho (cm)</label>
-                        <div className="pos-input-group">
-                          <input
-                            type="number"
-                            className="pos-input"
-                            placeholder="Ej. 300"
-                            value={itemWidthCm}
-                            onChange={(e) => setItemWidthCm(e.target.value)}
-                          />
-                          <span className="pos-input-suffix">cm</span>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="pos-label required">Alto (cm)</label>
-                        <div className="pos-input-group">
-                          <input
-                            type="number"
-                            className="pos-input"
-                            placeholder="Ej. 200"
-                            value={itemHeightCm}
-                            onChange={(e) => setItemHeightCm(e.target.value)}
-                          />
-                          <span className="pos-input-suffix">cm</span>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="pos-label">Superficie Total</label>
-                        <div className="pos-calc-box">
-                          <span style={{ fontSize: '11.5px', color: 'var(--pos-text-muted)', fontWeight: 700 }}>Área:</span>
-                          <span className="pos-calc-badge">{computedItem.areaM2} m²</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Quick Presets */}
-                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '11px', color: 'var(--pos-text-subtle)', fontWeight: 800 }}>Medidas Frecuentes:</span>
-                      {[
-                        { label: '1x1 m', w: 100, h: 100 },
-                        { label: '2x1 m', w: 200, h: 100 },
-                        { label: '3x2 m', w: 300, h: 200 },
-                        { label: '0.8x1.2 m', w: 80, h: 120 }
-                      ].map((preset) => (
-                        <button
-                          key={preset.label}
-                          type="button"
-                          className="pos-cat-pill"
-                          style={{ padding: '3px 8px', fontSize: '11px' }}
-                          onClick={() => {
-                            setItemWidthCm(preset.w);
-                            setItemHeightCm(preset.h);
-                          }}
-                        >
-                          {preset.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Quantity, Finishings & Unit Price Override */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.3fr 1fr', gap: '12px', alignItems: 'end' }}>
-                  <div>
-                    <label className="pos-label">Cantidad</label>
-                    <div className="pos-stepper">
-                      <button
-                        type="button"
-                        className="pos-stepper-btn"
-                        onClick={() => setItemQuantity(Math.max(1, itemQuantity - 1))}
-                      >
-                        <Minus size={13} />
-                      </button>
-                      <input
-                        type="number"
-                        min={1}
-                        className="pos-stepper-input"
-                        value={itemQuantity}
-                        onChange={(e) => setItemQuantity(Math.max(1, Number(e.target.value)))}
-                      />
-                      <button
-                        type="button"
-                        className="pos-stepper-btn"
-                        onClick={() => setItemQuantity(itemQuantity + 1)}
-                      >
-                        <Plus size={13} />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="pos-label">Acabados / Confección</label>
-                    <select
-                      className="pos-select"
-                      value={itemFinishing}
-                      onChange={(e) => setItemFinishing(e.target.value)}
-                    >
-                      <option value="none">Sin confección / Al ras</option>
-                      <option value="ojales_pequenos">Ojales Pequeños ($0.30 c/u)</option>
-                      <option value="ojales_grandes">Ojales Reforzados ($0.50 c/u)</option>
-                      <option value="bolsillo">Bolsillo Tubo ($4.00)</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="pos-label">Precio Unit. ($)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      className="pos-input"
-                      placeholder={String(selectedProduct?.basePrice || 7.5)}
-                      value={customPriceOverride}
-                      onChange={(e) => setCustomPriceOverride(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                {/* Eyelet Quantity Adjuster */}
-                {itemFinishing.includes('ojales') && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#f8fafc', padding: '10px 14px', borderRadius: '11px', border: '1px solid var(--pos-border)' }}>
-                    <label className="pos-label" style={{ margin: 0 }}>Cantidad de Ojales:</label>
-                    <input
-                      type="number"
-                      min={1}
-                      style={{ width: '80px' }}
-                      className="pos-input"
-                      value={itemEyeletCount}
-                      onChange={(e) => setItemEyeletCount(Number(e.target.value))}
-                    />
-                    <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--pos-primary)' }}>
-                      Recargo Acabado: +${((Number(itemEyeletCount) || 4) * (itemFinishing === 'ojales_grandes' ? 0.50 : 0.30)).toFixed(2)}
-                    </span>
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  className="pos-add-cart-btn"
-                  onClick={handleAddToCart}
-                >
-                  <Plus size={17} /> Agregar al Carrito — ${computedItem.totalPrice.toFixed(2)}
-                </button>
+                <POSProductQuickMatrix
+                  products={store.products || []}
+                  selectedProduct={selectedProduct}
+                  onSelectProduct={(p) => setSelectedProductId(p.id)}
+                  onAddToCart={(item) => {
+                    setCartItems((prev) => [
+                      ...prev,
+                      { ...item, id: `cart-${Date.now()}-${Math.random().toString(36).substring(2, 6)}` }
+                    ]);
+                  }}
+                  customerVipTier={selectedCustomerObj?.isVip ? 'mayorista' : null}
+                />
               </div>
             </div>
 

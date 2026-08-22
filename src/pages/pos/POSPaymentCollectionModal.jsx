@@ -94,7 +94,27 @@ export function POSPaymentCollectionModal({ order, store, advisorId, onClose, on
 
         <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '14px' }}>
           <div>
-            <label style={{ fontSize: '12px', fontWeight: 800 }}>Monto a Cobrar / Abonar ($) *</label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+              <label style={{ fontSize: '12px', fontWeight: 800, margin: 0 }}>Monto a Cobrar / Abonar ($) *</label>
+              <div style={{ display: 'flex', gap: '4px' }}>
+                <button
+                  type="button"
+                  onClick={() => setPayAmount(balanceDue)}
+                  style={{ background: '#e2e8f0', border: 'none', borderRadius: '4px', padding: '2px 6px', fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}
+                >
+                  Saldo Total (${balanceDue.toFixed(2)})
+                </button>
+                {balanceDue > 5 && (
+                  <button
+                    type="button"
+                    onClick={() => setPayAmount(Number((balanceDue / 2).toFixed(2)))}
+                    style={{ background: '#e2e8f0', border: 'none', borderRadius: '4px', padding: '2px 6px', fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}
+                  >
+                    50% (${(balanceDue / 2).toFixed(2)})
+                  </button>
+                )}
+              </div>
+            </div>
             <div style={{ position: 'relative' }}>
               <span style={{ position: 'absolute', left: '12px', top: '10px', fontWeight: 900, color: 'var(--muted)' }}>$</span>
               <input

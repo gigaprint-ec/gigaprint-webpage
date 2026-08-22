@@ -20,30 +20,49 @@ import {
   Users,
   ShieldCheck,
   Building2,
-  AlertCircle
+  AlertCircle,
+  Monitor,
+  Printer,
+  FileSpreadsheet
 } from 'lucide-react';
 import {
   loadPOSStore,
   fetchRemotePOSStore,
   subscribePOSRealtime,
-  exportOrdersToCSV,
   toISODate,
   getMondayOfWeek,
-  calculateOrderMargin
+  calculateOrderMargin,
+  calculateDebtAgingMatrix,
+  calculateWeeklyBalance,
+  exportFullFinancialReportToCSV
 } from '../../lib/posStore';
+import { POSLiveTerminalCards } from './components/POSLiveTerminalCards';
+import { POSBlindCashCountModal } from './components/POSBlindCashCountModal';
+import { POSDebtAgingWidget } from './components/POSDebtAgingWidget';
+import { POSFinancialCharts } from './components/POSFinancialCharts';
 
 export function POSAdminDashboard() {
   const [store, setStore] = useState(loadPOSStore);
+  const [activeSubTab, setActiveSubTab] = useState('overview'); // 'overview', 'terminals', 'aging', 'orders'
   const [timeframe, setTimeframe] = useState('week'); // 'today', 'week', 'prev_week', 'month', 'year', 'custom'
   const [selectedAdvisorId, setSelectedAdvisorId] = useState('all');
   const [customFrom, setCustomFrom] = useState(toISODate(new Date(Date.now() - 30 * 86400000)));
   const [customTo, setCustomTo] = useState(toISODate());
 
+  // Blind Cash Audit Modal State
+  const [auditingAdvisor, setAuditingAdvisor] = useState(null);
+
   // Realtime subscription
   useEffect(() => {
-    fetchRemotePOSStore().then(setStore);
-    const unsubscribe = subscribePOSRealtime((remote) => setStore(remote));
-    return () => unsubscribe();
+    fetchRemotePOSStore().then((remote) => {
+      if (remote) setStore(remote);
+    });
+    const unsubscribe = subscribePOSRealtime((remote) => {
+      if (remote) setStore(remote);
+    });
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
   }, []);
 
   const money = (val) => `$${(Number(val) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -85,7 +104,7 @@ export function POSAdminDashboard() {
     return (store.orders || []).filter((order) => {
       const inDate = (!dateRange.from || order.orderDate >= dateRange.from) && (!dateRange.to || order.orderDate <= dateRange.to);
       const inAdvisor = selectedAdvisorId === 'all' || order.advisorId === selectedAdvisorId;
-      return inDate && inAdvisor;
+      return inDate && inAdvisor && order.status !== 'cancelled';
     });
   }, [store.orders, dateRange, selectedAdvisorId]);
 
@@ -114,7 +133,6 @@ export function POSAdminDashboard() {
     const balanceDue = filteredOrders.reduce((sum, o) => sum + (Number(o.balanceDue) || 0), 0);
     const totalExpenses = filteredExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
 
-    // Payments by method
     const paymentMethods = {
       cash: filteredPayments.filter((p) => p.paymentMethod === 'cash').reduce((sum, p) => sum + (Number(p.amount) || 0), 0),
       transfer: filteredPayments.filter((p) => p.paymentMethod === 'transfer').reduce((sum, p) => sum + (Number(p.amount) || 0), 0),
@@ -122,7 +140,7 @@ export function POSAdminDashboard() {
       check: filteredPayments.filter((p) => p.paymentMethod === 'check').reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
     };
 
-    const netCashInRegister = paymentMethods.cash - totalExpenses;
+    const netCashInRegister = Math.max(0, paymentMethods.cash - totalExpenses);
     const collectionRate = grossSales > 0 ? (totalDeposited / grossSales) * 100 : 0;
 
     // Real Estimated Gross Margin (Job Costing)
@@ -135,11 +153,10 @@ export function POSAdminDashboard() {
 
     const grossProfit = Math.max(0, grossSales - totalDirectCost - totalExpenses);
     const grossMarginPercent = grossSales > 0 ? (grossProfit / grossSales) * 100 : 0;
-
-    // Tax Breakdown (IVA 15%)
     const totalTaxCollected = filteredOrders.reduce((sum, o) => sum + (Number(o.taxAmount) || 0), 0);
 
     return {
+      dateRangeLabel: dateRange.label,
       grossSales,
       totalDeposited,
       balanceDue,
@@ -151,12 +168,22 @@ export function POSAdminDashboard() {
       averageTicket: filteredOrders.length > 0 ? grossSales / filteredOrders.length : 0,
       totalDirectCost,
       grossProfit,
-      grossMarginPercent,
+      marginPercent: Number(grossMarginPercent.toFixed(1)),
       totalTaxCollected
     };
-  }, [filteredOrders, filteredPayments, filteredExpenses, store.orderItems, store.materials]);
+  }, [filteredOrders, filteredPayments, filteredExpenses, store.orderItems, store.materials, dateRange]);
 
-  // Substrate Breakdown
+  // Weekly Balance Matrix for Trend Chart
+  const weeklyBalance = useMemo(() => {
+    return calculateWeeklyBalance(store, getMondayOfWeek(), selectedAdvisorId);
+  }, [store, selectedAdvisorId]);
+
+  // Aging Matrix for active debt
+  const agingData = useMemo(() => {
+    return calculateDebtAgingMatrix(store.orders || []);
+  }, [store.orders]);
+
+  // Top Performing Substrates
   const substrateBreakdown = useMemo(() => {
     const map = {};
     filteredOrders.forEach((o) => {
@@ -177,47 +204,11 @@ export function POSAdminDashboard() {
     })).sort((a, b) => b.revenue - a.revenue);
   }, [filteredOrders, store.orderItems, metrics.grossSales]);
 
-  // Daily Trend Data for Pure SVG Bar Chart
-  const dailyTrend = useMemo(() => {
-    const daysMap = {};
-    filteredOrders.forEach((o) => {
-      const d = o.orderDate;
-      if (!daysMap[d]) daysMap[d] = { sales: 0, orders: 0 };
-      daysMap[d].sales += Number(o.totalAmount || 0);
-      daysMap[d].orders += 1;
-    });
-
-    return Object.entries(daysMap)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([date, data]) => ({ date, ...data }));
-  }, [filteredOrders]);
-
-  const maxDailySales = useMemo(() => {
-    return Math.max(100, ...dailyTrend.map((d) => d.sales));
-  }, [dailyTrend]);
-
-  // Top Corporate Clients Analytics
-  const topClients = useMemo(() => {
-    const clientMap = {};
-    (store.orders || []).forEach((o) => {
-      const name = o.customerName || 'Consumidor Final';
-      if (!clientMap[name]) clientMap[name] = { total: 0, count: 0, balance: 0, phone: o.customerPhone || '' };
-      clientMap[name].total += Number(o.totalAmount || 0);
-      clientMap[name].count += 1;
-      clientMap[name].balance += Number(o.balanceDue || 0);
-    });
-
-    return Object.entries(clientMap)
-      .map(([name, data]) => ({ name, ...data }))
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 5);
-  }, [store.orders]);
-
   // Advisor Leaderboard
   const advisorStats = useMemo(() => {
     return (store.advisors || []).map((adv) => {
       const advOrders = (store.orders || []).filter(
-        (o) => o.advisorId === adv.id && (!dateRange.from || o.orderDate >= dateRange.from) && (!dateRange.to || o.orderDate <= dateRange.to)
+        (o) => o.advisorId === adv.id && (!dateRange.from || o.orderDate >= dateRange.from) && (!dateRange.to || o.orderDate <= dateRange.to) && o.status !== 'cancelled'
       );
       const sales = advOrders.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
       const deposits = advOrders.reduce((sum, o) => sum + (Number(o.depositAmount) || 0), 0);
@@ -235,265 +226,442 @@ export function POSAdminDashboard() {
     }).sort((a, b) => b.sales - a.sales);
   }, [store.advisors, store.orders, dateRange]);
 
+  const handleExportCSV = () => {
+    exportFullFinancialReportToCSV(metrics, filteredOrders, store.advisors || [], agingData);
+  };
+
+  const handlePrintReport = () => {
+    window.print();
+  };
+
+  const handleOpenAuditModal = (terminalInfo) => {
+    const adv = (store.advisors || []).find((a) => a.id === terminalInfo.advisorId);
+    if (adv) {
+      setAuditingAdvisor({ advisor: adv, shift: terminalInfo.shift });
+    }
+  };
+
   return (
     <div style={{ display: 'grid', gap: '20px', padding: '10px 0' }}>
       
-      {/* Top Controls & Filter Bar */}
+      {/* ----------------------------------------------------------------------
+          TOP HEADER & TIMEFRAME CONTROLS
+          ---------------------------------------------------------------------- */}
       <div className="pos-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <TrendingUp size={24} style={{ color: 'var(--orange)' }} />
-            Dashboard Ejecutivo & Control de Operaciones
-          </h1>
-          <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
-            Línea de tiempo: <b>{dateRange.label}</b> ({dateRange.from} al {dateRange.to})
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ background: 'var(--orange)', color: '#fff', width: '36px', height: '36px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <TrendingUp size={22} />
+            </div>
+            <div>
+              <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 900, color: 'var(--ink)' }}>
+                Finanzas & Monitoreo de Puntos de Venta
+              </h1>
+              <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                Período activo: <b>{dateRange.label}</b> ({dateRange.from} al {dateRange.to})
+              </span>
+            </div>
+          </div>
         </div>
 
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Timeframe Pills */}
           <div style={{ display: 'flex', background: 'var(--bg)', borderRadius: '10px', padding: '3px', border: '1px solid var(--line)' }}>
-            {['today', 'week', 'prev_week', 'month', 'year'].map((t) => (
+            {[
+              { id: 'today', label: 'Hoy' },
+              { id: 'week', label: 'Esta Semana' },
+              { id: 'prev_week', label: 'Sem. Anterior' },
+              { id: 'month', label: 'Este Mes' },
+              { id: 'year', label: 'Año' }
+            ].map((t) => (
               <button
-                key={t}
+                key={t.id}
                 type="button"
-                onClick={() => setTimeframe(t)}
+                onClick={() => setTimeframe(t.id)}
                 style={{
                   padding: '6px 12px',
                   borderRadius: '8px',
                   border: 'none',
-                  background: timeframe === t ? 'var(--orange)' : 'transparent',
-                  color: timeframe === t ? '#fff' : 'var(--ink)',
+                  background: timeframe === t.id ? 'var(--orange)' : 'transparent',
+                  color: timeframe === t.id ? '#fff' : 'var(--ink)',
                   fontSize: '11px',
                   fontWeight: 800,
                   cursor: 'pointer',
                   transition: 'all 0.15s ease'
                 }}
               >
-                {t === 'today' ? 'Hoy' : t === 'week' ? 'Semana' : t === 'prev_week' ? 'Sem. Anterior' : t === 'month' ? 'Mes' : 'Año'}
+                {t.label}
               </button>
             ))}
           </div>
 
+          {/* Action Buttons */}
           <button
             type="button"
-            className="pos-submit-order-btn"
-            onClick={() => exportOrdersToCSV(filteredOrders, dateRange.label)}
-            style={{ padding: '6px 12px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px' }}
+            onClick={handleExportCSV}
+            style={{
+              background: '#047857',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '7px 12px',
+              fontSize: '12px',
+              fontWeight: 800,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
           >
-            <Download size={13} /> Exportar Excel
+            <FileSpreadsheet size={15} /> Exportar Excel
+          </button>
+
+          <button
+            type="button"
+            onClick={handlePrintReport}
+            style={{
+              background: '#f1f5f9',
+              color: 'var(--ink)',
+              border: '1px solid var(--line)',
+              borderRadius: '8px',
+              padding: '7px 12px',
+              fontSize: '12px',
+              fontWeight: 800,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <Printer size={15} /> Imprimir
           </button>
         </div>
       </div>
 
-      {/* KPI Cards Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
+      {/* ----------------------------------------------------------------------
+          EXECUTIVE KPI MATRICES (6 CARDS)
+          ---------------------------------------------------------------------- */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
         
-        {/* Card 1: Facturación */}
-        <div className="pos-card" style={{ display: 'grid', gap: '4px' }}>
-          <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase' }}>Ventas Brutas</span>
-          <strong style={{ fontSize: '24px', fontWeight: 900, color: 'var(--ink)', fontFamily: 'Space Grotesk' }}>
+        {/* KPI 1: Facturación */}
+        <div className="pos-card" style={{ padding: '14px', display: 'grid', gap: '4px' }}>
+          <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase' }}>Facturación Bruta</span>
+          <strong style={{ fontSize: '22px', fontWeight: 900, color: 'var(--ink)', fontFamily: 'Space Grotesk' }}>
             {money(metrics.grossSales)}
           </strong>
           <small style={{ fontSize: '11px', color: 'var(--orange-dark)', fontWeight: 700 }}>
-            {metrics.orderCount} trabajos registrados
+            {metrics.orderCount} trabajos en el período
           </small>
         </div>
 
-        {/* Card 2: Recaudado */}
-        <div className="pos-card" style={{ display: 'grid', gap: '4px' }}>
-          <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase' }}>Recaudado en Caja</span>
-          <strong style={{ fontSize: '24px', fontWeight: 900, color: '#16a34a', fontFamily: 'Space Grotesk' }}>
+        {/* KPI 2: Recaudación Líquida */}
+        <div className="pos-card" style={{ padding: '14px', display: 'grid', gap: '4px', borderLeft: '4px solid #16a34a' }}>
+          <span style={{ fontSize: '11px', fontWeight: 800, color: '#15803d', textTransform: 'uppercase' }}>Recaudación Real</span>
+          <strong style={{ fontSize: '22px', fontWeight: 900, color: '#15803d', fontFamily: 'Space Grotesk' }}>
             {money(metrics.totalDeposited)}
           </strong>
           <small style={{ fontSize: '11px', color: '#16a34a', fontWeight: 700 }}>
-            {metrics.collectionRate.toFixed(1)}% tasa de cobro
+            Cobranza efectiva: {metrics.collectionRate.toFixed(1)}%
           </small>
         </div>
 
-        {/* Card 3: Cartera Pendiente */}
-        <div className="pos-card" style={{ display: 'grid', gap: '4px' }}>
-          <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase' }}>Cartera por Cobrar</span>
-          <strong style={{ fontSize: '24px', fontWeight: 900, color: metrics.balanceDue > 0 ? '#dc2626' : 'var(--muted)', fontFamily: 'Space Grotesk' }}>
+        {/* KPI 3: Cartera por Cobrar */}
+        <div className="pos-card" style={{ padding: '14px', display: 'grid', gap: '4px', borderLeft: '4px solid #dc2626' }}>
+          <span style={{ fontSize: '11px', fontWeight: 800, color: '#b91c1c', textTransform: 'uppercase' }}>Cartera por Cobrar</span>
+          <strong style={{ fontSize: '22px', fontWeight: 900, color: '#b91c1c', fontFamily: 'Space Grotesk' }}>
             {money(metrics.balanceDue)}
           </strong>
-          <small style={{ fontSize: '11px', color: metrics.balanceDue > 0 ? '#dc2626' : 'var(--muted)', fontWeight: 700 }}>
+          <small style={{ fontSize: '11px', color: '#dc2626', fontWeight: 700 }}>
             Saldos pendientes en taller
           </small>
         </div>
 
-        {/* Card 4: Margen Bruto Real */}
-        <div className="pos-card" style={{ display: 'grid', gap: '4px' }}>
-          <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase' }}>Utilidad Bruta Estimada</span>
-          <strong style={{ fontSize: '24px', fontWeight: 900, color: '#2563eb', fontFamily: 'Space Grotesk' }}>
+        {/* KPI 4: Margen Bruto Estimado */}
+        <div className="pos-card" style={{ padding: '14px', display: 'grid', gap: '4px' }}>
+          <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase' }}>Margen Bruto Est.</span>
+          <strong style={{ fontSize: '22px', fontWeight: 900, color: '#0284c7', fontFamily: 'Space Grotesk' }}>
             {money(metrics.grossProfit)}
           </strong>
-          <small style={{ fontSize: '11px', color: '#2563eb', fontWeight: 700 }}>
-            {metrics.grossMarginPercent.toFixed(1)}% margen sobre sustratos
+          <small style={{ fontSize: '11px', color: '#0369a1', fontWeight: 700 }}>
+            Rentabilidad: {metrics.marginPercent}%
           </small>
         </div>
 
-        {/* Card 5: IVA SRI */}
-        <div className="pos-card" style={{ display: 'grid', gap: '4px' }}>
-          <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase' }}>IVA 15% Generado</span>
-          <strong style={{ fontSize: '24px', fontWeight: 900, color: '#7c3aed', fontFamily: 'Space Grotesk' }}>
-            {money(metrics.totalTaxCollected)}
+        {/* KPI 5: Gastos Menores */}
+        <div className="pos-card" style={{ padding: '14px', display: 'grid', gap: '4px' }}>
+          <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase' }}>Gastos de Caja Menor</span>
+          <strong style={{ fontSize: '22px', fontWeight: 900, color: '#c2410c', fontFamily: 'Space Grotesk' }}>
+            {money(metrics.totalExpenses)}
           </strong>
-          <small style={{ fontSize: '11px', color: '#7c3aed', fontWeight: 700 }}>
-            Débito fiscal para SRI
+          <small style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 700 }}>
+            Egresos operativos autorizados
+          </small>
+        </div>
+
+        {/* KPI 6: Ticket Promedio */}
+        <div className="pos-card" style={{ padding: '14px', display: 'grid', gap: '4px' }}>
+          <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase' }}>Ticket Promedio</span>
+          <strong style={{ fontSize: '22px', fontWeight: 900, color: 'var(--ink)', fontFamily: 'Space Grotesk' }}>
+            {money(metrics.averageTicket)}
+          </strong>
+          <small style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 700 }}>
+            IVA 15% rec.: {money(metrics.totalTaxCollected)}
           </small>
         </div>
 
       </div>
 
-      {/* Charts & Breakdown 2-Column Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 1.4fr) minmax(320px, 1fr)', gap: '20px' }}>
-        
-        {/* Left: Daily Trend SVG Bar Chart */}
-        <div className="pos-card" style={{ display: 'grid', gap: '16px' }}>
-          <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <BarChart2 size={18} style={{ color: 'var(--orange)' }} />
-            Evolución Diaria de Facturación ($)
-          </h2>
+      {/* ----------------------------------------------------------------------
+          DASHBOARD SUB-NAVIGATION TABS
+          ---------------------------------------------------------------------- */}
+      <div style={{ display: 'flex', gap: '8px', borderBottom: '2px solid var(--line)', paddingBottom: '4px' }}>
+        {[
+          { id: 'overview', label: '📊 Resumen & Gráficos', badge: null },
+          { id: 'terminals', label: '🖥️ Monitoreo Multi-Terminal en Vivo', badge: 'EN TIEMPO REAL' },
+          { id: 'aging', label: '⚠️ Cartera & Aging (0-60d)', badge: agingData.count > 0 ? `${agingData.count} deudores` : null },
+          { id: 'orders', label: '📑 Libro de Órdenes & Detalle', badge: filteredOrders.length }
+        ].map((tab) => {
+          const isActive = activeSubTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveSubTab(tab.id)}
+              style={{
+                background: 'none',
+                border: 'none',
+                borderBottom: isActive ? '3px solid var(--orange)' : '3px solid transparent',
+                padding: '8px 16px',
+                fontSize: '13px',
+                fontWeight: 900,
+                color: isActive ? 'var(--orange)' : 'var(--muted)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                marginBottom: '-6px'
+              }}
+            >
+              <span>{tab.label}</span>
+              {tab.badge && (
+                <span style={{
+                  background: isActive ? 'var(--orange)' : '#e2e8f0',
+                  color: isActive ? '#fff' : 'var(--muted)',
+                  fontSize: '10px',
+                  fontWeight: 800,
+                  padding: '2px 6px',
+                  borderRadius: '10px'
+                }}>
+                  {tab.badge}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
 
-          {dailyTrend.length === 0 ? (
-            <p style={{ textAlign: 'center', color: 'var(--muted)', padding: '30px 0', fontSize: '12px' }}>
-              No hay transacciones registradas en este período.
-            </p>
-          ) : (
-            <div style={{ display: 'grid', gap: '10px' }}>
-              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', height: '160px', padding: '10px 0', borderBottom: '1px solid var(--line)' }}>
-                {dailyTrend.map((d) => {
-                  const pct = Math.max(8, (d.sales / maxDailySales) * 100);
-                  return (
-                    <div key={d.date} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', height: '100%', justifyContent: 'flex-end' }}>
-                      <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--ink)' }}>${Math.round(d.sales)}</span>
-                      <div
-                        style={{
-                          width: '100%',
-                          maxWidth: '42px',
-                          height: `${pct}%`,
-                          background: 'var(--orange)',
-                          borderRadius: '6px 6px 0 0',
-                          transition: 'height 0.3s ease'
-                        }}
-                        title={`${d.date}: $${d.sales.toFixed(2)} (${d.orders} órdenes)`}
-                      />
-                      <span style={{ fontSize: '9px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>
-                        {d.date.slice(5)}
-                      </span>
+      {/* ----------------------------------------------------------------------
+          TAB CONTENT 1: OVERVIEW & CHARTS
+          ---------------------------------------------------------------------- */}
+      {activeSubTab === 'overview' && (
+        <div style={{ display: 'grid', gap: '20px' }}>
+          
+          {/* Visual SVG Financial Charts */}
+          <POSFinancialCharts
+            dailyBreakdown={weeklyBalance.days || []}
+            paymentMethods={metrics.paymentMethods || {}}
+          />
+
+          {/* Bottom Split: Advisor Leaderboard + Substrate Breakdown */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '16px' }}>
+            
+            {/* Advisor Leaderboard */}
+            <div className="pos-card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Award size={18} style={{ color: 'var(--orange)' }} />
+                  Rendimiento por Asesora Comercial
+                </h4>
+                <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 800 }}>Meta Semanal: $3,200</span>
+              </div>
+
+              <div style={{ display: 'grid', gap: '10px' }}>
+                {advisorStats.map((adv, idx) => (
+                  <div key={adv.id} style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '12px', border: '1px solid var(--line)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ width: '20px', height: '20px', borderRadius: '50%', background: idx === 0 ? '#f59e0b' : '#94a3b8', color: '#fff', fontSize: '11px', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {idx + 1}
+                        </span>
+                        <strong style={{ fontSize: '13px', color: 'var(--ink)' }}>{adv.name}</strong>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <strong style={{ fontSize: '14px', fontFamily: 'Space Grotesk', color: 'var(--ink)' }}>
+                          {money(adv.sales)}
+                        </strong>
+                        <span style={{ fontSize: '11px', color: 'var(--muted)', marginLeft: '6px' }}>
+                          ({adv.ordersCount} trab.)
+                        </span>
+                      </div>
                     </div>
-                  );
-                })}
+
+                    {/* Progress Bar */}
+                    <div style={{ width: '100%', height: '5px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
+                      <div style={{ width: `${Math.min(100, adv.progress)}%`, height: '100%', background: adv.progress >= 100 ? '#16a34a' : 'var(--orange)' }} />
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          )}
-        </div>
 
-        {/* Right: Payment Methods Split */}
-        <div className="pos-card" style={{ display: 'grid', gap: '14px' }}>
-          <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <CreditCard size={18} style={{ color: 'var(--orange)' }} />
-            Distribución por Método de Cobro
-          </h2>
-
-          <div style={{ display: 'grid', gap: '10px' }}>
-            {[
-              { label: '💵 Efectivo (Caja)', val: metrics.paymentMethods.cash, color: '#16a34a' },
-              { label: '🏦 Transferencias Bancarias', val: metrics.paymentMethods.transfer, color: '#2563eb' },
-              { label: '💳 Tarjetas Débito / Crédito', val: metrics.paymentMethods.card, color: '#7c3aed' },
-              { label: '📜 Cheques', val: metrics.paymentMethods.check, color: '#d97706' }
-            ].map((p) => {
-              const pct = metrics.totalDeposited > 0 ? (p.val / metrics.totalDeposited) * 100 : 0;
-              return (
-                <div key={p.label} style={{ display: 'grid', gap: '4px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700 }}>
-                    <span>{p.label}</span>
-                    <span style={{ color: p.color, fontWeight: 900 }}>{money(p.val)} ({pct.toFixed(0)}%)</span>
-                  </div>
-                  <div style={{ height: '7px', borderRadius: '999px', background: 'var(--bg)', overflow: 'hidden' }}>
-                    <div style={{ width: `${pct}%`, height: '100%', background: p.color, borderRadius: '999px' }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-      </div>
-
-      {/* CRM Corporate Clients & Advisor Leaderboard */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 1fr) minmax(320px, 1.2fr)', gap: '20px' }}>
-        
-        {/* Top Clients */}
-        <div className="pos-card" style={{ display: 'grid', gap: '12px' }}>
-          <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Users size={18} style={{ color: 'var(--orange)' }} />
-            Top 5 Clientes Corporativos
-          </h2>
-
-          <div style={{ display: 'grid', gap: '8px' }}>
-            {topClients.map((c, idx) => (
-              <div key={c.name} style={{ padding: '10px 12px', borderRadius: '10px', background: 'var(--bg)', border: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <strong style={{ fontSize: '13px', color: 'var(--ink)' }}>{idx + 1}. {c.name}</strong>
-                  <div style={{ fontSize: '11px', color: 'var(--muted)' }}>
-                    {c.count} trabajos contratados
-                  </div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <span style={{ fontSize: '14px', fontWeight: 900, color: 'var(--orange-dark)' }}>{money(c.total)}</span>
-                  {c.balance > 0 && <small style={{ display: 'block', color: '#dc2626', fontSize: '10px' }}>Saldo: {money(c.balance)}</small>}
-                </div>
+            {/* Substrate & Line of Product Breakdown */}
+            <div className="pos-card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Layers size={18} style={{ color: '#0284c7' }} />
+                  Volumen por Categoría de Sustrato
+                </h4>
+                <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 800 }}>Participación (%)</span>
               </div>
-            ))}
-          </div>
-        </div>
 
-        {/* Advisor Leaderboard */}
-        <div className="pos-card" style={{ display: 'grid', gap: '12px' }}>
-          <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Award size={18} style={{ color: 'var(--orange)' }} />
-            Rendimiento del Equipo de Asesoras
-          </h2>
+              <div style={{ display: 'grid', gap: '10px' }}>
+                {substrateBreakdown.map((s, idx) => (
+                  <div key={idx} style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '12px', border: '1px solid var(--line)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                      <strong style={{ fontSize: '13px', color: 'var(--ink)' }}>{s.category}</strong>
+                      <div style={{ textAlign: 'right' }}>
+                        <strong style={{ fontSize: '14px', fontFamily: 'Space Grotesk', color: 'var(--ink)' }}>
+                          {money(s.revenue)}
+                        </strong>
+                        <span style={{ fontSize: '11px', color: 'var(--muted)', marginLeft: '6px' }}>
+                          ({s.percent.toFixed(1)}%)
+                        </span>
+                      </div>
+                    </div>
+                    {s.areaM2 > 0 && (
+                      <div style={{ fontSize: '11px', color: 'var(--muted)', marginBottom: '4px' }}>
+                        Área producida: <b>{s.areaM2.toFixed(2)} m²</b> ({s.count} ítems)
+                      </div>
+                    )}
+                    <div style={{ width: '100%', height: '5px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
+                      <div style={{ width: `${s.percent}%`, height: '100%', background: '#0284c7' }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      )}
+
+      {/* ----------------------------------------------------------------------
+          TAB CONTENT 2: LIVE MULTI-TERMINAL MONITORING
+          ---------------------------------------------------------------------- */}
+      {activeSubTab === 'terminals' && (
+        <POSLiveTerminalCards
+          store={store}
+          onSelectAdvisorForAudit={handleOpenAuditModal}
+        />
+      )}
+
+      {/* ----------------------------------------------------------------------
+          TAB CONTENT 3: DEBT AGING MATRIX (CUENTAS POR COBRAR)
+          ---------------------------------------------------------------------- */}
+      {activeSubTab === 'aging' && (
+        <POSDebtAgingWidget orders={store.orders || []} />
+      )}
+
+      {/* ----------------------------------------------------------------------
+          TAB CONTENT 4: DETAILED ORDERS LEDGER
+          ---------------------------------------------------------------------- */}
+      {activeSubTab === 'orders' && (
+        <div className="pos-card" style={{ display: 'grid', gap: '14px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+            <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 900 }}>
+              Libro Detallado de Órdenes ({filteredOrders.length} registros)
+            </h4>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <select
+                className="pos-select"
+                value={selectedAdvisorId}
+                onChange={(e) => setSelectedAdvisorId(e.target.value)}
+                style={{ width: '180px', fontSize: '12px' }}
+              >
+                <option value="all">Todas las Asesoras</option>
+                {(store.advisors || []).map((a) => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
 
           <div style={{ overflowX: 'auto' }}>
-            <table className="pos-orders-table" style={{ width: '100%' }}>
+            <table className="pos-orders-table" style={{ width: '100%', fontSize: '13px' }}>
               <thead>
                 <tr>
+                  <th>Orden</th>
+                  <th>Fecha</th>
                   <th>Asesora</th>
-                  <th>Órdenes</th>
-                  <th>Facturación</th>
-                  <th>Meta Semanal</th>
-                  <th>% Meta</th>
+                  <th>Cliente</th>
+                  <th>Trabajo</th>
+                  <th>Etapa</th>
+                  <th>Total</th>
+                  <th>Abonado</th>
+                  <th>Saldo</th>
                 </tr>
               </thead>
               <tbody>
-                {advisorStats.map((adv) => (
-                  <tr key={adv.id}>
-                    <td><strong>{adv.name}</strong></td>
-                    <td>{adv.ordersCount}</td>
-                    <td><b style={{ color: 'var(--orange)' }}>{money(adv.sales)}</b></td>
-                    <td>{money(adv.goal)}</td>
-                    <td>
-                      <span style={{
-                        padding: '2px 8px',
-                        borderRadius: '999px',
-                        fontSize: '11px',
-                        fontWeight: 900,
-                        background: adv.progress >= 100 ? '#dcfce7' : '#fef3c7',
-                        color: adv.progress >= 100 ? '#166534' : '#b45309'
-                      }}>
-                        {adv.progress.toFixed(0)}%
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {filteredOrders.slice(0, 30).map((o) => {
+                  const adv = (store.advisors || []).find((a) => a.id === o.advisorId);
+                  return (
+                    <tr key={o.id}>
+                      <td>
+                        <strong style={{ color: 'var(--orange-dark)' }}>#{o.orderNumber}</strong>
+                      </td>
+                      <td>{o.orderDate}</td>
+                      <td>{adv ? adv.name : (o.advisorId || 'Ventas')}</td>
+                      <td>
+                        <div style={{ fontWeight: 800 }}>{o.customerName}</div>
+                        <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{o.customerIdentification}</div>
+                      </td>
+                      <td>{o.jobName}</td>
+                      <td>
+                        <span style={{ textTransform: 'capitalize', fontSize: '11px', background: '#f1f5f9', padding: '3px 6px', borderRadius: '6px', fontWeight: 800 }}>
+                          {o.productionStage}
+                        </span>
+                      </td>
+                      <td><strong>{money(o.totalAmount)}</strong></td>
+                      <td><span style={{ color: '#16a34a', fontWeight: 800 }}>{money(o.depositAmount)}</span></td>
+                      <td>
+                        <strong style={{ color: Number(o.balanceDue) > 0 ? '#dc2626' : 'var(--muted)', fontFamily: 'Space Grotesk' }}>
+                          {money(o.balanceDue)}
+                        </strong>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         </div>
+      )}
 
-      </div>
+      {/* ----------------------------------------------------------------------
+          BLIND CASH COUNT AUDIT MODAL
+          ---------------------------------------------------------------------- */}
+      {auditingAdvisor && (
+        <POSBlindCashCountModal
+          store={store}
+          advisor={auditingAdvisor.advisor}
+          shift={auditingAdvisor.shift}
+          onClose={() => setAuditingAdvisor(null)}
+          onAuditSaved={(updatedStore) => {
+            setStore(updatedStore);
+          }}
+        />
+      )}
 
     </div>
   );
