@@ -496,6 +496,9 @@ export function AdminNav() {
   const { theme, setTheme } = useSite();
   const items = [
     ['/admin', 'Resumen'],
+    ['/admin/pos', '🛒 Punto de Venta'],
+    ['/admin/pos/dashboard', '📊 Cuadre Semanal'],
+    ['/admin/pos/asesoras', '👥 Equipo Asesoras'],
     ['/admin/editor', 'Editor visual'],
     ['/admin/contenido', 'Contenido'],
     ['/admin/productos', 'Productos'],
