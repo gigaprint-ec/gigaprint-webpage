@@ -10,8 +10,10 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { addOrderPayment } from '../../lib/posStore';
+import { useToast } from '../../components/studio/Toast';
 
 export function POSPaymentCollectionModal({ order, store, advisorId, onClose, onSuccess }) {
+  const toast = useToast();
   const balanceDue = Number(order?.balanceDue || 0);
   const [payAmount, setPayAmount] = useState(balanceDue);
   const [paymentMethod, setPaymentMethod] = useState('cash');
@@ -24,7 +26,7 @@ export function POSPaymentCollectionModal({ order, store, advisorId, onClose, on
     e.preventDefault();
     const amountNum = Number(payAmount);
     if (isNaN(amountNum) || amountNum <= 0) {
-      alert('Ingresa un monto válido mayor a 0');
+      toast.warning('Ingresa un monto válido mayor a 0');
       return;
     }
     if (amountNum > balanceDue) {
@@ -46,10 +48,11 @@ export function POSPaymentCollectionModal({ order, store, advisorId, onClose, on
 
     setIsSubmitting(false);
     if (res.ok) {
+      toast.success(`Abono de $${amountNum.toFixed(2)} registrado correctamente`);
       onSuccess(res.updatedStore, res.order);
       onClose();
     } else {
-      alert(res.error || 'Error al registrar el cobro');
+      toast.error(res.error || 'Error al registrar el cobro');
     }
   };
 

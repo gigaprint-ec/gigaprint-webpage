@@ -137,10 +137,15 @@ export function buildSRIFacturaXML({
   const razonSocialComprador = (order.customerName || 'CONSUMIDOR FINAL').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const identificacionComprador = order.customerIdentification || '9999999999999';
 
-  const subtotal15 = Number(order.subtotal || 0).toFixed(2);
+  const hasIVA = Number(order.taxRate || 0) > 0 || Number(order.taxAmount || 0) > 0;
+  const totalSinImpuestos = Number(order.subtotal || 0).toFixed(2);
   const totalDescuento = Number(order.discountAmount || 0).toFixed(2);
   const valorIVA = Number(order.taxAmount || 0).toFixed(2);
   const importeTotal = Number(order.totalAmount || 0).toFixed(2);
+
+  // Group bases by 15% and 0%
+  const baseImponible15 = hasIVA ? (Number(order.subtotal || 0) - Number(order.discountAmount || 0)).toFixed(2) : '0.00';
+  const baseImponible0 = !hasIVA ? (Number(order.subtotal || 0) - Number(order.discountAmount || 0)).toFixed(2) : '0.00';
 
   let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
   xml += `<factura id="comprobante" version="2.1.0">\n`;
@@ -168,23 +173,37 @@ export function buildSRIFacturaXML({
   xml += `    <tipoIdentificacionComprador>${tipoIdentificacionComprador}</tipoIdentificacionComprador>\n`;
   xml += `    <razonSocialComprador>${razonSocialComprador}</razonSocialComprador>\n`;
   xml += `    <identificacionComprador>${identificacionComprador}</identificacionComprador>\n`;
-  xml += `    <totalSinImpuestos>${subtotal15}</totalSinImpuestos>\n`;
+  xml += `    <totalSinImpuestos>${totalSinImpuestos}</totalSinImpuestos>\n`;
   xml += `    <totalDescuento>${totalDescuento}</totalDescuento>\n`;
   xml += `    <totalConImpuestos>\n`;
-  xml += `      <totalImpuesto>\n`;
-  xml += `        <codigo>2</codigo>\n`; // 2 = IVA
-  xml += `        <codigoPorcentaje>${SRI_CONFIG.codigoPorcentajeIVA}</codigoPorcentaje>\n`; // 4 = 15%
-  xml += `        <baseImponible>${subtotal15}</baseImponible>\n`;
-  xml += `        <tarifa>${SRI_CONFIG.tarifaIVA}</tarifa>\n`;
-  xml += `        <valor>${valorIVA}</valor>\n`;
-  xml += `      </totalImpuesto>\n`;
+
+  if (hasIVA && Number(baseImponible15) > 0) {
+    xml += `      <totalImpuesto>\n`;
+    xml += `        <codigo>2</codigo>\n`; // 2 = IVA
+    xml += `        <codigoPorcentaje>${SRI_CONFIG.codigoPorcentajeIVA}</codigoPorcentaje>\n`; // 4 = 15%
+    xml += `        <baseImponible>${baseImponible15}</baseImponible>\n`;
+    xml += `        <tarifa>${SRI_CONFIG.tarifaIVA}</tarifa>\n`;
+    xml += `        <valor>${valorIVA}</valor>\n`;
+    xml += `      </totalImpuesto>\n`;
+  }
+
+  if (!hasIVA || Number(baseImponible0) > 0) {
+    xml += `      <totalImpuesto>\n`;
+    xml += `        <codigo>2</codigo>\n`;
+    xml += `        <codigoPorcentaje>0</codigoPorcentaje>\n`; // 0 = 0% IVA
+    xml += `        <baseImponible>${baseImponible0}</baseImponible>\n`;
+    xml += `        <tarifa>0.00</tarifa>\n`;
+    xml += `        <valor>0.00</valor>\n`;
+    xml += `      </totalImpuesto>\n`;
+  }
+
   xml += `    </totalConImpuestos>\n`;
   xml += `    <propina>0.00</propina>\n`;
   xml += `    <importeTotal>${importeTotal}</importeTotal>\n`;
   xml += `    <moneda>DOLAR</moneda>\n`;
   xml += `    <pagos>\n`;
   xml += `      <pago>\n`;
-  xml += `        <formaPago>01</formaPago>\n`; // 01 = Sin utilización del sistema financiero / Efectivo
+  xml += `        <formaPago>01</formaPago>\n`; // 01 = Sin utilización del sistema financiero
   xml += `        <total>${importeTotal}</total>\n`;
   xml += `      </pago>\n`;
   xml += `    </pagos>\n`;
@@ -197,6 +216,9 @@ export function buildSRIFacturaXML({
     const itemUnitPrice = Number(it.unitPrice || it.unit_price || itemTotal).toFixed(2);
     const itemQty = Number(it.quantity || 1).toFixed(2);
     const desc = (it.productName || it.product_name || 'Servicio Gráfico').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const itemIVA = hasIVA ? (Number(itemTotal) * 0.15).toFixed(2) : '0.00';
+    const itemCodIVA = hasIVA ? SRI_CONFIG.codigoPorcentajeIVA : '0';
+    const itemTarifaIVA = hasIVA ? SRI_CONFIG.tarifaIVA : '0.00';
 
     xml += `    <detalle>\n`;
     xml += `      <codigoPrincipal>GIGA-${idx + 1}</codigoPrincipal>\n`;
@@ -208,10 +230,10 @@ export function buildSRIFacturaXML({
     xml += `      <impuestos>\n`;
     xml += `        <impuesto>\n`;
     xml += `          <codigo>2</codigo>\n`;
-    xml += `          <codigoPorcentaje>${SRI_CONFIG.codigoPorcentajeIVA}</codigoPorcentaje>\n`;
-    xml += `          <tarifa>${SRI_CONFIG.tarifaIVA}</tarifa>\n`;
+    xml += `          <codigoPorcentaje>${itemCodIVA}</codigoPorcentaje>\n`;
+    xml += `          <tarifa>${itemTarifaIVA}</tarifa>\n`;
     xml += `          <baseImponible>${itemTotal}</baseImponible>\n`;
-    xml += `          <valor>${(Number(itemTotal) * 0.15).toFixed(2)}</valor>\n`;
+    xml += `          <valor>${itemIVA}</valor>\n`;
     xml += `        </impuesto>\n`;
     xml += `      </impuestos>\n`;
     xml += `    </detalle>\n`;

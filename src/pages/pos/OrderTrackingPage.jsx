@@ -30,8 +30,10 @@ import {
   getOrderPublicTracking,
   approveOrderArtProof
 } from '../../lib/posStore';
+import { useToast } from '../../components/studio/Toast';
 
 export function OrderTrackingPage() {
+  const toast = useToast();
   const { trackingToken: urlToken } = useParams();
   const navigate = useNavigate();
   const [store, setStore] = useState(loadPOSStore());
@@ -79,7 +81,10 @@ export function OrderTrackingPage() {
 
   const handleApproveArt = (e) => {
     e.preventDefault();
-    if (!approvalName.trim()) return alert('Por favor ingresa tu nombre para registrar la aprobación.');
+    if (!approvalName.trim()) {
+      toast.warning('Por favor ingresa tu nombre para registrar la aprobación.');
+      return;
+    }
 
     const order = (store.orders || []).find(
       (o) => String(o.trackingToken).toLowerCase() === String(activeSearchToken).toLowerCase() || String(o.orderNumber) === String(activeSearchToken)
@@ -92,6 +97,7 @@ export function OrderTrackingPage() {
       setStore(res.updatedStore);
       setApprovedSuccess(true);
       setIsApproving(false);
+      toast.success('¡Aprobación de arte registrada con éxito!');
     }
   };
 

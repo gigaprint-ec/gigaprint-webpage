@@ -20,8 +20,10 @@ import {
   simulateSRIAuthorization,
   validateEcuadorianID
 } from '../../lib/sriInvoicing';
+import { useToast } from '../../components/studio/Toast';
 
 export function POSSRIInvoiceModal({ order, items = [], customer, advisor, isOpen, onClose }) {
+  const toast = useToast();
   if (!isOpen || !order) return null;
 
   const [secuencial] = useState(() => String(parseInt(order.orderNumber || '1', 10)).padStart(9, '0'));
@@ -69,7 +71,7 @@ export function POSSRIInvoiceModal({ order, items = [], customer, advisor, isOpe
   };
 
   const handleSendEmail = () => {
-    alert(`RIDE y XML enviados con éxito al correo: ${customer?.email || 'cliente@gigaprint.ec'}`);
+    toast.success(`RIDE y XML enviados con éxito al correo: ${customer?.email || 'cliente@gigaprint.ec'}`);
   };
 
   return (

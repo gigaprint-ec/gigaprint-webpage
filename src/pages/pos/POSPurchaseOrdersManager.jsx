@@ -25,8 +25,10 @@ import {
   updateMaterial,
   createPOSExpense
 } from '../../lib/posStore';
+import { useToast } from '../../components/studio/Toast';
 
 export function POSPurchaseOrdersManager({ store, onStoreUpdate }) {
+  const toast = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -90,9 +92,15 @@ export function POSPurchaseOrdersManager({ store, onStoreUpdate }) {
   // Save Purchase Order
   const handleSavePO = (e) => {
     e.preventDefault();
-    if (poForm.items.length === 0) return alert('Agrega al menos un material a la orden de compra.');
+    if (poForm.items.length === 0) {
+      toast.warning('Agrega al menos un material a la orden de compra.');
+      return;
+    }
     const supplier = (store.suppliers || []).find((s) => s.id === poForm.supplierId);
-    if (!supplier) return alert('Selecciona un proveedor válido.');
+    if (!supplier) {
+      toast.warning('Selecciona un proveedor válido.');
+      return;
+    }
 
     const poNumber = `OC-2026-${String(purchaseOrders.length + 1).padStart(3, '0')}`;
     const newPO = {
@@ -117,6 +125,7 @@ export function POSPurchaseOrdersManager({ store, onStoreUpdate }) {
     onStoreUpdate(updatedStore);
     setIsModalOpen(false);
     setPOForm({ supplierId: store.suppliers?.[0]?.id || '', expectedDate: toISODate(), notes: '', items: [] });
+    toast.success(`Orden de compra ${poNumber} creada correctamente.`);
   };
 
   // Receive Goods into Inventory (Recibir Mercadería)
@@ -158,7 +167,7 @@ export function POSPurchaseOrdersManager({ store, onStoreUpdate }) {
     savePOSStoreLocal(updatedStore);
     onStoreUpdate(updatedStore);
 
-    alert(`¡Mercadería ingresada al inventario con éxito! Stock actualizado.`);
+    toast.success(`¡Mercadería de ${po.poNumber} ingresada con éxito! Stock actualizado.`);
   };
 
   return (

@@ -22,8 +22,10 @@ import {
   deleteProduct,
   toISODate
 } from '../../lib/posStore';
+import { useToast } from '../../components/studio/Toast';
 
 export function POSProductManager({ store, onStoreUpdate }) {
+  const toast = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [editingProduct, setEditingProduct] = useState(null);
@@ -105,7 +107,10 @@ export function POSProductManager({ store, onStoreUpdate }) {
   // Save Product
   const handleSaveProduct = (e) => {
     e.preventDefault();
-    if (!productForm.name.trim()) return alert('El nombre del producto es obligatorio.');
+    if (!productForm.name.trim()) {
+      toast.warning('El nombre del producto es obligatorio.');
+      return;
+    }
 
     const payload = {
       ...(editingProduct ? { id: editingProduct.id } : {}),
@@ -126,6 +131,7 @@ export function POSProductManager({ store, onStoreUpdate }) {
     if (res.ok) {
       onStoreUpdate(res.updatedStore);
       setIsModalOpen(false);
+      toast.success(editingProduct ? 'Producto actualizado' : 'Producto creado en el catálogo');
     }
   };
 
@@ -135,6 +141,7 @@ export function POSProductManager({ store, onStoreUpdate }) {
     const res = deleteProduct(store, productId);
     if (res.ok) {
       onStoreUpdate(res.updatedStore);
+      toast.success('Producto eliminado del catálogo');
     }
   };
 
@@ -143,19 +150,28 @@ export function POSProductManager({ store, onStoreUpdate }) {
     const priceNum = Number(newPrice);
     if (isNaN(priceNum) || priceNum < 0) return;
     const res = upsertProduct(store, { ...prod, basePrice: priceNum });
-    if (res.ok) onStoreUpdate(res.updatedStore);
+    if (res.ok) {
+      onStoreUpdate(res.updatedStore);
+      toast.info(`Precio de ${prod.name} actualizado a $${priceNum.toFixed(2)}`);
+    }
   };
 
   // Inline Active Toggle
   const handleToggleActive = (prod) => {
     const res = upsertProduct(store, { ...prod, isActive: !prod.isActive });
-    if (res.ok) onStoreUpdate(res.updatedStore);
+    if (res.ok) {
+      onStoreUpdate(res.updatedStore);
+      toast.info(`${prod.name} ${!prod.isActive ? 'activado' : 'desactivado'}`);
+    }
   };
 
   // Bulk Price Adjust (e.g. +10%)
   const handleApplyBulkPercent = () => {
     const pct = Number(bulkPercent);
-    if (isNaN(pct) || pct === 0) return alert('Ingresa un porcentaje válido (ej. 10 o -5)');
+    if (isNaN(pct) || pct === 0) {
+      toast.warning('Ingresa un porcentaje válido (ej. 10 o -5)');
+      return;
+    }
 
     if (!confirm(`¿Aplicar ajuste de ${pct}% a todos los ${filteredProducts.length} productos filtrados?`)) return;
 
@@ -169,6 +185,7 @@ export function POSProductManager({ store, onStoreUpdate }) {
     onStoreUpdate(updatedStore);
     setIsBulkOpen(false);
     setBulkPercent('');
+    toast.success(`Precios ajustados (${pct > 0 ? '+' : ''}${pct}%) en ${filteredProducts.length} productos`);
   };
 
   // Export to CSV

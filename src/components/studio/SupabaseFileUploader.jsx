@@ -11,6 +11,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { supabase, hasSupabase } from '../../lib/supabase';
+import { useToast } from './Toast';
 
 export function SupabaseFileUploader({
   bucket = 'gigaprint-media',
@@ -20,6 +21,7 @@ export function SupabaseFileUploader({
   onUploadComplete,
   label = 'Subir Archivo de Arte / Vector'
 }) {
+  const toast = useToast();
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -104,7 +106,7 @@ export function SupabaseFileUploader({
   const handleCopyLink = () => {
     if (!uploadedUrl) return;
     navigator.clipboard.writeText(uploadedUrl);
-    alert('¡Enlace de archivo copiado al portapapeles!');
+    toast.success('¡Enlace de archivo copiado al portapapeles!');
   };
 
   return (

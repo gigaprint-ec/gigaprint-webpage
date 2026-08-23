@@ -31,8 +31,10 @@ import {
   clonePOSOrder,
   toISODate
 } from '../../lib/posStore';
+import { useToast } from '../../components/studio/Toast';
 
 export function POSCustomerCRM({ store, onStoreUpdate, onReorder }) {
+  const toast = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCustomerId, setSelectedCustomerId] = useState(store.customers?.[0]?.id || null);
   const [filterTag, setFilterTag] = useState('all');
@@ -162,7 +164,10 @@ export function POSCustomerCRM({ store, onStoreUpdate, onReorder }) {
   // Save Customer
   const handleSaveCustomer = (e) => {
     e.preventDefault();
-    if (!customerForm.name.trim()) return alert('El nombre del cliente es obligatorio');
+    if (!customerForm.name.trim()) {
+      toast.warning('El nombre del cliente es obligatorio');
+      return;
+    }
 
     const tagsArray = customerForm.tags.split(',').map((t) => t.trim()).filter(Boolean);
     const payload = {
@@ -186,6 +191,7 @@ export function POSCustomerCRM({ store, onStoreUpdate, onReorder }) {
       onStoreUpdate(res.updatedStore);
       setIsModalOpen(false);
       setSelectedCustomerId(res.customer.id);
+      toast.success(editingCustomer ? 'Cliente actualizado con éxito' : 'Cliente registrado en CRM');
     }
   };
 
@@ -194,17 +200,21 @@ export function POSCustomerCRM({ store, onStoreUpdate, onReorder }) {
     if (!confirm('¿Estás seguro de eliminar este cliente? Esta acción no se puede deshacer.')) return;
     const res = deleteCustomer(store, customerId);
     if (!res.ok) {
-      alert(res.error || 'No se pudo eliminar el cliente.');
+      toast.error(res.error || 'No se pudo eliminar el cliente.');
       return;
     }
     onStoreUpdate(res.updatedStore);
     setSelectedCustomerId(null);
+    toast.success('Cliente eliminado correctamente');
   };
 
   // Save Activity Log
   const handleSaveActivity = (e) => {
     e.preventDefault();
-    if (!activityForm.description.trim()) return alert('La descripción es obligatoria.');
+    if (!activityForm.description.trim()) {
+      toast.warning('La descripción de la interacción es obligatoria.');
+      return;
+    }
 
     const res = logCustomerActivity(store, {
       customerId: selectedCustomer.id,
@@ -217,12 +227,16 @@ export function POSCustomerCRM({ store, onStoreUpdate, onReorder }) {
       onStoreUpdate(res.updatedStore);
       setIsActivityModalOpen(false);
       setActivityForm({ activityType: 'whatsapp', title: '', description: '' });
+      toast.success('Interacción registrada en la bitácora del cliente');
     }
   };
 
   // WhatsApp Reactivation Message Link
   const handleSendWhatsApp = (cust, messageType = 'general') => {
-    if (!cust.phone) return alert('El cliente no tiene teléfono registrado.');
+    if (!cust.phone) {
+      toast.warning('El cliente no tiene teléfono registrado para enviar WhatsApp.');
+      return;
+    }
     let cleanPhone = cust.phone.replace(/[^0-9]/g, '');
     if (cleanPhone.startsWith('0')) cleanPhone = `593${cleanPhone.substring(1)}`;
     if (!cleanPhone.startsWith('593')) cleanPhone = `593${cleanPhone}`;

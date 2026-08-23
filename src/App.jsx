@@ -14,6 +14,7 @@ import { OrderTrackingPage } from './pages/pos/OrderTrackingPage';
 import { POSCustomerDisplayPage } from './pages/pos/POSCustomerDisplayPage';
 import { LiveScaleVisualizer } from './components/studio/LiveScaleVisualizer';
 import { MaterialFinishPicker } from './components/studio/MaterialFinishPicker';
+import { ToastProvider } from './components/studio/Toast';
 const EditorPage = lazy(() => import('./pages/EditorPage').then((module) => ({ default: module.EditorPage })));
 
 function HomePage() {
@@ -2180,4 +2181,4 @@ function AdminRoutes() { const { pathname } = useLocation(); if (pathname === '/
 
 function PublicRoutes() { return <Routes><Route path="/" element={<HomePage />} /><Route path="/gigaprint" element={<AboutPage />} /><Route path="/promociones" element={<PromotionsPage />} /><Route path="/tienda" element={<StorePage />} /><Route path="/tienda/:id" element={<SmartProductDetailPage />} /><Route path="/cotizador" element={<SmartQuotePage />} /><Route path="/contacto" element={<ContactPage />} /><Route path="/carrito" element={<CartPage />} /><Route path="/pos" element={<POSPage />} /><Route path="/pos/display" element={<POSCustomerDisplayPage />} /><Route path="/pos/cliente" element={<POSCustomerDisplayPage />} /><Route path="/display" element={<POSCustomerDisplayPage />} /><Route path="/pos/*" element={<POSPage />} /><Route path="/caja" element={<POSPage />} /><Route path="/terminal" element={<POSPage />} /><Route path="/seguimiento" element={<OrderTrackingPage />} /><Route path="/seguimiento/:trackingToken" element={<OrderTrackingPage />} /><Route path="/track" element={<OrderTrackingPage />} /><Route path="/track/:trackingToken" element={<OrderTrackingPage />} /><Route path="/rastreo" element={<OrderTrackingPage />} /><Route path="*" element={<Navigate to="/" replace />} /></Routes>; }
 
-export default function App() { return <BrowserRouter basename={import.meta.env.BASE_URL}><AuthProvider><Suspense fallback={<div className="page-loading"><span className="brand-mark">G</span><p>Cargando editor…</p></div>}><Routes><Route path="/admin/*" element={<AdminRoutes />} /><Route path="*" element={<PublicRoutes />} /></Routes></Suspense></AuthProvider></BrowserRouter>; }
+export default function App() { return <BrowserRouter basename={import.meta.env.BASE_URL}><ToastProvider><AuthProvider><Suspense fallback={<div className="page-loading"><span className="brand-mark">G</span><p>Cargando editor…</p></div>}><Routes><Route path="/admin/*" element={<AdminRoutes />} /><Route path="*" element={<PublicRoutes />} /></Routes></Suspense></AuthProvider></ToastProvider></BrowserRouter>; }

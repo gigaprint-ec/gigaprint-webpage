@@ -309,9 +309,77 @@ export function toCamelCase(obj) {
   return n;
 }
 
-// Async Remote Sync Engine for individual entities
+export const POS_SYNC_QUEUE_KEY = 'gigaprint-pos-sync-queue-v1';
+
+// Offline Sync Queue Helper
+export function getSyncQueue() {
+  if (typeof window === 'undefined') return [];
+  const raw = localStorage.getItem(POS_SYNC_QUEUE_KEY);
+  return safeJSONParse(raw, []);
+}
+
+export function saveSyncQueue(queue = []) {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(POS_SYNC_QUEUE_KEY, JSON.stringify(queue));
+}
+
+export function enqueueSyncAction(actionType, tableName, payload) {
+  const queue = getSyncQueue();
+  queue.push({
+    id: `sync-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    actionType, // 'upsert' | 'delete'
+    tableName,
+    payload,
+    timestamp: new Date().toISOString(),
+    retries: 0
+  });
+  saveSyncQueue(queue);
+}
+
+// Flush pending sync actions when back online
+export async function flushSyncQueue() {
+  if (!hasSupabase || !supabase || !navigator.onLine) return;
+  const queue = getSyncQueue();
+  if (queue.length === 0) return;
+
+  const remaining = [];
+  setSyncStatus('syncing');
+
+  for (const item of queue) {
+    try {
+      if (item.actionType === 'upsert') {
+        const snake = toSnakeCase(item.payload);
+        const { error } = await supabase.from(item.tableName).upsert(snake, { onConflict: 'id' });
+        if (error) throw error;
+      } else if (item.actionType === 'delete') {
+        const { error } = await supabase.from(item.tableName).delete().eq('id', item.payload.id || item.payload);
+        if (error) throw error;
+      }
+    } catch (err) {
+      console.warn(`[Sync Queue Flush Retry] Error syncing ${item.tableName}:`, err);
+      if ((item.retries || 0) < 5) {
+        remaining.push({ ...item, retries: (item.retries || 0) + 1 });
+      }
+    }
+  }
+
+  saveSyncQueue(remaining);
+  setSyncStatus(remaining.length === 0 ? 'synced' : 'offline');
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => {
+    flushSyncQueue();
+  });
+}
+
+// Async Remote Sync Engine for individual entities with offline queue fallback
 export async function syncEntityRemote(tableName, record) {
-  if (!hasSupabase || !supabase) return { ok: false, error: 'No Supabase connection' };
+  if (!hasSupabase || !supabase || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+    enqueueSyncAction('upsert', tableName, record);
+    setSyncStatus('offline');
+    return { ok: true, queued: true };
+  }
   try {
     setSyncStatus('syncing');
     const snake = toSnakeCase(record);
@@ -322,21 +390,27 @@ export async function syncEntityRemote(tableName, record) {
 
     if (error) {
       console.warn(`[Supabase Sync Warn] ${tableName}:`, error.message);
+      enqueueSyncAction('upsert', tableName, record);
       setSyncStatus('error');
-      return { ok: false, error: error.message };
+      return { ok: false, error: error.message, queued: true };
     }
     setSyncStatus('synced');
     return { ok: true, data };
   } catch (e) {
     console.error(`[Supabase Sync Exception] ${tableName}:`, e);
+    enqueueSyncAction('upsert', tableName, record);
     setSyncStatus('error');
-    return { ok: false, error: e.message };
+    return { ok: false, error: e.message, queued: true };
   }
 }
 
-// Async Remote Delete Engine for individual entities
+// Async Remote Delete Engine for individual entities with offline queue fallback
 export async function deleteEntityRemote(tableName, id) {
-  if (!hasSupabase || !supabase) return { ok: false, error: 'No Supabase connection' };
+  if (!hasSupabase || !supabase || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+    enqueueSyncAction('delete', tableName, { id });
+    setSyncStatus('offline');
+    return { ok: true, queued: true };
+  }
   try {
     setSyncStatus('syncing');
     const { error } = await supabase
@@ -346,15 +420,17 @@ export async function deleteEntityRemote(tableName, id) {
 
     if (error) {
       console.warn(`[Supabase Delete Warn] ${tableName}:`, error.message);
+      enqueueSyncAction('delete', tableName, { id });
       setSyncStatus('error');
-      return { ok: false, error: error.message };
+      return { ok: false, error: error.message, queued: true };
     }
     setSyncStatus('synced');
     return { ok: true };
   } catch (e) {
     console.error(`[Supabase Delete Exception] ${tableName}:`, e);
+    enqueueSyncAction('delete', tableName, { id });
     setSyncStatus('error');
-    return { ok: false, error: e.message };
+    return { ok: false, error: e.message, queued: true };
   }
 }
 
@@ -676,13 +752,19 @@ export function closeCashShift(store, shiftId, closingCash = 0, notes = '') {
   const shift = (store.shifts || []).find((s) => s.id === shiftId);
   if (!shift) return { ok: false, error: 'Turno no encontrado.' };
 
-  const cashPayments = (store.payments || []).filter(
-    (p) => p.advisorId === shift.advisorId && p.paymentMethod === 'cash' && p.paymentDate === shift.date
-  ).reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const shiftStartTime = shift.openedAt ? new Date(shift.openedAt).getTime() : 0;
 
-  const cashExpenses = (store.expenses || []).filter(
-    (e) => e.advisorId === shift.advisorId && e.expenseDate === shift.date
-  ).reduce((sum, e) => sum + Number(e.amount || 0), 0);
+  const cashPayments = (store.payments || []).filter((p) => {
+    if (p.advisorId !== shift.advisorId || p.paymentMethod !== 'cash') return false;
+    const pTime = p.createdAt ? new Date(p.createdAt).getTime() : new Date(p.paymentDate).getTime();
+    return pTime >= shiftStartTime;
+  }).reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+  const cashExpenses = (store.expenses || []).filter((e) => {
+    if (e.advisorId !== shift.advisorId) return false;
+    const eTime = e.createdAt ? new Date(e.createdAt).getTime() : new Date(e.expenseDate).getTime();
+    return eTime >= shiftStartTime;
+  }).reduce((sum, e) => sum + Number(e.amount || 0), 0);
 
   const expectedCash = (Number(shift.openingCash) || 0) + cashPayments - cashExpenses;
   const counted = Number(closingCash) || 0;
@@ -866,7 +948,7 @@ export function updateOrderProductionStage(store, orderId, newStage, note = '', 
   return { ok: true, updatedStore, order: updatedOrder };
 }
 
-// Function to cancel an order
+// Function to cancel an order and restore allocated inventory materials
 export function cancelPOSOrder(store, orderId, reason = '', advisorId = '') {
   const order = (store.orders || []).find((o) => o.id === orderId);
   if (!order) return { ok: false, error: 'Orden no encontrada.' };
@@ -888,8 +970,37 @@ export function cancelPOSOrder(store, orderId, reason = '', advisorId = '') {
     updatedAt: new Date().toISOString()
   };
 
+  // Restore inventory for materials used in this order
+  let updatedMaterials = [...(store.materials || [])];
+  const newMaterialLogs = [];
+  const relatedLogs = (store.materialLogs || []).filter((l) => l.orderId === orderId);
+
+  relatedLogs.forEach((log) => {
+    const mat = updatedMaterials.find((m) => m.id === log.materialId);
+    if (mat && log.quantityUsed > 0) {
+      mat.currentStock = Number((mat.currentStock + log.quantityUsed).toFixed(2));
+      const reversalLog = {
+        id: `mlog-rev-${Date.now()}-${mat.id}`,
+        materialId: mat.id,
+        orderId,
+        quantityUsed: -log.quantityUsed,
+        costApplied: -Number(log.costApplied || 0),
+        notes: `Restauración de stock por anulación de Orden #${order.orderNumber}`,
+        createdAt: new Date().toISOString()
+      };
+      newMaterialLogs.push(reversalLog);
+      syncEntityRemote('pos_material_usage_logs', reversalLog);
+      syncEntityRemote('pos_materials_inventory', mat);
+    }
+  });
+
   const updatedOrders = (store.orders || []).map((o) => (o.id === orderId ? updatedOrder : o));
-  const updatedStore = { ...store, orders: updatedOrders };
+  const updatedStore = {
+    ...store,
+    orders: updatedOrders,
+    materials: updatedMaterials,
+    materialLogs: [...newMaterialLogs, ...(store.materialLogs || [])]
+  };
 
   savePOSStoreLocal(updatedStore);
   syncEntityRemote('pos_orders', updatedOrder);
@@ -1571,6 +1682,15 @@ export function calculateDebtAgingMatrix(orders = []) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  const parseLocalDate = (dateStr) => {
+    if (!dateStr) return new Date();
+    if (typeof dateStr === 'string' && dateStr.includes('-') && !dateStr.includes('T')) {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      return new Date(y, m - 1, d);
+    }
+    return new Date(dateStr);
+  };
+
   let bucket0to15 = 0;
   let bucket16to30 = 0;
   let bucket31to60 = 0;
@@ -1578,7 +1698,7 @@ export function calculateDebtAgingMatrix(orders = []) {
   let totalDebt = 0;
 
   const enrichedDebtors = activeUnpaidOrders.map((order) => {
-    const orderDate = new Date(order.orderDate || order.createdAt || today);
+    const orderDate = parseLocalDate(order.orderDate || order.createdAt);
     orderDate.setHours(0, 0, 0, 0);
     const diffDays = Math.max(0, Math.floor((today.getTime() - orderDate.getTime()) / 86400000));
     const balance = Number(order.balanceDue || 0);

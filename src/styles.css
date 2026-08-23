@@ -704,3 +704,51 @@ h1 em,h2 em { color:var(--orange); font-style:normal; }
   }
 }
 
+/* ===================================================
+   MOBILE TOUCH TARGETS & TACTILE PRESS STATES
+   =================================================== */
+button, 
+.button, 
+.pos-btn,
+.pos-tab-btn,
+.icon-button {
+  transition: transform 0.12s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+button:active:not(:disabled),
+.button:active:not(:disabled),
+.pos-btn:active:not(:disabled),
+.icon-button:active {
+  transform: scale(0.975);
+}
+
+@media (max-width: 768px) {
+  .icon-button,
+  .theme-toggle,
+  .desktop-cart,
+  .nav-btn,
+  .header-actions button {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .pos-stepper-btn,
+  .qty button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  input[type="text"],
+  input[type="number"],
+  input[type="email"],
+  input[type="tel"],
+  select {
+    min-height: 44px;
+    font-size: 16px; /* Prevents iOS auto-zoom on inputs */
+  }
+}
+
+

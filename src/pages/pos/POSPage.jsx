@@ -86,8 +86,10 @@ import { POSKeyboardShortcutsModal } from './POSKeyboardShortcutsModal';
 import { POSPackageLabelModal } from './POSPackageLabelModal';
 import { SupabaseFileUploader } from '../../components/studio/SupabaseFileUploader';
 import { POSProductQuickMatrix } from './components/POSProductQuickMatrix';
+import { useToast } from '../../components/studio/Toast';
 
 export function POSPage() {
+  const toast = useToast();
   const [store, setStore] = useState(loadPOSStore);
   const [session, setSession] = useState(getPOSSession);
   const [syncStatus, setSyncStatus] = useState('synced');
@@ -272,7 +274,7 @@ export function POSPage() {
   const handleAddToCart = () => {
     if (!selectedProduct) return;
     if (selectedProduct.calcType === 'area' && (!itemWidthCm || !itemHeightCm)) {
-      alert('Ingresa el ancho y alto en centímetros para productos calculados por m²');
+      toast.warning('Ingresa el ancho y alto en centímetros para productos calculados por m²');
       return;
     }
 
@@ -370,7 +372,10 @@ export function POSPage() {
 
   // Park Sale (Guardar en espera)
   const handleParkSale = () => {
-    if (cartItems.length === 0) return alert('El carrito está vacío.');
+    if (cartItems.length === 0) {
+      toast.warning('El carrito está vacío para poner en espera.');
+      return;
+    }
     playParkSound();
     const res = parkPOSSale(store, {
       advisorId: currentAdvisorId,
@@ -396,7 +401,7 @@ export function POSPage() {
     if (res.ok) {
       setStore(res.updatedStore);
       handleClearCart();
-      alert('Venta guardada en espera correctamente.');
+      toast.info('Venta guardada en espera correctamente.');
     }
   };
 
@@ -416,7 +421,10 @@ export function POSPage() {
     setNotes(data.notes || '');
 
     const res = deleteParkedSale(store, parked.id);
-    if (res.ok) setStore(res.updatedStore);
+    if (res.ok) {
+      setStore(res.updatedStore);
+      toast.success('Venta reanudada en el mostrador.');
+    }
   };
 
   // Clear Entire Cashier Form
@@ -439,8 +447,14 @@ export function POSPage() {
 
   // Submit and Create Final POS Order
   const handleSubmitOrder = () => {
-    if (cartItems.length === 0) return alert('Agrega al menos un producto al carrito');
-    if (!customerName.trim()) return alert('Ingresa el nombre del cliente');
+    if (cartItems.length === 0) {
+      toast.warning('Agrega al menos un producto al carrito antes de registrar.');
+      return;
+    }
+    if (!customerName.trim()) {
+      toast.warning('Ingresa el nombre del cliente o empresa.');
+      return;
+    }
 
     const orderData = {
       advisorId: currentAdvisorId,
@@ -477,9 +491,10 @@ export function POSPage() {
       setStore(res.updatedStore);
       setReceiptOrder(res.order);
       handleClearCart();
+      toast.success(`Orden #${res.order.orderNumber} registrada con éxito.`);
     } else {
       playWarningSound();
-      alert('Error al registrar la orden: ' + res.error);
+      toast.error('Error al registrar la orden: ' + res.error);
     }
   };
 
