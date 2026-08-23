@@ -1827,7 +1827,7 @@ export function calculatePrintItemPrice({
     unitRate = Number(product.agencyPrice);
   }
 
-  // Finishing calculation
+  // Finishing calculation (Gran Formato, Textil, Viniles, Rígidos, Imprenta)
   let finishingUnitCost = 0;
   if (finishingType === 'ojales_pequenos') {
     finishingUnitCost += (Number(eyeletCount) || 4) * 0.30;
@@ -1837,8 +1837,30 @@ export function calculatePrintItemPrice({
     finishingUnitCost += 4.00;
   } else if (finishingType === 'dobladillo_perimetral') {
     finishingUnitCost += perimeterM * 0.75;
-  } else if (finishingType === 'laminado_protector') {
-    finishingUnitCost += areaM2 * 3.50;
+  } else if (finishingType === 'laminado_protector' || finishingType === 'laminado_brillante' || finishingType === 'laminado_mate') {
+    finishingUnitCost += areaM2 > 0 ? areaM2 * 3.50 : 3.50;
+  } else if (finishingType === 'troquelado_silueta') {
+    finishingUnitCost += areaM2 > 0 ? areaM2 * 2.00 : 2.00;
+  } else if (finishingType === 'papel_transfer') {
+    finishingUnitCost += areaM2 > 0 ? areaM2 * 1.50 : 1.50;
+  } else if (finishingType === 'corte_cnc') {
+    finishingUnitCost += areaM2 > 0 ? areaM2 * 4.00 : 4.00;
+  } else if (finishingType === 'separadores_pared') {
+    finishingUnitCost += 6.00;
+  } else if (finishingType === 'cinta_doble_faz') {
+    finishingUnitCost += perimeterM > 0 ? perimeterM * 2.50 : 2.50;
+  } else if (finishingType === 'estampado_doble') {
+    finishingUnitCost += 3.00;
+  } else if (finishingType === 'empaque_individual') {
+    finishingUnitCost += 0.50;
+  } else if (finishingType === 'relleno_extra') {
+    finishingUnitCost += 2.50;
+  } else if (finishingType === 'plastificado_mate') {
+    finishingUnitCost += 0.05;
+  } else if (finishingType === 'plastificado_brillo') {
+    finishingUnitCost += 0.04;
+  } else if (finishingType === 'puntas_redondas' || finishingType === 'doblado') {
+    finishingUnitCost += 2.00 / Math.max(1, qty);
   }
 
   const baseItemSubtotal = isArea ? (areaM2 * unitRate * qty) : (unitRate * qty);
@@ -1849,6 +1871,7 @@ export function calculatePrintItemPrice({
     areaM2: Number(areaM2.toFixed(3)),
     perimeterM: Number(perimeterM.toFixed(2)),
     unitRate,
+    effectiveUnitPrice: unitRate,
     baseItemSubtotal: Number(baseItemSubtotal.toFixed(2)),
     finishingSubtotal: Number(finishingSubtotal.toFixed(2)),
     totalItemPrice

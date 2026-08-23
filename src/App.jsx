@@ -1480,175 +1480,169 @@ function SmartQuotePage() {
                     </div>
                   </div>
 
-                  {/* Finishing & Custom Eyelets Options */}
-                  <div className="finishing-select-group">
-                    <label>Acabados y confección</label>
-                    <div className="design-options-grid">
-                      <label className={`design-option-card ${finishing === 'none' ? 'active' : ''}`}>
-                        <input
-                          type="radio"
-                          name="finishing"
-                          checked={finishing === 'none'}
-                          onChange={() => setFinishing('none')}
-                        />
-                        <div className="design-option-copy">
-                          <b>Corte al ras / Sin ojales</b>
-                          <small>Listo para enmarcar, montar o tensar.</small>
-                        </div>
-                        <span className="design-option-price">$0</span>
-                      </label>
+                  {/* Finishing & Custom Eyelets Options (Only for Banners / Lonas / Gran Formato) */}
+                  {isArea && (/lona|banner|mesh|valla|gran formato/i.test(selectedProduct?.category || '') || /lona|banner|mesh|valla/i.test(selectedProduct?.name || '')) && (
+                    <div className="finishing-select-group">
+                      <label>Acabados y confección</label>
+                      <div className="design-options-grid">
+                        <label className={`design-option-card ${finishing === 'none' ? 'active' : ''}`}>
+                          <input
+                            type="radio"
+                            name="finishing"
+                            checked={finishing === 'none'}
+                            onChange={() => setFinishing('none')}
+                          />
+                          <div className="design-option-copy">
+                            <b>Corte al ras / Sin ojales</b>
+                            <small>Listo para enmarcar, montar o tensar.</small>
+                          </div>
+                          <span className="design-option-price">$0</span>
+                        </label>
 
-                      <label className={`design-option-card ${finishing === 'small' ? 'active' : ''}`}>
-                        <input
-                          type="radio"
-                          name="finishing"
-                          checked={finishing === 'small'}
-                          onChange={() => {
-                            setFinishing('small');
-                            if (eyeletPreset === 'custom' && customEyelets < 4) setCustomEyelets(4);
-                          }}
-                        />
-                        <div className="design-option-copy">
-                          <b>Ojales Pequeños (10 mm)</b>
-                          <small>Ojales metálicos estándar para colgar o tensar.</small>
-                        </div>
-                        <span className="design-option-price">$0.30 c/u</span>
-                      </label>
-
-                      <label className={`design-option-card ${finishing === 'large' ? 'active' : ''}`}>
-                        <input
-                          type="radio"
-                          name="finishing"
-                          checked={finishing === 'large'}
-                          onChange={() => {
-                            setFinishing('large');
-                            if (eyeletPreset === 'custom' && customEyelets < 4) setCustomEyelets(4);
-                          }}
-                        />
-                        <div className="design-option-copy">
-                          <b>Ojales Grandes Reforzados (15 mm)</b>
-                          <small>Ojales industriales para exterior y alto viento.</small>
-                        </div>
-                        <span className="design-option-price">$0.50 c/u</span>
-                      </label>
-
-                      <label className={`design-option-card ${finishing === 'bolsillo' ? 'active' : ''}`}>
-                        <input
-                          type="radio"
-                          name="finishing"
-                          checked={finishing === 'bolsillo'}
-                          onChange={() => setFinishing('bolsillo')}
-                        />
-                        <div className="design-option-copy">
-                          <b>Bolsillo para tubo</b>
-                          <small>Confección superior e inferior para colgar con tubo.</small>
-                        </div>
-                        <span className="design-option-price">+$4.00</span>
-                      </label>
-                    </div>
-
-                    {/* Interactive Eyelet Customizer Panel */}
-                    {(finishing === 'small' || finishing === 'large') && (
-                      <div className="eyelet-customizer-panel">
-                        <div className="eyelet-panel-head">
-                          <label>Configuración de Ojales {finishing === 'small' ? 'Pequeños ($0.30 c/u)' : 'Grandes ($0.50 c/u)'}</label>
-                          <span>{effectiveEyeletCount} ojales por pieza</span>
-                        </div>
-
-                        {/* Distribution Presets */}
-                        <div className="eyelet-presets-row">
-                          <button
-                            type="button"
-                            className={`eyelet-preset-btn ${eyeletPreset === 'corners' ? 'active' : ''}`}
-                            onClick={() => setEyeletPreset('corners')}
-                          >
-                            4 Esquinas (4 ojales)
-                          </button>
-                          <button
-                            type="button"
-                            className={`eyelet-preset-btn ${eyeletPreset === 'every50' ? 'active' : ''}`}
-                            onClick={() => setEyeletPreset('every50')}
-                          >
-                            Perimetral c/50 cm ({calculatedPerimeter50} ojales)
-                          </button>
-                          <button
-                            type="button"
-                            className={`eyelet-preset-btn ${eyeletPreset === 'every30' ? 'active' : ''}`}
-                            onClick={() => setEyeletPreset('every30')}
-                          >
-                            Perimetral c/30 cm ({calculatedPerimeter30} ojales)
-                          </button>
-                          <button
-                            type="button"
-                            className={`eyelet-preset-btn ${eyeletPreset === 'custom' ? 'active' : ''}`}
-                            onClick={() => {
-                              setEyeletPreset('custom');
-                              setCustomEyelets(effectiveEyeletCount);
+                        <label className={`design-option-card ${finishing === 'small' ? 'active' : ''}`}>
+                          <input
+                            type="radio"
+                            name="finishing"
+                            checked={finishing === 'small'}
+                            onChange={() => {
+                              setFinishing('small');
+                              if (eyeletPreset === 'custom' && customEyelets < 4) setCustomEyelets(4);
                             }}
-                          >
-                            Personalizado
-                          </button>
-                        </div>
-
-                        {/* Custom Stepper */}
-                        <div className="eyelet-stepper-row">
-                          <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 600 }}>
-                            Cantidad por pieza:
-                          </span>
-                          <div className="eyelet-stepper-box">
-                            <button
-                              type="button"
-                              className="eyelet-stepper-btn"
-                              onClick={() => {
-                                setEyeletPreset('custom');
-                                setCustomEyelets(Math.max(1, effectiveEyeletCount - 1));
-                              }}
-                              disabled={effectiveEyeletCount <= 1}
-                              aria-label="Disminuir un ojal"
-                            >
-                              <Minus size={15} />
-                            </button>
-                            <input
-                              type="number"
-                              min="1"
-                              value={effectiveEyeletCount}
-                              onChange={(e) => {
-                                setEyeletPreset('custom');
-                                setCustomEyelets(Math.max(1, parseInt(e.target.value, 10) || 1));
-                              }}
-                              className="eyelet-stepper-input"
-                              aria-label="Cantidad exacta de ojales"
-                            />
-                            <button
-                              type="button"
-                              className="eyelet-stepper-btn"
-                              onClick={() => {
-                                setEyeletPreset('custom');
-                                setCustomEyelets(effectiveEyeletCount + 1);
-                              }}
-                              aria-label="Aumentar un ojal"
-                            >
-                              <Plus size={15} />
-                            </button>
+                          />
+                          <div className="design-option-copy">
+                            <b>Ojales Pequeños (10 mm)</b>
+                            <small>Ojales metálicos estándar para colgar o tensar.</small>
                           </div>
+                          <span className="design-option-price">$0.30 c/u</span>
+                        </label>
 
-                          <div className="quantity-quick-increments">
-                            <button type="button" className="quick-inc-btn" onClick={() => { setEyeletPreset('custom'); setCustomEyelets(effectiveEyeletCount + 2); }}>+2</button>
-                            <button type="button" className="quick-inc-btn" onClick={() => { setEyeletPreset('custom'); setCustomEyelets(effectiveEyeletCount + 4); }}>+4</button>
-                            <button type="button" className="quick-inc-btn" onClick={() => { setEyeletPreset('custom'); setCustomEyelets(effectiveEyeletCount + 8); }}>+8</button>
+                        <label className={`design-option-card ${finishing === 'large' ? 'active' : ''}`}>
+                          <input
+                            type="radio"
+                            name="finishing"
+                            checked={finishing === 'large'}
+                            onChange={() => {
+                              setFinishing('large');
+                              if (eyeletPreset === 'custom' && customEyelets < 4) setCustomEyelets(4);
+                            }}
+                          />
+                          <div className="design-option-copy">
+                            <b>Ojales Grandes Reforzados (15 mm)</b>
+                            <small>Ojales industriales para exterior y alto viento.</small>
                           </div>
-                        </div>
+                          <span className="design-option-price">$0.50 c/u</span>
+                        </label>
 
-                        <div className="eyelet-calc-badge">
-                          <Sparkles size={14} style={{ color: 'var(--orange)' }} />
-                          <span>
-                            Costo de acabados: <strong>{effectiveEyeletCount} ojales × ${eyeletUnitPrice.toFixed(2)} = {money(effectiveEyeletCount * eyeletUnitPrice)} por pieza</strong>
-                            {effectiveQuantity > 1 && ` (Total ${totalEyeletsAllPieces} ojales = ${money(finishingCost)})`}
-                          </span>
-                        </div>
+                        <label className={`design-option-card ${finishing === 'bolsillo' ? 'active' : ''}`}>
+                          <input
+                            type="radio"
+                            name="finishing"
+                            checked={finishing === 'bolsillo'}
+                            onChange={() => setFinishing('bolsillo')}
+                          />
+                          <div className="design-option-copy">
+                            <b>Bolsillo para tubo</b>
+                            <small>Confección superior e inferior para colgar con tubo.</small>
+                          </div>
+                          <span className="design-option-price">+$4.00</span>
+                        </label>
                       </div>
-                    )}
-                  </div>
+
+                      {/* Interactive Eyelet Customizer Panel */}
+                      {(finishing === 'small' || finishing === 'large') && (
+                        <div className="eyelet-customizer-panel">
+                          <div className="eyelet-panel-head">
+                            <label>Configuración de Ojales {finishing === 'small' ? 'Pequeños ($0.30 c/u)' : 'Grandes ($0.50 c/u)'}</label>
+                            <span>{effectiveEyeletCount} ojales por pieza</span>
+                          </div>
+
+                          {/* Distribution Presets */}
+                          <div className="eyelet-presets-row">
+                            <button
+                              type="button"
+                              className={`eyelet-preset-btn ${eyeletPreset === 'corners' ? 'active' : ''}`}
+                              onClick={() => setEyeletPreset('corners')}
+                            >
+                              4 Esquinas (4 ojales)
+                            </button>
+                            <button
+                              type="button"
+                              className={`eyelet-preset-btn ${eyeletPreset === 'every50' ? 'active' : ''}`}
+                              onClick={() => setEyeletPreset('every50')}
+                            >
+                              Perimetral c/50 cm ({calculatedPerimeter50} ojales)
+                            </button>
+                            <button
+                              type="button"
+                              className={`eyelet-preset-btn ${eyeletPreset === 'every30' ? 'active' : ''}`}
+                              onClick={() => setEyeletPreset('every30')}
+                            >
+                              Perimetral c/30 cm ({calculatedPerimeter30} ojales)
+                            </button>
+                            <button
+                              type="button"
+                              className={`eyelet-preset-btn ${eyeletPreset === 'custom' ? 'active' : ''}`}
+                              onClick={() => {
+                                setEyeletPreset('custom');
+                                setCustomEyelets(effectiveEyeletCount);
+                              }}
+                            >
+                              Personalizado
+                            </button>
+                          </div>
+
+                          {/* Custom Stepper */}
+                          <div className="eyelet-stepper-row">
+                            <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 600 }}>
+                              Cantidad por pieza:
+                            </span>
+                            <div className="eyelet-stepper-box">
+                              <button
+                                type="button"
+                                className="pos-stepper-btn"
+                                onClick={() => {
+                                  setEyeletPreset('custom');
+                                  setCustomEyelets(Math.max(2, effectiveEyeletCount - 1));
+                                }}
+                              >
+                                -
+                              </button>
+                              <input
+                                type="number"
+                                min="2"
+                                max="100"
+                                className="eyelet-stepper-input"
+                                value={effectiveEyeletCount}
+                                onChange={(e) => {
+                                  setEyeletPreset('custom');
+                                  setCustomEyelets(Math.max(2, parseInt(e.target.value, 10) || 2));
+                                }}
+                                aria-label="Cantidad exacta de ojales"
+                              />
+                              <button
+                                type="button"
+                                className="pos-stepper-btn"
+                                onClick={() => {
+                                  setEyeletPreset('custom');
+                                  setCustomEyelets(effectiveEyeletCount + 1);
+                                }}
+                              >
+                                +
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="eyelet-calc-badge">
+                            <Sparkles size={14} style={{ color: 'var(--orange)' }} />
+                            <span>
+                              Costo de acabados: <strong>{effectiveEyeletCount} ojales × ${eyeletUnitPrice.toFixed(2)} = {money(effectiveEyeletCount * eyeletUnitPrice)} por pieza</strong>
+                              {effectiveQuantity > 1 && ` (Total ${totalEyeletsAllPieces} ojales = ${money(finishingCost)})`}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Installation Option */}
                   {selectedProduct?.price_inst && (

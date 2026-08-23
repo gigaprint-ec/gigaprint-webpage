@@ -989,7 +989,11 @@ export function POSPage() {
                           <div className="pos-cart-item-meta">
                             {itm.widthCm ? <span className="pos-cart-item-badge">{itm.widthCm}x{itm.heightCm}cm ({itm.areaM2}m²)</span> : null}
                             <span className="pos-cart-item-badge">Cant: {itm.quantity}</span>
-                            {itm.finishing && itm.finishing !== 'none' && <span className="pos-cart-item-badge" style={{ color: 'var(--pos-primary)' }}>{itm.finishing}</span>}
+                            {itm.finishing && itm.finishing !== 'none' && itm.finishing !== 'Sin acabados' && itm.finishing !== 'Sin acabados extra' && (
+                              <span className="pos-cart-item-badge" style={{ color: 'var(--pos-primary)', fontWeight: 700 }}>
+                                {itm.finishing} {itm.eyeletCount > 0 ? `(${itm.eyeletCount} ojales)` : ''}
+                              </span>
+                            )}
                           </div>
                           {itm.notes && (
                             <div style={{ fontSize: '11px', color: '#0284c7', fontStyle: 'italic', marginTop: '3px' }}>

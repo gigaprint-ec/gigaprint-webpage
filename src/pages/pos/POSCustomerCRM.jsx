@@ -709,7 +709,7 @@ export function POSCustomerCRM({ store, onStoreUpdate, onReorder }) {
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 800 }}>Días de Crédito</label>
                   <select
-                    className="pos-input"
+                    className="pos-select"
                     value={customerForm.creditDays}
                     onChange={(e) => setCustomerForm({ ...customerForm, creditDays: Number(e.target.value) })}
                   >
@@ -747,7 +747,7 @@ export function POSCustomerCRM({ store, onStoreUpdate, onReorder }) {
               <div>
                 <label style={{ fontSize: '12px', fontWeight: 800 }}>Notas Internas / Preferencias</label>
                 <textarea
-                  className="pos-input"
+                  className="pos-textarea"
                   rows={3}
                   value={customerForm.notes}
                   onChange={(e) => setCustomerForm({ ...customerForm, notes: e.target.value })}

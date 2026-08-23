@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Package,
   Layers,
@@ -30,11 +30,123 @@ export function POSProductQuickMatrix({
   const [widthCm, setWidthCm] = useState(300);
   const [heightCm, setHeightCm] = useState(200);
   const [quantity, setQuantity] = useState(1);
-  const [finishingType, setFinishingType] = useState('ojales_pequenos');
+  const [finishingType, setFinishingType] = useState('none');
   const [eyeletCount, setEyeletCount] = useState(4);
   const [customUnitPrice, setCustomUnitPrice] = useState('');
   const [itemNotes, setItemNotes] = useState('');
   const [showVisualScale, setShowVisualScale] = useState(false);
+
+  const currentProduct = selectedProduct || products[0] || null;
+
+  // Reset finishings whenever product changes
+  useEffect(() => {
+    setFinishingType('none');
+    setEyeletCount(4);
+    setShowVisualScale(false);
+  }, [currentProduct?.id]);
+
+  // Context-aware available finishings for the active product
+  const availableFinishings = useMemo(() => {
+    if (!currentProduct) return [{ id: 'none', label: 'Sin acabados extra', cost: 0 }];
+    
+    const cat = (currentProduct.category || '').toLowerCase();
+    const name = (currentProduct.name || '').toLowerCase();
+
+    // 1. Textil / DTF / Sublimación / Promocionales (Almohadas, Camisetas, Tazas, Gorras, etc.)
+    if (
+      cat.includes('textil') ||
+      cat.includes('dtf') ||
+      cat.includes('sublimaci') ||
+      name.includes('almohada') ||
+      name.includes('camiseta') ||
+      name.includes('taza') ||
+      name.includes('gorra') ||
+      name.includes('coj') ||
+      name.includes('bolso')
+    ) {
+      return [
+        { id: 'none', label: 'Sin acabados extra', cost: 0 },
+        { id: 'estampado_doble', label: 'Estampado Frente + Dorso (+$3.00)', cost: 3.00 },
+        { id: 'empaque_individual', label: 'Empaque individual en celofán (+$0.50)', cost: 0.50 },
+        { id: 'relleno_extra', label: 'Relleno plumón siliconado extra (+$2.50)', cost: 2.50 }
+      ];
+    }
+
+    // 2. Gran Formato / Lonas / Banners
+    if (
+      cat.includes('gran formato') ||
+      cat.includes('lona') ||
+      name.includes('lona') ||
+      name.includes('banner') ||
+      name.includes('mesh') ||
+      name.includes('backlit') ||
+      name.includes('blackout')
+    ) {
+      return [
+        { id: 'none', label: 'Sin acabados extra / Corte al ras', cost: 0 },
+        { id: 'ojales_pequenos', label: 'Ojales estándar niquelados (+$0.30 c/u)', cost: 0.30 },
+        { id: 'ojales_reforzados', label: 'Ojales reforzados 4 esquinas (+$0.50 c/u)', cost: 0.50 },
+        { id: 'dobladillo_perimetral', label: 'Dobladillo termosellado perimetral (+$0.75/m)', cost: 0.75 },
+        { id: 'bolsillo_tubo', label: 'Bolsillo para tubo arriba y abajo (+$4.00)', cost: 4.00 }
+      ];
+    }
+
+    // 3. Viniles & Adhesivos / Stickers
+    if (
+      cat.includes('vinil') ||
+      cat.includes('adhesiv') ||
+      cat.includes('sticker') ||
+      name.includes('vinil') ||
+      name.includes('sticker') ||
+      name.includes('etiqueta')
+    ) {
+      return [
+        { id: 'none', label: 'Sin laminado / Corte recto', cost: 0 },
+        { id: 'laminado_brillante', label: 'Laminado UV brillante protector (+$3.50/m²)', cost: 3.50 },
+        { id: 'laminado_mate', label: 'Laminado UV mate antirreflejo (+$3.50/m²)', cost: 3.50 },
+        { id: 'troquelado_silueta', label: 'Troquelado / semicorte digital a silueta (+$2.00/m²)', cost: 2.00 },
+        { id: 'papel_transfer', label: 'Con papel posicionador transfer (+$1.50/m²)', cost: 1.50 }
+      ];
+    }
+
+    // 4. Rígidos & Estructuras (Sintra, Acrílico, PVC, Coroplast, Madera)
+    if (
+      cat.includes('r') ||
+      cat.includes('sintra') ||
+      cat.includes('acril') ||
+      cat.includes('pvc') ||
+      cat.includes('estruct')
+    ) {
+      return [
+        { id: 'none', label: 'Sin acabados extra', cost: 0 },
+        { id: 'corte_cnc', label: 'Ruteado CNC a silueta (+$4.00/m²)', cost: 4.00 },
+        { id: 'separadores_pared', label: 'Separadores de acero inoxidable x4 (+$6.00)', cost: 6.00 },
+        { id: 'cinta_doble_faz', label: 'Cinta doble faz 3M VHB aplicada (+$2.50/m)', cost: 2.50 }
+      ];
+    }
+
+    // 5. Imprenta & Papelería
+    if (
+      cat.includes('imprenta') ||
+      cat.includes('papel') ||
+      name.includes('tarjeta') ||
+      name.includes('volante') ||
+      name.includes('folleto') ||
+      name.includes('carpeta')
+    ) {
+      return [
+        { id: 'none', label: 'Sin acabado adicional', cost: 0 },
+        { id: 'plastificado_mate', label: 'Plastificado mate suave (+$0.05 c/u)', cost: 0.05 },
+        { id: 'plastificado_brillo', label: 'Plastificado brillo UV (+$0.04 c/u)', cost: 0.04 },
+        { id: 'puntas_redondas', label: 'Despunte de esquinas redondeadas (+$2.00/lote)', cost: 2.00 },
+        { id: 'doblado', label: 'Doblado / Plegado mecánico (+$2.50/lote)', cost: 2.50 }
+      ];
+    }
+
+    return [
+      { id: 'none', label: 'Sin acabados extra', cost: 0 }
+    ];
+  }, [currentProduct]);
 
   const categories = [
     { id: 'all', label: '✦ Todo el Catálogo', icon: '✨' },
@@ -65,8 +177,6 @@ export function POSProductQuickMatrix({
     });
   }, [products, activeCategory, searchQuery]);
 
-  const currentProduct = selectedProduct || products[0] || null;
-
   const calculated = useMemo(() => {
     if (!currentProduct) return { totalItemPrice: 0, areaM2: 0 };
     return calculatePrintItemPrice({
@@ -95,6 +205,11 @@ export function POSProductQuickMatrix({
   const handleAdd = () => {
     if (!currentProduct) return;
     playAddSound();
+    const selectedFinishingObj = availableFinishings.find((f) => f.id === finishingType);
+    const finishingLabel = finishingType !== 'none' && selectedFinishingObj
+      ? selectedFinishingObj.label.split(' (')[0]
+      : '';
+
     onAddToCart({
       productId: currentProduct.id,
       productName: currentProduct.name,
@@ -105,7 +220,7 @@ export function POSProductQuickMatrix({
       heightCm: currentProduct.calcType === 'area' ? Number(heightCm) : null,
       areaM2: currentProduct.calcType === 'area' ? Number(calculated.areaM2) : null,
       quantity: Number(quantity),
-      finishing: finishingType !== 'none' ? finishingType.replace(/_/g, ' ') : 'Sin acabados',
+      finishing: finishingLabel,
       eyeletCount: finishingType.includes('ojales') ? Number(eyeletCount) : 0,
       totalPrice: Number(calculated.totalItemPrice),
       notes: itemNotes.trim()
@@ -335,21 +450,38 @@ export function POSProductQuickMatrix({
             </div>
 
             <div>
-              <label className="pos-label" style={{ fontSize: '11px' }}>Acabados / Confección</label>
+              <label className="pos-label" style={{ fontSize: '11px' }}>
+                Acabados ({currentProduct.category || 'General'})
+              </label>
               <select
                 className="pos-select"
                 value={finishingType}
                 onChange={(e) => setFinishingType(e.target.value)}
                 style={{ fontSize: '12px', padding: '6px 8px' }}
               >
-                <option value="none">Sin acabados extra</option>
-                <option value="ojales_pequenos">Ojales estándar (+$0.30 c/u)</option>
-                <option value="ojales_reforzados">Ojales reforzados (+$0.50 c/u)</option>
-                <option value="dobladillo_perimetral">Dobladillo termosellado (+$0.75/m)</option>
-                <option value="laminado_protector">Laminado UV protector (+$3.50/m²)</option>
-                <option value="bolsillo_tubo">Bolsillo para tubo (+$4.00)</option>
+                {availableFinishings.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.label}
+                  </option>
+                ))}
               </select>
             </div>
+
+            {finishingType.includes('ojales') && (
+              <div>
+                <label className="pos-label" style={{ fontSize: '11px' }}>Núm. Ojales</label>
+                <input
+                  type="number"
+                  min="2"
+                  max="100"
+                  step="1"
+                  className="pos-input"
+                  value={eyeletCount}
+                  onChange={(e) => setEyeletCount(Math.max(2, parseInt(e.target.value, 10) || 4))}
+                  style={{ fontSize: '13px', padding: '6px 8px', fontWeight: 700, textAlign: 'center' }}
+                />
+              </div>
+            )}
           </div>
 
           {/* Technical Line-Item Notes */}

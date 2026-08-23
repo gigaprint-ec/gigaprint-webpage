@@ -345,7 +345,7 @@ export function POSPurchaseOrdersManager({ store, onStoreUpdate }) {
                   <div>
                     <label style={{ fontSize: '11px', color: 'var(--muted)' }}>Sustrato</label>
                     <select
-                      className="pos-input"
+                      className="pos-select"
                       value={itemMatId}
                       onChange={(e) => {
                         setItemMatId(e.target.value);
@@ -407,7 +407,7 @@ export function POSPurchaseOrdersManager({ store, onStoreUpdate }) {
               <div>
                 <label style={{ fontSize: '12px', fontWeight: 800 }}>Notas de Envío / Instrucciones</label>
                 <textarea
-                  className="pos-input"
+                  className="pos-textarea"
                   rows={2}
                   value={poForm.notes}
                   onChange={(e) => setPOForm({ ...poForm, notes: e.target.value })}

@@ -475,7 +475,7 @@ export function POSProductManager({ store, onStoreUpdate }) {
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 800 }}>Tipo de Cotización</label>
                   <select
-                    className="pos-input"
+                    className="pos-select"
                     value={productForm.calcType}
                     onChange={(e) => setProductForm({ ...productForm, calcType: e.target.value })}
                   >
