@@ -1932,7 +1932,7 @@ export function recordBlindCashAudit(store, { advisorId, shiftId, denominations 
   return { ok: true, updatedStore, auditRecord };
 }
 
-// Calculate High-Speed Dynamic Print Item Price & Finishings
+// Calculate High-Speed Dynamic Print Item Price, Finishings, Design, Installation & Override
 export function calculatePrintItemPrice({
   product,
   widthCm = 0,
@@ -1940,11 +1940,28 @@ export function calculatePrintItemPrice({
   quantity = 1,
   finishingType = 'none',
   eyeletCount = 0,
-  customUnitPrice = null,
+  designService = 'none', // 'none' | 'adaptation' | 'scratch'
+  installationService = 'none', // 'none' | 'standard' | 'height' | 'custom'
+  customInstallationCost = 0,
+  customPriceOverride = null,
   customerVipTier = null
 }) {
   if (!product) {
-    return { areaM2: 0, perimeterM: 0, unitRate: 0, baseItemSubtotal: 0, finishingSubtotal: 0, totalItemPrice: 0 };
+    return {
+      areaM2: 0,
+      perimeterM: 0,
+      unitRate: 0,
+      effectiveUnitPrice: 0,
+      baseItemSubtotal: 0,
+      finishingSubtotal: 0,
+      designCost: 0,
+      installationCost: 0,
+      systemCalculatedTotal: 0,
+      totalItemPrice: 0,
+      finalItemPrice: 0,
+      isOverridden: false,
+      priceAdjustment: 0
+    };
   }
 
   const qty = Math.max(1, Number(quantity) || 1);
@@ -1954,10 +1971,8 @@ export function calculatePrintItemPrice({
   const areaM2 = isArea && widthM > 0 && heightM > 0 ? widthM * heightM : 0;
   const perimeterM = isArea && widthM > 0 && heightM > 0 ? 2 * (widthM + heightM) : 0;
 
-  // Pricing Tier resolution
-  let unitRate = customUnitPrice !== null && customUnitPrice !== ''
-    ? Number(customUnitPrice)
-    : Number(product.basePrice || 7.50);
+  // 1. Pricing Tier resolution
+  let unitRate = Number(product.basePrice || 7.50);
 
   if (customerVipTier === 'mayorista' && product.wholesalePrice) {
     unitRate = Number(product.wholesalePrice);
@@ -1965,7 +1980,7 @@ export function calculatePrintItemPrice({
     unitRate = Number(product.agencyPrice);
   }
 
-  // Finishing calculation (Gran Formato, Textil, Viniles, Rígidos, Imprenta)
+  // 2. Finishing calculation (Gran Formato, Textil, Viniles, Rígidos, Imprenta)
   let finishingUnitCost = 0;
   if (finishingType === 'ojales_pequenos') {
     finishingUnitCost += (Number(eyeletCount) || 4) * 0.30;
@@ -2001,9 +2016,41 @@ export function calculatePrintItemPrice({
     finishingUnitCost += 2.00 / Math.max(1, qty);
   }
 
+  // 3. Design Service Cost
+  let designCost = 0;
+  if (designService === 'adaptation') {
+    designCost = 5.00;
+  } else if (designService === 'scratch') {
+    designCost = 15.00;
+  }
+
+  // 4. Installation in Site Cost
+  let installationCost = 0;
+  if (installationService === 'standard') {
+    installationCost = 15.00;
+  } else if (installationService === 'height') {
+    installationCost = 30.00;
+  } else if (installationService === 'custom') {
+    installationCost = Math.max(0, Number(customInstallationCost) || 0);
+  }
+
+  // 5. System Suggested Subtotals
   const baseItemSubtotal = isArea ? (areaM2 * unitRate * qty) : (unitRate * qty);
   const finishingSubtotal = finishingUnitCost * qty;
-  const totalItemPrice = Number((baseItemSubtotal + finishingSubtotal).toFixed(2));
+  const systemCalculatedTotal = Number((baseItemSubtotal + finishingSubtotal + designCost + installationCost).toFixed(2));
+
+  // 6. Manual Commercial Override Resolution
+  const hasOverride = customPriceOverride !== null &&
+    customPriceOverride !== undefined &&
+    String(customPriceOverride).trim() !== '' &&
+    !isNaN(Number(customPriceOverride)) &&
+    Number(customPriceOverride) >= 0;
+
+  const finalItemPrice = hasOverride
+    ? Number(Number(customPriceOverride).toFixed(2))
+    : systemCalculatedTotal;
+
+  const priceAdjustment = Number((finalItemPrice - systemCalculatedTotal).toFixed(2));
 
   return {
     areaM2: Number(areaM2.toFixed(3)),
@@ -2012,7 +2059,13 @@ export function calculatePrintItemPrice({
     effectiveUnitPrice: unitRate,
     baseItemSubtotal: Number(baseItemSubtotal.toFixed(2)),
     finishingSubtotal: Number(finishingSubtotal.toFixed(2)),
-    totalItemPrice
+    designCost: Number(designCost.toFixed(2)),
+    installationCost: Number(installationCost.toFixed(2)),
+    systemCalculatedTotal,
+    totalItemPrice: finalItemPrice,
+    finalItemPrice,
+    isOverridden: hasOverride,
+    priceAdjustment
   };
 }
 

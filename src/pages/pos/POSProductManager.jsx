@@ -15,7 +15,10 @@ import {
   ArrowUpDown,
   Tag,
   Layers,
-  DollarSign
+  DollarSign,
+  ShieldCheck,
+  Eye,
+  Lock
 } from 'lucide-react';
 import {
   upsertProduct,
@@ -24,12 +27,17 @@ import {
 } from '../../lib/posStore';
 import { useToast } from '../../components/studio/Toast';
 
-export function POSProductManager({ store, onStoreUpdate }) {
+export function POSProductManager({ store, onStoreUpdate, session }) {
   const toast = useToast();
+  const userRole = session?.role || 'asesora';
+  const isAdmin = session?.isAdmin === true || userRole === 'admin' || userRole === 'super_admin';
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [editingProduct, setEditingProduct] = useState(null);
+  const [viewingProduct, setViewingProduct] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [bulkPercent, setBulkPercent] = useState('');
   const [isBulkOpen, setIsBulkOpen] = useState(false);
 
@@ -212,8 +220,32 @@ export function POSProductManager({ store, onStoreUpdate }) {
     document.body.removeChild(link);
   };
 
+  const handleOpenViewModal = (prod) => {
+    setViewingProduct(prod);
+    setIsViewModalOpen(true);
+  };
+
   return (
     <div className="pos-card" style={{ display: 'grid', gap: '16px' }}>
+      {/* Informative RBAC Banner for Advisors */}
+      {!isAdmin && (
+        <div style={{
+          padding: '12px 16px',
+          background: '#eff6ff',
+          border: '1.5px solid #bfdbfe',
+          borderRadius: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+        }}>
+          <ShieldCheck size={22} style={{ color: '#2563eb', flexShrink: 0 }} />
+          <div style={{ fontSize: '12.5px', color: '#1e40af', lineHeight: '1.4' }}>
+            <strong>Modo Asesora (Solo Consulta de Tarifas):</strong> Las tarifas maestras de la base de datos están protegidas contra modificaciones accidentales. Para <strong>personalizar o acordar un precio especial</strong> con un cliente en una venta puntual, simplemente selecciona el producto en el <strong>Cajero POS</strong> y escribe el precio personalizado en la casilla de override.
+          </div>
+        </div>
+      )}
+
       {/* Header & Controls */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         <div>
@@ -222,19 +254,23 @@ export function POSProductManager({ store, onStoreUpdate }) {
             Base de Datos de Productos & Tarifas ({store.products?.length || 0})
           </h2>
           <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
-            Catálogo dinámico unificado para POS, cotizadores web y tienda.
+            {isAdmin
+              ? 'Catálogo dinámico unificado para POS, cotizadores web y tienda (Modo Administrador).'
+              : 'Lista oficial de precios y especificaciones técnicas para consulta de asesoras.'}
           </span>
         </div>
 
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            className="pos-nav-tab"
-            onClick={() => setIsBulkOpen(!isBulkOpen)}
-            style={{ padding: '8px 14px', fontSize: '12px' }}
-          >
-            <ArrowUpDown size={14} /> Ajuste Masivo (%)
-          </button>
+          {isAdmin && (
+            <button
+              type="button"
+              className="pos-nav-tab"
+              onClick={() => setIsBulkOpen(!isBulkOpen)}
+              style={{ padding: '8px 14px', fontSize: '12px' }}
+            >
+              <ArrowUpDown size={14} /> Ajuste Masivo (%)
+            </button>
+          )}
           <button
             type="button"
             className="pos-nav-tab"
@@ -243,19 +279,21 @@ export function POSProductManager({ store, onStoreUpdate }) {
           >
             <Download size={14} /> Exportar Excel
           </button>
-          <button
-            type="button"
-            className="pos-submit-order-btn"
-            onClick={() => handleOpenEdit(null)}
-            style={{ padding: '8px 14px', fontSize: '12px' }}
-          >
-            <Plus size={16} /> Nuevo Producto
-          </button>
+          {isAdmin && (
+            <button
+              type="button"
+              className="pos-submit-order-btn"
+              onClick={() => handleOpenEdit(null)}
+              style={{ padding: '8px 14px', fontSize: '12px' }}
+            >
+              <Plus size={16} /> Nuevo Producto
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Bulk Adjust Drawer */}
-      {isBulkOpen && (
+      {/* Bulk Adjust Drawer (Admin Only) */}
+      {isAdmin && isBulkOpen && (
         <div style={{ padding: '14px', background: 'var(--orange-soft)', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--orange-dark)' }}>
             Ajustar precios en los {filteredProducts.length} productos filtrados:
@@ -360,62 +398,96 @@ export function POSProductManager({ store, onStoreUpdate }) {
                     {p.calcType === 'area' ? '📐 Superficie (m²)' : '📦 Por Unidad'}
                   </td>
                   <td style={{ padding: '10px 12px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ fontWeight: 800, color: 'var(--muted)', fontSize: '13px' }}>$</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        className="pos-input"
-                        style={{ width: '85px', padding: '4px 8px', fontSize: '13px', fontWeight: 800 }}
-                        defaultValue={p.basePrice}
-                        onBlur={(e) => handleInlinePriceChange(p, e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleInlinePriceChange(p, e.currentTarget.value);
-                        }}
-                      />
-                    </div>
+                    {isAdmin ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ fontWeight: 800, color: 'var(--muted)', fontSize: '13px' }}>$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          className="pos-input"
+                          style={{ width: '85px', padding: '4px 8px', fontSize: '13px', fontWeight: 800 }}
+                          defaultValue={p.basePrice}
+                          onBlur={(e) => handleInlinePriceChange(p, e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleInlinePriceChange(p, e.currentTarget.value);
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <strong style={{ fontSize: '13px', fontWeight: 900, color: 'var(--ink)', fontFamily: 'Space Grotesk' }}>
+                        ${Number(p.basePrice || 0).toFixed(2)}
+                      </strong>
+                    )}
                   </td>
                   <td style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--muted)', fontWeight: 700 }}>
                     /{p.unit || 'm2'}
                   </td>
                   <td style={{ padding: '10px 12px' }}>
-                    <button
-                      type="button"
-                      onClick={() => handleToggleActive(p)}
-                      style={{
-                        padding: '4px 10px',
+                    {isAdmin ? (
+                      <button
+                        type="button"
+                        onClick={() => handleToggleActive(p)}
+                        style={{
+                          padding: '4px 10px',
+                          borderRadius: '999px',
+                          border: 'none',
+                          background: p.isActive ? '#dcfce7' : '#fee2e2',
+                          color: p.isActive ? '#166534' : '#991b1b',
+                          fontSize: '11px',
+                          fontWeight: 800,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {p.isActive ? '● Activo' : '○ Inactivo'}
+                      </button>
+                    ) : (
+                      <span style={{
+                        padding: '3px 9px',
                         borderRadius: '999px',
-                        border: 'none',
                         background: p.isActive ? '#dcfce7' : '#fee2e2',
                         color: p.isActive ? '#166534' : '#991b1b',
                         fontSize: '11px',
                         fontWeight: 800,
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {p.isActive ? '● Activo' : '○ Inactivo'}
-                    </button>
+                        display: 'inline-block'
+                      }}>
+                        {p.isActive ? '● Activo' : '○ Inactivo'}
+                      </span>
+                    )}
                   </td>
                   <td style={{ padding: '10px 12px', textAlign: 'right' }}>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenEdit(p)}
-                        className="pos-nav-tab"
-                        style={{ padding: '4px 8px', fontSize: '12px' }}
-                        title="Editar detalles"
-                      >
-                        <Edit2 size={13} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteProduct(p.id)}
-                        className="pos-nav-tab"
-                        style={{ padding: '4px 8px', fontSize: '12px', color: '#dc2626' }}
-                        title="Eliminar"
-                      >
-                        <Trash2 size={13} />
-                      </button>
+                      {isAdmin ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEdit(p)}
+                            className="pos-nav-tab"
+                            style={{ padding: '4px 8px', fontSize: '12px' }}
+                            title="Editar detalles"
+                          >
+                            <Edit2 size={13} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteProduct(p.id)}
+                            className="pos-nav-tab"
+                            style={{ padding: '4px 8px', fontSize: '12px', color: '#dc2626' }}
+                            title="Eliminar"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenViewModal(p)}
+                          className="pos-nav-tab"
+                          style={{ padding: '4px 10px', fontSize: '11.5px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                          title="Ver Ficha Técnica"
+                        >
+                          <Eye size={13} /> Ver Ficha
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -425,8 +497,70 @@ export function POSProductManager({ store, onStoreUpdate }) {
         </table>
       </div>
 
-      {/* MODAL: CREATE / EDIT PRODUCT */}
-      {isModalOpen && (
+      {/* MODAL: READ-ONLY PRODUCT CONSULTATION FOR ADVISORS */}
+      {isViewModalOpen && viewingProduct && (
+        <div className="pos-modal-overlay">
+          <div className="pos-modal-card" style={{ maxWidth: '520px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Package size={20} style={{ color: 'var(--orange)' }} />
+                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 900 }}>Ficha del Producto</h2>
+              </div>
+              <button type="button" onClick={() => setIsViewModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gap: '14px' }}>
+              <div style={{ padding: '12px', background: 'var(--bg)', borderRadius: '10px', border: '1px solid var(--line)' }}>
+                <div style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 800, textTransform: 'uppercase' }}>
+                  {viewingProduct.category} · SKU: {viewingProduct.sku || 'N/A'}
+                </div>
+                <h3 style={{ margin: '4px 0 0', fontSize: '16px', fontWeight: 900, color: 'var(--ink)' }}>
+                  {viewingProduct.name}
+                </h3>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div style={{ padding: '10px', background: 'var(--bg)', borderRadius: '8px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 700 }}>Precio Base Oficial</span>
+                  <div style={{ fontSize: '18px', fontWeight: 900, color: 'var(--orange-dark)', fontFamily: 'Space Grotesk' }}>
+                    ${Number(viewingProduct.basePrice || 0).toFixed(2)} /{viewingProduct.unit || 'm2'}
+                  </div>
+                </div>
+                <div style={{ padding: '10px', background: 'var(--bg)', borderRadius: '8px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 700 }}>Tipo de Cálculo</span>
+                  <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--ink)', marginTop: '2px' }}>
+                    {viewingProduct.calcType === 'area' ? '📐 Por Metro Cuadrado' : '📦 Por Unidad / Lote'}
+                  </div>
+                </div>
+              </div>
+
+              {viewingProduct.description && (
+                <div>
+                  <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 800 }}>Descripción y Uso Recomendado:</span>
+                  <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--ink)', lineHeight: '1.4' }}>
+                    {viewingProduct.description}
+                  </p>
+                </div>
+              )}
+
+              <div style={{ padding: '10px 14px', background: '#eff6ff', borderRadius: '8px', border: '1px solid #bfdbfe', fontSize: '12px', color: '#1e40af' }}>
+                💡 <strong>Consejo para ventas:</strong> Si necesitas acordar una tarifa especial o personalizada con este cliente, abre el <strong>Cajero POS</strong>, selecciona este producto y escribe el precio acordado en la casilla de <strong>Precio Personalizado / Override</strong>.
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+                <button type="button" className="pos-submit-order-btn" onClick={() => setIsViewModalOpen(false)}>
+                  Entendido / Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CREATE / EDIT PRODUCT (ADMIN ONLY) */}
+      {isAdmin && isModalOpen && (
         <div className="pos-modal-overlay">
           <div className="pos-modal-card" style={{ maxWidth: '550px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
@@ -458,29 +592,37 @@ export function POSProductManager({ store, onStoreUpdate }) {
                     className="pos-input"
                     value={productForm.sku}
                     onChange={(e) => setProductForm({ ...productForm, sku: e.target.value })}
+                    placeholder="GIGA-100"
                   />
                 </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
-                  <label style={{ fontSize: '12px', fontWeight: 800 }}>Familia / Categoría</label>
-                  <input
-                    type="text"
+                  <label style={{ fontSize: '12px', fontWeight: 800 }}>Categoría</label>
+                  <select
                     className="pos-input"
                     value={productForm.category}
                     onChange={(e) => setProductForm({ ...productForm, category: e.target.value })}
-                  />
+                  >
+                    <option value="Gran Formato">Gran Formato (Lonas/Banners)</option>
+                    <option value="Viniles y Adhesivos">Viniles y Adhesivos</option>
+                    <option value="Rótulos y Cajas de Luz">Rótulos y Cajas de Luz</option>
+                    <option value="Rígidos y Estructuras">Rígidos y Estructuras</option>
+                    <option value="Textil y DTF">Textil y DTF</option>
+                    <option value="Imprenta Digital">Imprenta Digital</option>
+                    <option value="Promocionales">Promocionales</option>
+                  </select>
                 </div>
                 <div>
-                  <label style={{ fontSize: '12px', fontWeight: 800 }}>Tipo de Cotización</label>
+                  <label style={{ fontSize: '12px', fontWeight: 800 }}>Forma de Cobro</label>
                   <select
-                    className="pos-select"
+                    className="pos-input"
                     value={productForm.calcType}
                     onChange={(e) => setProductForm({ ...productForm, calcType: e.target.value })}
                   >
-                    <option value="area">📐 Superficie (m² - Ancho x Alto)</option>
-                    <option value="unit">📦 Por Unidad / Paquete</option>
+                    <option value="area">Por Área (m² - Ancho × Alto)</option>
+                    <option value="unit">Por Unidad / Cantidad fija</option>
                   </select>
                 </div>
               </div>

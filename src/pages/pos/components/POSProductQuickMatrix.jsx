@@ -26,22 +26,29 @@ export function POSProductQuickMatrix({
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Dimension & Finishing State
+  // Dimension, Finishing & Commercial Override State
   const [widthCm, setWidthCm] = useState(300);
   const [heightCm, setHeightCm] = useState(200);
   const [quantity, setQuantity] = useState(1);
   const [finishingType, setFinishingType] = useState('none');
   const [eyeletCount, setEyeletCount] = useState(4);
-  const [customUnitPrice, setCustomUnitPrice] = useState('');
+  const [designService, setDesignService] = useState('none'); // 'none' | 'adaptation' | 'scratch'
+  const [installationService, setInstallationService] = useState('none'); // 'none' | 'standard' | 'height' | 'custom'
+  const [customInstallationCost, setCustomInstallationCost] = useState('');
+  const [customPriceOverride, setCustomPriceOverride] = useState('');
   const [itemNotes, setItemNotes] = useState('');
   const [showVisualScale, setShowVisualScale] = useState(false);
 
   const currentProduct = selectedProduct || products[0] || null;
 
-  // Reset finishings whenever product changes
+  // Reset finishings & overrides whenever product changes
   useEffect(() => {
     setFinishingType('none');
     setEyeletCount(4);
+    setDesignService('none');
+    setInstallationService('none');
+    setCustomInstallationCost('');
+    setCustomPriceOverride('');
     setShowVisualScale(false);
   }, [currentProduct?.id]);
 
@@ -178,7 +185,22 @@ export function POSProductQuickMatrix({
   }, [products, activeCategory, searchQuery]);
 
   const calculated = useMemo(() => {
-    if (!currentProduct) return { totalItemPrice: 0, areaM2: 0 };
+    if (!currentProduct) {
+      return {
+        totalItemPrice: 0,
+        areaM2: 0,
+        perimeterM: 0,
+        unitRate: 0,
+        baseItemSubtotal: 0,
+        finishingSubtotal: 0,
+        designCost: 0,
+        installationCost: 0,
+        systemCalculatedTotal: 0,
+        finalItemPrice: 0,
+        isOverridden: false,
+        priceAdjustment: 0
+      };
+    }
     return calculatePrintItemPrice({
       product: currentProduct,
       widthCm,
@@ -186,7 +208,10 @@ export function POSProductQuickMatrix({
       quantity,
       finishingType,
       eyeletCount,
-      customUnitPrice: customUnitPrice ? Number(customUnitPrice) : null,
+      designService,
+      installationService,
+      customInstallationCost: customInstallationCost ? Number(customInstallationCost) : 0,
+      customPriceOverride: customPriceOverride !== '' ? customPriceOverride : null,
       customerVipTier
     });
   }, [
@@ -196,7 +221,10 @@ export function POSProductQuickMatrix({
     quantity,
     finishingType,
     eyeletCount,
-    customUnitPrice,
+    designService,
+    installationService,
+    customInstallationCost,
+    customPriceOverride,
     customerVipTier
   ]);
 
@@ -210,6 +238,15 @@ export function POSProductQuickMatrix({
       ? selectedFinishingObj.label.split(' (')[0]
       : '';
 
+    let designLabel = '';
+    if (designService === 'adaptation') designLabel = 'Adaptación de arte ($5)';
+    else if (designService === 'scratch') designLabel = 'Diseño desde cero ($15)';
+
+    let installationLabel = '';
+    if (installationService === 'standard') installationLabel = 'Montaje estándar ($15)';
+    else if (installationService === 'height') installationLabel = 'Montaje en altura ($30)';
+    else if (installationService === 'custom') installationLabel = `Montaje personalizado ($${Number(customInstallationCost || 0).toFixed(2)})`;
+
     onAddToCart({
       productId: currentProduct.id,
       productName: currentProduct.name,
@@ -222,10 +259,21 @@ export function POSProductQuickMatrix({
       quantity: Number(quantity),
       finishing: finishingLabel,
       eyeletCount: finishingType.includes('ojales') ? Number(eyeletCount) : 0,
+      designService,
+      designLabel,
+      designCost: calculated.designCost,
+      installationService,
+      installationLabel,
+      installationCost: calculated.installationCost,
+      systemPrice: calculated.systemCalculatedTotal,
       totalPrice: Number(calculated.totalItemPrice),
+      isOverridden: calculated.isOverridden,
+      priceAdjustment: calculated.priceAdjustment,
       notes: itemNotes.trim()
     });
-    // Reset item notes after adding
+
+    // Reset override and item notes after adding
+    setCustomPriceOverride('');
     setItemNotes('');
   };
 
@@ -484,16 +532,145 @@ export function POSProductQuickMatrix({
             )}
           </div>
 
-          {/* Technical Line-Item Notes */}
+          {/* Row 2: Design Services & Installation Services */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px', background: '#fff', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--line)' }}>
+            <div>
+              <label className="pos-label" style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                🎨 Servicio de Diseño Gráfico
+              </label>
+              <select
+                className="pos-select"
+                value={designService}
+                onChange={(e) => setDesignService(e.target.value)}
+                style={{ fontSize: '12px', padding: '6px 8px' }}
+              >
+                <option value="none">✓ Arte listo por el cliente ($0.00)</option>
+                <option value="adaptation">📐 Adaptación / Ajuste de medidas (+$5.00)</option>
+                <option value="scratch">✨ Diseño profesional desde cero (+$15.00)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="pos-label" style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                🔨 Instalación / Montaje en Sitio
+              </label>
+              <select
+                className="pos-select"
+                value={installationService}
+                onChange={(e) => setInstallationService(e.target.value)}
+                style={{ fontSize: '12px', padding: '6px 8px' }}
+              >
+                <option value="none">✓ Sin instalación / Retiro en matriz ($0.00)</option>
+                <option value="standard">🚚 Instalación estándar en sitio (+$15.00)</option>
+                <option value="height">🪜 Instalación en altura / Andamio (+$30.00)</option>
+                <option value="custom">⚙️ Montaje especial personalizado ($)</option>
+              </select>
+            </div>
+
+            {installationService === 'custom' && (
+              <div>
+                <label className="pos-label" style={{ fontSize: '11px' }}>Costo Montaje ($)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  className="pos-input"
+                  value={customInstallationCost}
+                  onChange={(e) => setCustomInstallationCost(e.target.value)}
+                  style={{ fontSize: '12px', padding: '6px 8px', fontWeight: 800 }}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Row 3: Technical Line-Item Notes */}
           <div>
             <input
               type="text"
               className="pos-input"
-              placeholder="✏️ Nota técnica opcional para el taller (ej. Dejar 5cm blanco alrededor para tensar en bastidor...)"
+              placeholder="✏️ Nota técnica para el taller (ej. Dejar 5cm blanco para bastidor, ojales cada 50cm, etc.)"
               value={itemNotes}
               onChange={(e) => setItemNotes(e.target.value)}
-              style={{ fontSize: '11.5px', padding: '6px 10px', background: '#fff' }}
+              style={{ fontSize: '11.5px', padding: '7px 10px', background: '#fff' }}
             />
+          </div>
+
+          {/* Row 4: Commercial Price Override Engine (Asesora Custom Price) */}
+          <div style={{
+            background: calculated.isOverridden ? '#fffbeb' : '#f8fafc',
+            border: calculated.isOverridden ? '1.5px solid #f59e0b' : '1px solid var(--line)',
+            borderRadius: '10px',
+            padding: '10px 14px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '10px',
+            transition: 'all 0.2s ease'
+          }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase' }}>
+                  Tarifa Calculada por Sistema:
+                </span>
+                <strong style={{ fontSize: '13px', color: 'var(--ink)', fontFamily: 'Space Grotesk' }}>
+                  ${calculated.systemCalculatedTotal.toFixed(2)}
+                </strong>
+              </div>
+              {calculated.isOverridden ? (
+                <div style={{ fontSize: '11.5px', fontWeight: 800, color: calculated.priceAdjustment >= 0 ? '#b45309' : '#dc2626', marginTop: '3px' }}>
+                  ✏️ Precio Asignado para esta venta: <strong>${calculated.finalItemPrice.toFixed(2)}</strong> ({calculated.priceAdjustment >= 0 ? `+$${calculated.priceAdjustment.toFixed(2)} ajuste comercial` : `-$${Math.abs(calculated.priceAdjustment).toFixed(2)} descuento especial`})
+                </div>
+              ) : (
+                <span style={{ fontSize: '10.5px', color: 'var(--muted)' }}>
+                  ¿El trabajo requiere revisiones extra o acuerdo especial? Personaliza el precio aquí abajo sin alterar la base de datos.
+                </span>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <label style={{ fontSize: '11.5px', fontWeight: 800, color: 'var(--ink)', whiteSpace: 'nowrap', margin: 0 }}>
+                ✏️ Precio Personalizado ($):
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder={`$${calculated.systemCalculatedTotal.toFixed(2)}`}
+                className="pos-input"
+                value={customPriceOverride}
+                onChange={(e) => setCustomPriceOverride(e.target.value)}
+                style={{
+                  width: '110px',
+                  padding: '6px 8px',
+                  fontSize: '13px',
+                  fontWeight: 900,
+                  color: calculated.isOverridden ? '#b45309' : 'var(--ink)',
+                  borderColor: calculated.isOverridden ? '#f59e0b' : 'var(--line)',
+                  background: '#ffffff'
+                }}
+              />
+              {calculated.isOverridden && (
+                <button
+                  type="button"
+                  onClick={() => setCustomPriceOverride('')}
+                  style={{
+                    background: '#fef3c7',
+                    border: '1px solid #fde68a',
+                    color: '#b45309',
+                    borderRadius: '6px',
+                    padding: '5px 8px',
+                    fontSize: '10.5px',
+                    fontWeight: 800,
+                    cursor: 'pointer'
+                  }}
+                  title="Restablecer al cálculo automático del sistema"
+                >
+                  ↺ Sistema
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Result Bar & Add Button */}
@@ -503,10 +680,12 @@ export function POSProductQuickMatrix({
             alignItems: 'center',
             background: '#fff',
             borderRadius: '10px',
-            padding: '8px 14px',
-            border: '1px solid var(--line)'
+            padding: '10px 14px',
+            border: '1px solid var(--line)',
+            flexWrap: 'wrap',
+            gap: '10px'
           }}>
-            <div style={{ display: 'flex', gap: '14px', alignItems: 'center', fontSize: '12px' }}>
+            <div style={{ display: 'flex', gap: '14px', alignItems: 'center', fontSize: '12px', flexWrap: 'wrap' }}>
               {currentProduct.calcType === 'area' && (
                 <span><strong>Área:</strong> {calculated.areaM2} m²</span>
               )}
@@ -514,7 +693,13 @@ export function POSProductQuickMatrix({
               {calculated.finishingSubtotal > 0 && (
                 <span><strong>Acabados:</strong> +{money(calculated.finishingSubtotal)}</span>
               )}
-              <span style={{ fontSize: '15px', fontWeight: 900, color: 'var(--orange-dark)', fontFamily: 'Space Grotesk' }}>
+              {calculated.designCost > 0 && (
+                <span><strong>Diseño:</strong> +{money(calculated.designCost)}</span>
+              )}
+              {calculated.installationCost > 0 && (
+                <span><strong>Montaje:</strong> +{money(calculated.installationCost)}</span>
+              )}
+              <span style={{ fontSize: '16px', fontWeight: 900, color: 'var(--orange-dark)', fontFamily: 'Space Grotesk' }}>
                 Total: {money(calculated.totalItemPrice)}
               </span>
             </div>
@@ -527,7 +712,7 @@ export function POSProductQuickMatrix({
                 color: '#fff',
                 border: 'none',
                 borderRadius: '8px',
-                padding: '8px 16px',
+                padding: '8px 18px',
                 fontSize: '13px',
                 fontWeight: 800,
                 cursor: 'pointer',

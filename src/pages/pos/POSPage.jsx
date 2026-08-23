@@ -1163,12 +1163,27 @@ export function POSPage({ initialTab = 'cashier' }) {
                       <div key={itm.id || idx} className="pos-cart-item">
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div className="pos-cart-item-title">{itm.productName}</div>
-                          <div className="pos-cart-item-meta">
+                          <div className="pos-cart-item-meta" style={{ flexWrap: 'wrap', gap: '4px' }}>
                             {itm.widthCm ? <span className="pos-cart-item-badge">{itm.widthCm}x{itm.heightCm}cm ({itm.areaM2}m²)</span> : null}
                             <span className="pos-cart-item-badge">Cant: {itm.quantity}</span>
                             {itm.finishing && itm.finishing !== 'none' && itm.finishing !== 'Sin acabados' && itm.finishing !== 'Sin acabados extra' && (
                               <span className="pos-cart-item-badge" style={{ color: 'var(--pos-primary)', fontWeight: 700 }}>
-                                {itm.finishing} {itm.eyeletCount > 0 ? `(${itm.eyeletCount} ojales)` : ''}
+                                ✂️ {itm.finishing} {itm.eyeletCount > 0 ? `(${itm.eyeletCount} ojales)` : ''}
+                              </span>
+                            )}
+                            {itm.designLabel && (
+                              <span className="pos-cart-item-badge" style={{ color: '#6366f1', fontWeight: 700, background: '#e0e7ff' }}>
+                                🎨 {itm.designLabel}
+                              </span>
+                            )}
+                            {itm.installationLabel && (
+                              <span className="pos-cart-item-badge" style={{ color: '#0891b2', fontWeight: 700, background: '#cffafe' }}>
+                                🔨 {itm.installationLabel}
+                              </span>
+                            )}
+                            {itm.isOverridden && (
+                              <span className="pos-cart-item-badge" style={{ color: '#b45309', fontWeight: 800, background: '#fef3c7' }}>
+                                ✏️ Precio Asignado ({itm.priceAdjustment >= 0 ? `+$${itm.priceAdjustment.toFixed(2)}` : `-$${Math.abs(itm.priceAdjustment).toFixed(2)}`})
                               </span>
                             )}
                           </div>
@@ -1180,7 +1195,14 @@ export function POSPage({ initialTab = 'cashier' }) {
                         </div>
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <span className="pos-cart-item-price">${itm.totalPrice.toFixed(2)}</span>
+                          <div style={{ textAlign: 'right' }}>
+                            <span className="pos-cart-item-price">${itm.totalPrice.toFixed(2)}</span>
+                            {itm.isOverridden && itm.systemPrice && (
+                              <div style={{ fontSize: '10px', color: 'var(--muted)', textDecoration: 'line-through' }}>
+                                Sist: ${itm.systemPrice.toFixed(2)}
+                              </div>
+                            )}
+                          </div>
                           <button
                             type="button"
                             onClick={() => handleRemoveFromCart(idx)}
@@ -1373,6 +1395,7 @@ export function POSPage({ initialTab = 'cashier' }) {
         <POSProductManager
           store={store}
           onStoreUpdate={(updated) => setStore(updated)}
+          session={session}
         />
       )}
 
