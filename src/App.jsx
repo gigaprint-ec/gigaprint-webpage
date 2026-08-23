@@ -14,7 +14,6 @@ import { OrderTrackingPage } from './pages/pos/OrderTrackingPage';
 import { POSCustomerDisplayPage } from './pages/pos/POSCustomerDisplayPage';
 import { POSArtProofPublicPage } from './pages/pos/POSArtProofPublicPage';
 import { LiveScaleVisualizer } from './components/studio/LiveScaleVisualizer';
-import { MaterialFinishPicker } from './components/studio/MaterialFinishPicker';
 import { ToastProvider } from './components/studio/Toast';
 const EditorPage = lazy(() => import('./pages/EditorPage').then((module) => ({ default: module.EditorPage })));
 
@@ -903,14 +902,6 @@ function SmartProductDetailPage() {
                   />
                 </div>
 
-                {/* Substrate Finishes Picker */}
-                <div style={{ marginTop: '16px', marginBottom: '16px' }}>
-                  <MaterialFinishPicker
-                    selectedMaterialId={selection.material || 'lona-13oz'}
-                    onSelectMaterial={(mat) => setSelection((curr) => ({ ...curr, material: mat.id, sustrato: mat.name }))}
-                  />
-                </div>
-
                 {/* Finishing & Confección (Only for Banners / Lonas / Gran Formato) */}
                 {(/lona|banner|mesh|valla|gran formato/i.test(product?.category || '') || /lona|banner|mesh|valla/i.test(product?.name || '')) && (
                   <div className="finishing-select-group" style={{ marginTop: '16px' }}>
@@ -1479,15 +1470,6 @@ function SmartQuotePage() {
                     </div>
                   )}
                 </div>
-
-                {isArea && (
-                  <div style={{ marginTop: '20px' }}>
-                    <MaterialFinishPicker
-                      selectedMaterialId={selection.material || 'lona-13oz'}
-                      onSelectMaterial={(mat) => setSelection((curr) => ({ ...curr, material: mat.id, sustrato: mat.name }))}
-                    />
-                  </div>
-                )}
               </div>
             </div>
 
