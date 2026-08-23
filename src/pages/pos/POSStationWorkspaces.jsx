@@ -134,6 +134,47 @@ export function POSStationWorkspaces({
     }
   };
 
+  const stationMeta = {
+    impresion: {
+      color: '#2563eb',
+      col1Title: '⏳ 1. Por Imprimir / En Cola',
+      col1Sub: 'Listos para ripear o cargar bobina',
+      col1Btn: '▶ Iniciar Impresión en Máquina',
+      col2Title: '🖨️ 2. Imprimiendo en Plotter',
+      col2Sub: 'En máquina / marca ítems impresos',
+      col2Btn: '✓ Impresión Lista ➔ A Secado',
+      col3Title: '✅ 3. Impreso / En Secado & Acabados',
+      col3Sub: 'En reposo o mesa de confección/ojales',
+      col3Badge: '✓ Impreso / En Acabados'
+    },
+    sublimacion: {
+      color: '#db2777',
+      col1Title: '⏳ 1. Por Sublimar / En Cola',
+      col1Sub: 'Preparar film DTF o papel transfer',
+      col1Btn: '🔥 Cargar en Plancha Térmica / DTF',
+      col2Title: '🔥 2. En Plancha / Termofijando',
+      col2Sub: 'En termo-fijado / marca prendas listas',
+      col2Btn: '✓ Termofijado Listo ➔ A Confección',
+      col3Title: '🧵 3. Confección, Relleno & Empaque',
+      col3Sub: 'Almohadas con plumón y empaque listo',
+      col3Badge: '✓ Confección y Empaque Terminado'
+    },
+    corte_laser: {
+      color: '#7c3aed',
+      col1Title: '⏳ 1. Por Cortar / En Cola',
+      col1Sub: 'Verificar vector DXF y espesor de plancha',
+      col1Btn: '⚙️ Cargar en Mesa Láser / CNC',
+      col2Title: '⚡ 2. En Láser / Ruteado CNC',
+      col2Sub: 'En mesa de corte / marca piezas listas',
+      col2Btn: '✓ Corte Listo ➔ A Pulido y Armado',
+      col3Title: '💡 3. Pulido, Neón & Test 12V',
+      col3Sub: 'Herrajes Standoff y test eléctrico aprobado',
+      col3Badge: '✓ Ensamblaje y Calidad Aprobada'
+    }
+  };
+
+  const meta = stationMeta[currentStation] || stationMeta.impresion;
+
   // Render a single order card
   const renderOrderCard = (order, columnType) => {
     const isUrgent = order.productionPriority === 'urgente' || order.priority === 'urgente';
@@ -233,7 +274,7 @@ export function POSStationWorkspaces({
 
         {/* Machine Tag */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', background: '#f8fafc', padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--line)' }}>
-          <span>⚙️ <strong>{order.machineAssigned || 'Plotter Flora 3.20m'}</strong></span>
+          <span>⚙️ <strong>{order.machineAssigned || (currentStation === 'sublimacion' ? 'Plancha Neumática DTF' : currentStation === 'corte_laser' ? 'Láser CO2 130W' : 'Plotter Flora 3.20m')}</strong></span>
           <span>👷 {order.technicianAssigned || 'Operario'}</span>
         </div>
 
@@ -301,9 +342,9 @@ export function POSStationWorkspaces({
           {columnType === 'pending' && (
             <button
               type="button"
-              onClick={() => handleUpdateStationStage(order.id, 'en_maquina', 'Cargado en máquina / iniciado en plotter')}
+              onClick={() => handleUpdateStationStage(order.id, 'en_maquina', 'Iniciado en máquina')}
               style={{
-                background: '#2563eb',
+                background: meta.color,
                 color: '#fff',
                 border: 'none',
                 borderRadius: '8px',
@@ -315,10 +356,10 @@ export function POSStationWorkspaces({
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '5px',
-                boxShadow: '0 2px 6px rgba(37, 99, 235, 0.2)'
+                boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
               }}
             >
-              <Play size={13} fill="#fff" /> Iniciar Impresión en Máquina
+              <Play size={13} fill="#fff" /> {meta.col1Btn}
             </button>
           )}
 
@@ -326,7 +367,7 @@ export function POSStationWorkspaces({
             <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '6px' }}>
               <button
                 type="button"
-                onClick={() => handleUpdateStationStage(order.id, 'en_secado', 'Impresión completada en máquina')}
+                onClick={() => handleUpdateStationStage(order.id, 'en_secado', 'Trabajo completado en máquina')}
                 style={{
                   background: '#16a34a',
                   color: '#fff',
@@ -343,7 +384,7 @@ export function POSStationWorkspaces({
                   boxShadow: '0 2px 6px rgba(22, 163, 74, 0.2)'
                 }}
               >
-                <Check size={14} /> ✓ Impresión Lista ➔ A Secado
+                <Check size={14} /> {meta.col2Btn}
               </button>
               <button
                 type="button"
@@ -358,7 +399,7 @@ export function POSStationWorkspaces({
                   fontWeight: 800,
                   cursor: 'pointer'
                 }}
-                title="Registrar merma o atasco"
+                title="Registrar merma o fallo técnico"
               >
                 ⚠️ Merma
               </button>
@@ -368,11 +409,11 @@ export function POSStationWorkspaces({
           {columnType === 'completed' && (
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px' }}>
               <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <CheckCircle2 size={13} /> Impreso / En Acabados
+                <CheckCircle2 size={13} /> {meta.col3Badge}
               </span>
               <button
                 type="button"
-                onClick={() => handleUpdateStationStage(order.id, 'en_maquina', 'Reimprimiendo o devuelto a máquina')}
+                onClick={() => handleUpdateStationStage(order.id, 'en_maquina', 'Reabierto o devuelto a máquina')}
                 style={{
                   background: '#f1f5f9',
                   border: '1px solid var(--line)',
@@ -383,7 +424,7 @@ export function POSStationWorkspaces({
                   color: 'var(--muted)',
                   cursor: 'pointer'
                 }}
-                title="Devolver a máquina si se requiere reimpresión"
+                title="Devolver a máquina"
               >
                 ↺ Devolver
               </button>
@@ -416,7 +457,7 @@ export function POSStationWorkspaces({
               </span>
             </div>
             <p style={{ margin: '3px 0 0', fontSize: '12px', color: 'var(--muted)' }}>
-              Panel de control de producción con 3 estados: <strong>Por Imprimir</strong>, <strong>Imprimiendo en Máquina</strong> y <strong>Ya Impreso</strong>.
+              Panel de control de producción con 3 estados: <strong>Por Fabricar</strong>, <strong>En Proceso / Máquina</strong> y <strong>Terminado / Acabados</strong>.
             </p>
           </div>
 
@@ -531,7 +572,7 @@ export function POSStationWorkspaces({
       </div>
 
       {/* ----------------------------------------------------------------------
-          3-STATE PRODUCTION BOARD (POR IMPRIMIR | IMPRIMIENDO | YA IMPRESO)
+          3-STATE PRODUCTION BOARD (POR FABRICAR | EN MÁQUINA | TERMINADO)
           ---------------------------------------------------------------------- */}
       <div style={{
         display: 'grid',
@@ -539,7 +580,7 @@ export function POSStationWorkspaces({
         gap: '16px',
         alignItems: 'start'
       }}>
-        {/* COLUMN 1: POR IMPRIMIR / EN COLA */}
+        {/* COLUMN 1: POR FABRICAR / EN COLA */}
         <div style={{
           background: '#f8fafc',
           borderRadius: '14px',
@@ -561,9 +602,9 @@ export function POSStationWorkspaces({
           }}>
             <div>
               <strong style={{ fontSize: '13.5px', color: '#b45309', display: 'block' }}>
-                ⏳ 1. Por Imprimir / En Cola
+                {meta.col1Title}
               </strong>
-              <small style={{ color: 'var(--muted)', fontSize: '11px' }}>Listos para ripear o cargar bobina</small>
+              <small style={{ color: 'var(--muted)', fontSize: '11px' }}>{meta.col1Sub}</small>
             </div>
             <span style={{ fontSize: '12px', background: '#fef3c7', color: '#b45309', fontWeight: 900, padding: '2px 8px', borderRadius: '8px' }}>
               {columns.pending.length}
@@ -581,7 +622,7 @@ export function POSStationWorkspaces({
           </div>
         </div>
 
-        {/* COLUMN 2: IMPRIMIENDO ACTIVAMENTE EN MAQUINA */}
+        {/* COLUMN 2: EN PROCESO / MÁQUINA */}
         <div style={{
           background: '#f0fdf4',
           borderRadius: '14px',
@@ -604,9 +645,9 @@ export function POSStationWorkspaces({
           }}>
             <div>
               <strong style={{ fontSize: '13.5px', color: '#15803d', display: 'block' }}>
-                ▶ 2. Imprimiendo en Máquina
+                {meta.col2Title}
               </strong>
-              <small style={{ color: 'var(--muted)', fontSize: '11px' }}>En plotter / marca ítems impresos</small>
+              <small style={{ color: 'var(--muted)', fontSize: '11px' }}>{meta.col2Sub}</small>
             </div>
             <span style={{ fontSize: '12px', background: '#dcfce7', color: '#15803d', fontWeight: 900, padding: '2px 8px', borderRadius: '8px' }}>
               {columns.inProgress.length}
@@ -616,7 +657,7 @@ export function POSStationWorkspaces({
           <div style={{ padding: '12px', display: 'grid', gap: '10px', alignContent: 'start', flex: 1 }}>
             {columns.inProgress.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--muted)', fontSize: '12px' }}>
-                Máquinas libres. Presiona "Iniciar Impresión" en un trabajo.
+                Máquinas libres. Presiona el botón de inicio en un trabajo.
               </div>
             ) : (
               columns.inProgress.map((order) => renderOrderCard(order, 'inProgress'))
@@ -624,7 +665,7 @@ export function POSStationWorkspaces({
           </div>
         </div>
 
-        {/* COLUMN 3: YA IMPRESO / EN SECADO Y ACABADOS */}
+        {/* COLUMN 3: TERMINADO / EN ACABADOS */}
         <div style={{
           background: '#f8fafc',
           borderRadius: '14px',
@@ -646,9 +687,9 @@ export function POSStationWorkspaces({
           }}>
             <div>
               <strong style={{ fontSize: '13.5px', color: '#4338ca', display: 'block' }}>
-                ✅ 3. Ya Impreso / En Secado & Acabados
+                {meta.col3Title}
               </strong>
-              <small style={{ color: 'var(--muted)', fontSize: '11px' }}>En reposo o mesa de confección/ojales</small>
+              <small style={{ color: 'var(--muted)', fontSize: '11px' }}>{meta.col3Sub}</small>
             </div>
             <span style={{ fontSize: '12px', background: '#e0e7ff', color: '#4338ca', fontWeight: 900, padding: '2px 8px', borderRadius: '8px' }}>
               {columns.completed.length}
