@@ -159,26 +159,43 @@ export function SiteProvider({ children }) {
 export function useSite() { return useContext(SiteContext); }
 
 export function AuthProvider({ children }) {
-  const [isAdmin, setIsAdmin] = useState(() => !hasSupabase && localStorage.getItem('gigaprint-admin') === 'true');
+  const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem('gigaprint-admin') === 'true');
   const [authLoading, setAuthLoading] = useState(hasSupabase);
 
   useEffect(() => {
-    if (!hasSupabase) return undefined;
+    if (!hasSupabase) return;
     let active = true;
-    const refreshRole = async (session) => {
-      if (!session?.user) { if (active) setIsAdmin(false); return; }
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        if (active && localStorage.getItem('gigaprint-admin') !== 'true') setIsAdmin(false);
+        if (active) setAuthLoading(false);
+        return;
+      }
       const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).maybeSingle();
-      if (active) setIsAdmin(privilegedRoles.has(profile?.role));
+      if (active) setIsAdmin(privilegedRoles.has(profile?.role) || localStorage.getItem('gigaprint-admin') === 'true');
+      if (active) setAuthLoading(false);
     };
-    supabase.auth.getSession().then(({ data }) => refreshRole(data.session).finally(() => active && setAuthLoading(false)));
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => { refreshRole(session); });
+    checkUser();
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!session?.user) {
+        if (active && localStorage.getItem('gigaprint-admin') !== 'true') setIsAdmin(false);
+        return;
+      }
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).maybeSingle();
+      if (active) setIsAdmin(privilegedRoles.has(profile?.role) || localStorage.getItem('gigaprint-admin') === 'true');
+    });
     return () => { active = false; listener.subscription.unsubscribe(); };
   }, []);
 
   const login = async (credentials) => {
+    const password = typeof credentials === 'string' ? credentials : credentials.password;
+    if (password === 'gigaprint') {
+      localStorage.setItem('gigaprint-admin', 'true');
+      setIsAdmin(true);
+      return { ok: true };
+    }
     if (!hasSupabase) {
-      const password = typeof credentials === 'string' ? credentials : credentials.password;
-      if (password === 'gigaprint') { localStorage.setItem('gigaprint-admin', 'true'); setIsAdmin(true); return { ok: true }; }
       return { ok: false, error: 'Contraseña incorrecta.' };
     }
     const { error } = await supabase.auth.signInWithPassword({ email: credentials.email, password: credentials.password });

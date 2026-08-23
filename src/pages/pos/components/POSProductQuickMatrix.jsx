@@ -8,9 +8,13 @@ import {
   Check,
   Tag,
   Scissors,
-  Wrench
+  Wrench,
+  Eye,
+  FileText
 } from 'lucide-react';
 import { calculatePrintItemPrice } from '../../../lib/posStore';
+import { LiveScaleVisualizer } from '../../../components/studio/LiveScaleVisualizer';
+import { playAddSound } from '../../../lib/posAudio';
 
 export function POSProductQuickMatrix({
   products = [],
@@ -29,6 +33,8 @@ export function POSProductQuickMatrix({
   const [finishingType, setFinishingType] = useState('ojales_pequenos');
   const [eyeletCount, setEyeletCount] = useState(4);
   const [customUnitPrice, setCustomUnitPrice] = useState('');
+  const [itemNotes, setItemNotes] = useState('');
+  const [showVisualScale, setShowVisualScale] = useState(false);
 
   const categories = [
     { id: 'all', label: '✦ Todo el Catálogo', icon: '✨' },
@@ -48,22 +54,21 @@ export function POSProductQuickMatrix({
     { label: '0.60 × 1.60 m (Banner X)', w: 60, h: 160 }
   ];
 
-  // Filter products by category and query
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
       const matchCat = activeCategory === 'all' || p.category === activeCategory;
-      const matchQuery = !searchQuery ||
+      const matchSearch =
+        !searchQuery ||
         p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (p.category && p.category.toLowerCase().includes(searchQuery.toLowerCase()));
-      return matchCat && matchQuery;
+        (p.category || '').toLowerCase().includes(searchQuery.toLowerCase());
+      return matchCat && matchSearch;
     });
   }, [products, activeCategory, searchQuery]);
 
-  // Active chosen product or first
-  const currentProduct = selectedProduct || filteredProducts[0] || products[0] || null;
+  const currentProduct = selectedProduct || products[0] || null;
 
-  // Real-time calculation
   const calculated = useMemo(() => {
+    if (!currentProduct) return { totalItemPrice: 0, areaM2: 0 };
     return calculatePrintItemPrice({
       product: currentProduct,
       widthCm,
@@ -71,87 +76,87 @@ export function POSProductQuickMatrix({
       quantity,
       finishingType,
       eyeletCount,
-      customUnitPrice,
+      customUnitPrice: customUnitPrice ? Number(customUnitPrice) : null,
       customerVipTier
     });
-  }, [currentProduct, widthCm, heightCm, quantity, finishingType, eyeletCount, customUnitPrice, customerVipTier]);
-
-  const handleApplyPreset = (preset) => {
-    setWidthCm(preset.w);
-    setHeightCm(preset.h);
-  };
-
-  const handleAdd = () => {
-    if (!currentProduct) return;
-    const itemData = {
-      productId: currentProduct.id,
-      productName: currentProduct.name,
-      category: currentProduct.category,
-      unit: currentProduct.unit,
-      calcType: currentProduct.calcType,
-      widthCm: currentProduct.calcType === 'area' ? Number(widthCm) : null,
-      heightCm: currentProduct.calcType === 'area' ? Number(heightCm) : null,
-      areaM2: calculated.areaM2,
-      quantity: Number(quantity),
-      unitPrice: calculated.unitRate,
-      finishingType,
-      eyeletCount: finishingType.includes('ojales') ? Number(eyeletCount) : 0,
-      finishingSubtotal: calculated.finishingSubtotal,
-      totalPrice: calculated.totalItemPrice
-    };
-
-    onAddToCart(itemData);
-  };
+  }, [
+    currentProduct,
+    widthCm,
+    heightCm,
+    quantity,
+    finishingType,
+    eyeletCount,
+    customUnitPrice,
+    customerVipTier
+  ]);
 
   const money = (val) => `$${(Number(val) || 0).toFixed(2)}`;
 
+  const handleAdd = () => {
+    if (!currentProduct) return;
+    playAddSound();
+    onAddToCart({
+      productId: currentProduct.id,
+      productName: currentProduct.name,
+      category: currentProduct.category,
+      calcType: currentProduct.calcType,
+      unitPrice: calculated.effectiveUnitPrice,
+      widthCm: currentProduct.calcType === 'area' ? Number(widthCm) : null,
+      heightCm: currentProduct.calcType === 'area' ? Number(heightCm) : null,
+      areaM2: currentProduct.calcType === 'area' ? Number(calculated.areaM2) : null,
+      quantity: Number(quantity),
+      finishing: finishingType !== 'none' ? finishingType.replace(/_/g, ' ') : 'Sin acabados',
+      eyeletCount: finishingType.includes('ojales') ? Number(eyeletCount) : 0,
+      totalPrice: Number(calculated.totalItemPrice),
+      notes: itemNotes.trim()
+    });
+    // Reset item notes after adding
+    setItemNotes('');
+  };
+
   return (
-    <div style={{ display: 'grid', gap: '16px' }}>
-      
-      {/* Category Pills Bar */}
-      <div style={{
-        display: 'flex',
-        gap: '6px',
-        overflowX: 'auto',
-        paddingBottom: '4px',
-        scrollbarWidth: 'none'
-      }}>
-        {categories.map((cat) => {
-          const isActive = activeCategory === cat.id;
-          return (
+    <div style={{ display: 'grid', gap: '12px' }}>
+      {/* Search & Category Pills Bar */}
+      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <input
+          type="text"
+          placeholder="🔍 Buscar material o sustrato..."
+          className="pos-input"
+          style={{ maxWidth: '240px', padding: '6px 12px', fontSize: '12px' }}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+        <div style={{ display: 'flex', gap: '4px', overflowX: 'auto', paddingBottom: '2px', flex: 1 }}>
+          {categories.map((c) => (
             <button
-              key={cat.id}
+              key={c.id}
               type="button"
-              onClick={() => setActiveCategory(cat.id)}
+              onClick={() => setActiveCategory(c.id)}
+              className="pos-cat-pill"
               style={{
-                background: isActive ? 'var(--orange)' : 'var(--paper)',
-                color: isActive ? '#fff' : 'var(--ink)',
-                border: `1px solid ${isActive ? 'var(--orange)' : 'var(--line)'}`,
-                padding: '6px 12px',
-                borderRadius: '20px',
-                fontSize: '12px',
-                fontWeight: 800,
-                cursor: 'pointer',
+                background: activeCategory === c.id ? 'var(--orange)' : '#fff',
+                color: activeCategory === c.id ? '#fff' : 'var(--ink)',
+                borderColor: activeCategory === c.id ? 'var(--orange)' : 'var(--line)',
+                fontSize: '11px',
+                padding: '4px 10px',
+                borderRadius: '8px',
                 whiteSpace: 'nowrap',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                boxShadow: isActive ? '0 2px 8px rgba(234, 88, 12, 0.25)' : 'none'
+                fontWeight: activeCategory === c.id ? 800 : 600,
+                cursor: 'pointer'
               }}
             >
-              <span>{cat.icon}</span>
-              <span>{cat.label}</span>
+              <span>{c.icon}</span> {c.label}
             </button>
-          );
-        })}
+          ))}
+        </div>
       </div>
 
-      {/* Visual Product Grid (Touch-friendly cards) */}
+      {/* Visual Substrate Cards Grid */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))',
-        gap: '10px',
-        maxHeight: '230px',
+        gap: '8px',
+        maxHeight: '175px',
         overflowY: 'auto',
         paddingRight: '4px'
       }}>
@@ -160,38 +165,36 @@ export function POSProductQuickMatrix({
           return (
             <div
               key={p.id}
-              onClick={() => onSelectProduct(p)}
+              onClick={() => onSelectProduct && onSelectProduct(p)}
               style={{
-                background: isSelected ? '#fff7ed' : 'var(--paper)',
-                border: `1.5px solid ${isSelected ? 'var(--orange)' : 'var(--line)'}`,
-                borderRadius: '12px',
-                padding: '10px',
+                background: isSelected ? 'var(--orange-soft)' : '#fff',
+                border: isSelected ? '2px solid var(--orange)' : '1px solid var(--line)',
+                borderRadius: '10px',
+                padding: '8px 10px',
                 cursor: 'pointer',
+                transition: 'all 0.15s ease',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
-                transition: 'all 0.15s ease',
-                boxShadow: isSelected ? '0 0 0 2px rgba(234,88,12,0.2)' : 'none'
+                boxShadow: isSelected ? '0 2px 8px rgba(234, 88, 12, 0.15)' : 'none'
               }}
             >
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
-                  <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <span style={{ fontSize: '9px', fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase' }}>
                     {p.category}
                   </span>
-                  {isSelected && (
-                    <span style={{ width: '16px', height: '16px', borderRadius: '50%', background: 'var(--orange)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 900 }}>
-                      ✓
-                    </span>
-                  )}
+                  {isSelected && <Check size={14} color="var(--orange)" />}
                 </div>
-                <h5 style={{ margin: '0 0 6px', fontSize: '12px', fontWeight: 800, color: 'var(--ink)', lineHeight: '1.2' }}>
+                <div style={{ fontWeight: 800, fontSize: '12px', color: 'var(--ink)', marginTop: '2px', lineHeight: '1.2' }}>
                   {p.name}
-                </h5>
+                </div>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', borderTop: '1px dashed var(--line)', paddingTop: '4px' }}>
-                <span style={{ fontSize: '11px', color: 'var(--muted)' }}>{p.calcType === 'area' ? 'm²' : 'unid'}</span>
-                <span style={{ fontSize: '13px', fontWeight: 900, color: 'var(--orange-dark)', fontFamily: 'Space Grotesk' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', paddingTop: '4px', borderTop: '1px solid var(--line)' }}>
+                <span style={{ fontSize: '10px', color: 'var(--muted)' }}>
+                  {p.calcType === 'area' ? 'Tarifa m²' : 'Unidad'}
+                </span>
+                <span style={{ fontSize: '12px', fontWeight: 900, color: 'var(--orange-dark)', fontFamily: 'Space Grotesk' }}>
                   {money(p.basePrice)}
                 </span>
               </div>
@@ -200,99 +203,139 @@ export function POSProductQuickMatrix({
         })}
       </div>
 
-      {/* Selected Product Calculator Strip */}
+      {/* Selected Product Configurator & Area Calculator */}
       {currentProduct && (
         <div style={{
-          background: '#f8fafc',
+          background: 'var(--bg)',
           borderRadius: '14px',
-          padding: '14px',
-          border: '1px solid var(--line)',
+          border: '1.5px solid var(--line)',
+          padding: '12px 16px',
           display: 'grid',
-          gap: '12px'
+          gap: '10px'
         }}>
-          {/* Active Product Banner & Presets */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--line)', paddingBottom: '8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Package size={16} style={{ color: 'var(--orange)' }} />
-              <strong style={{ fontSize: '13px', color: 'var(--ink)' }}>
-                {currentProduct.name} ({money(calculated.unitRate)}/{currentProduct.unit})
-              </strong>
+              <span style={{ background: 'var(--orange)', color: '#fff', padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 900 }}>
+                CONFIGURANDO
+              </span>
+              <strong style={{ fontSize: '14px', color: 'var(--ink)' }}>{currentProduct.name}</strong>
+              <span style={{ fontSize: '11px', color: 'var(--muted)' }}>
+                (Base: {money(currentProduct.basePrice)} / {currentProduct.calcType === 'area' ? 'm²' : 'u'})
+              </span>
             </div>
 
-            {/* Presets Bar if area */}
+            {/* Scale Visualizer Toggle */}
             {currentProduct.calcType === 'area' && (
-              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 800, alignSelf: 'center' }}>Presets:</span>
-                {standardPresets.map((pr, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => handleApplyPreset(pr)}
-                    style={{
-                      background: widthCm === pr.w && heightCm === pr.h ? '#e2e8f0' : '#fff',
-                      border: '1px solid var(--line)',
-                      padding: '2px 8px',
-                      borderRadius: '6px',
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {pr.label.split(' ')[0]}
-                  </button>
-                ))}
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowVisualScale(!showVisualScale)}
+                style={{
+                  background: showVisualScale ? 'var(--orange)' : '#fff',
+                  color: showVisualScale ? '#fff' : 'var(--orange-dark)',
+                  border: '1px solid var(--orange)',
+                  borderRadius: '6px',
+                  padding: '4px 10px',
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                <Eye size={13} /> {showVisualScale ? 'Ocultar Escala' : '📐 Escala y Proporción en Vivo'}
+              </button>
             )}
           </div>
 
-          {/* Inputs Matrix: Dimensions + Quantity + Acabados */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: currentProduct.calcType === 'area' ? '1fr 1fr 1fr 1.5fr' : '1fr 1.5fr',
-            gap: '10px',
-            alignItems: 'end'
-          }}>
-            {currentProduct.calcType === 'area' && (
+          {/* Optional Live Scale & Human Proportion Visualizer */}
+          {showVisualScale && currentProduct.calcType === 'area' && (
+            <div style={{ background: '#fff', borderRadius: '12px', padding: '10px', border: '1px solid var(--line)', animation: 'pos-fade-in 0.2s ease' }}>
+              <LiveScaleVisualizer
+                widthCm={widthCm}
+                heightCm={heightCm}
+                productName={currentProduct.name}
+                category={currentProduct.category}
+                eyeletMode={finishingType.includes('ojales') ? '4-corners' : 'none'}
+              />
+            </div>
+          )}
+
+          {/* Quick Presets for Signage & Banners */}
+          {currentProduct.calcType === 'area' && (
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--muted)' }}>Medidas Rápidas:</span>
+              {standardPresets.map((preset, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => {
+                    setWidthCm(preset.w);
+                    setHeightCm(preset.h);
+                  }}
+                  style={{
+                    background: widthCm === preset.w && heightCm === preset.h ? 'var(--orange-soft)' : '#fff',
+                    border: widthCm === preset.w && heightCm === preset.h ? '1.5px solid var(--orange)' : '1px solid var(--line)',
+                    color: widthCm === preset.w && heightCm === preset.h ? 'var(--orange-dark)' : 'var(--ink)',
+                    borderRadius: '6px',
+                    padding: '3px 8px',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Dimensions, Quantity and Finishings */}
+          <div style={{ display: 'grid', gridTemplateColumns: currentProduct.calcType === 'area' ? '1fr 1fr 0.8fr 1.4fr' : '1fr 1.5fr', gap: '10px' }}>
+            {currentProduct.calcType === 'area' ? (
               <>
                 <div>
-                  <label className="pos-label required" style={{ fontSize: '11px' }}>Ancho (cm)</label>
+                  <label className="pos-label" style={{ fontSize: '11px' }}>Ancho (cm)</label>
                   <input
                     type="number"
-                    min="1"
+                    min="10"
+                    step="1"
                     className="pos-input"
                     value={widthCm}
                     onChange={(e) => setWidthCm(e.target.value)}
-                    style={{ fontSize: '13px', padding: '6px 8px' }}
+                    style={{ fontSize: '13px', padding: '6px 8px', fontWeight: 700 }}
                   />
                 </div>
                 <div>
-                  <label className="pos-label required" style={{ fontSize: '11px' }}>Alto (cm)</label>
+                  <label className="pos-label" style={{ fontSize: '11px' }}>Alto (cm)</label>
                   <input
                     type="number"
-                    min="1"
+                    min="10"
+                    step="1"
                     className="pos-input"
                     value={heightCm}
                     onChange={(e) => setHeightCm(e.target.value)}
-                    style={{ fontSize: '13px', padding: '6px 8px' }}
+                    style={{ fontSize: '13px', padding: '6px 8px', fontWeight: 700 }}
                   />
                 </div>
               </>
-            )}
+            ) : null}
 
             <div>
-              <label className="pos-label required" style={{ fontSize: '11px' }}>Cantidad</label>
+              <label className="pos-label" style={{ fontSize: '11px' }}>Cantidad</label>
               <input
                 type="number"
                 min="1"
+                step="1"
                 className="pos-input"
                 value={quantity}
                 onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                style={{ fontSize: '13px', padding: '6px 8px', fontWeight: 800 }}
+                style={{ fontSize: '13px', padding: '6px 8px', fontWeight: 700, textAlign: 'center' }}
               />
             </div>
 
             <div>
-              <label className="pos-label" style={{ fontSize: '11px' }}>Acabado / Refuerzo</label>
+              <label className="pos-label" style={{ fontSize: '11px' }}>Acabados / Confección</label>
               <select
                 className="pos-select"
                 value={finishingType}
@@ -307,6 +350,18 @@ export function POSProductQuickMatrix({
                 <option value="bolsillo_tubo">Bolsillo para tubo (+$4.00)</option>
               </select>
             </div>
+          </div>
+
+          {/* Technical Line-Item Notes */}
+          <div>
+            <input
+              type="text"
+              className="pos-input"
+              placeholder="✏️ Nota técnica opcional para el taller (ej. Dejar 5cm blanco alrededor para tensar en bastidor...)"
+              value={itemNotes}
+              onChange={(e) => setItemNotes(e.target.value)}
+              style={{ fontSize: '11.5px', padding: '6px 10px', background: '#fff' }}
+            />
           </div>
 
           {/* Result Bar & Add Button */}

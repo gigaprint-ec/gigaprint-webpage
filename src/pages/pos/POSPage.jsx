@@ -32,7 +32,12 @@ import {
   Sparkles,
   ArrowRight,
   Hash,
-  FileCheck
+  FileCheck,
+  Volume2,
+  VolumeX,
+  Keyboard,
+  Tv,
+  Tag
 } from 'lucide-react';
 import {
   loadPOSStore,
@@ -58,6 +63,13 @@ import {
   getMondayOfWeek,
   getISOWeekCode
 } from '../../lib/posStore';
+import {
+  playSuccessSound,
+  playParkSound,
+  playWarningSound,
+  toggleAudioMute,
+  isAudioMuted
+} from '../../lib/posAudio';
 import { POSLockScreen } from './POSLockScreen';
 import { POSReceiptModal } from './POSReceiptModal';
 import { POSWorkOrderModal } from './POSWorkOrderModal';
@@ -70,6 +82,8 @@ import { POSPaymentCollectionModal } from './POSPaymentCollectionModal';
 import { POSSRIInvoiceModal } from './POSSRIInvoiceModal';
 import { POSAdvisorsManagement } from './POSAdvisorsManagement';
 import { POSPurchaseOrdersManager } from './POSPurchaseOrdersManager';
+import { POSKeyboardShortcutsModal } from './POSKeyboardShortcutsModal';
+import { POSPackageLabelModal } from './POSPackageLabelModal';
 import { SupabaseFileUploader } from '../../components/studio/SupabaseFileUploader';
 import { POSProductQuickMatrix } from './components/POSProductQuickMatrix';
 
@@ -125,6 +139,8 @@ export function POSPage() {
   const [shiftAction, setShiftAction] = useState('open'); // 'open' | 'close'
   const [shiftCashAmount, setShiftCashAmount] = useState('');
   const [shiftNotes, setShiftNotes] = useState('');
+  const [showShortcutsModal, setShowShortcutsModal] = useState(false);
+  const [isMuted, setIsMuted] = useState(isAudioMuted);
 
   // Orders Tab Filters
   const [orderSearchTerm, setOrderSearchTerm] = useState('');
@@ -328,9 +344,34 @@ export function POSPage() {
     setCustomerId(cust.id);
   };
 
+  // Broadcast active cart state to secondary customer display in real time
+  useEffect(() => {
+    const payload = {
+      advisorName: session?.name || 'Ventas',
+      customerName,
+      cartItems,
+      totalAmount,
+      subtotal,
+      discountAmount,
+      applyIVA,
+      taxAmount,
+      status: receiptOrder ? 'completed' : 'active',
+      orderNumber: receiptOrder?.orderNumber || ''
+    };
+    try {
+      localStorage.setItem('gigaprint_pos_customer_display', JSON.stringify(payload));
+      const channel = new BroadcastChannel('gigaprint_pos_display_channel');
+      channel.postMessage(payload);
+      channel.close();
+    } catch (e) {
+      // BroadcastChannel fallback handled by storage event
+    }
+  }, [session?.name, customerName, cartItems, totalAmount, subtotal, discountAmount, applyIVA, taxAmount, receiptOrder]);
+
   // Park Sale (Guardar en espera)
   const handleParkSale = () => {
     if (cartItems.length === 0) return alert('El carrito está vacío.');
+    playParkSound();
     const res = parkPOSSale(store, {
       advisorId: currentAdvisorId,
       customerName: customerName.trim() || 'Cliente en espera',
@@ -432,10 +473,12 @@ export function POSPage() {
 
     const res = createPOSOrder(store, orderData);
     if (res.ok) {
+      playSuccessSound();
       setStore(res.updatedStore);
       setReceiptOrder(res.order);
       handleClearCart();
     } else {
+      playWarningSound();
       alert('Error al registrar la orden: ' + res.error);
     }
   };
@@ -454,6 +497,17 @@ export function POSPage() {
   // Keyboard Shortcuts Listener for fast cashier counter flow
   useEffect(() => {
     const handleKeyDown = (e) => {
+      if (e.key === '?' || e.key === 'F12') {
+        e.preventDefault();
+        setShowShortcutsModal((prev) => !prev);
+        return;
+      }
+
+      if (e.key === 'Escape') {
+        setShowShortcutsModal(false);
+        setIsShiftModalOpen(false);
+      }
+
       if (activeTab !== 'cashier') return;
 
       if (e.key === 'F1') {
@@ -509,6 +563,43 @@ export function POSPage() {
         </div>
 
         <div className="pos-top-actions">
+          {/* Sound Mute Toggle */}
+          <button
+            type="button"
+            className="pos-lock-btn"
+            style={{ padding: '8px 10px' }}
+            onClick={() => {
+              const muted = toggleAudioMute();
+              setIsMuted(muted);
+            }}
+            title={isMuted ? 'Activar efectos de sonido' : 'Silenciar efectos de sonido'}
+          >
+            {isMuted ? <VolumeX size={14} style={{ color: '#ef4444' }} /> : <Volume2 size={14} style={{ color: '#10b981' }} />}
+          </button>
+
+          {/* Keyboard Shortcuts Cheat-Sheet Button */}
+          <button
+            type="button"
+            className="pos-lock-btn"
+            style={{ padding: '8px 12px', gap: '6px' }}
+            onClick={() => setShowShortcutsModal(true)}
+            title="Ver atajos de teclado (? / F12)"
+          >
+            <Keyboard size={14} /> <span style={{ fontSize: '11px', fontWeight: 800 }}>Atajos (?)</span>
+          </button>
+
+          {/* Customer-Facing Display Launcher */}
+          <a
+            href="#/pos/display"
+            target="_blank"
+            rel="noreferrer"
+            className="pos-lock-btn"
+            style={{ textDecoration: 'none', padding: '8px 12px', gap: '6px', color: 'inherit', display: 'flex', alignItems: 'center' }}
+            title="Abrir pantalla secundaria para el cliente"
+          >
+            <Tv size={14} color="#3b82f6" /> <span style={{ fontSize: '11px', fontWeight: 800 }}>2da Pantalla</span>
+          </a>
+
           {activeShift ? (
             <button
               type="button"
@@ -883,8 +974,13 @@ export function POSPage() {
                           <div className="pos-cart-item-meta">
                             {itm.widthCm ? <span className="pos-cart-item-badge">{itm.widthCm}x{itm.heightCm}cm ({itm.areaM2}m²)</span> : null}
                             <span className="pos-cart-item-badge">Cant: {itm.quantity}</span>
-                            {itm.finishing !== 'none' && <span className="pos-cart-item-badge" style={{ color: 'var(--pos-primary)' }}>{itm.finishing}</span>}
+                            {itm.finishing && itm.finishing !== 'none' && <span className="pos-cart-item-badge" style={{ color: 'var(--pos-primary)' }}>{itm.finishing}</span>}
                           </div>
+                          {itm.notes && (
+                            <div style={{ fontSize: '11px', color: '#0284c7', fontStyle: 'italic', marginTop: '3px' }}>
+                              📝 {itm.notes}
+                            </div>
+                          )}
                         </div>
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -1545,6 +1641,14 @@ export function POSPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Keyboard Shortcuts Cheat-Sheet Modal */}
+      {showShortcutsModal && (
+        <POSKeyboardShortcutsModal
+          isOpen={showShortcutsModal}
+          onClose={() => setShowShortcutsModal(false)}
+        />
       )}
     </div>
   );

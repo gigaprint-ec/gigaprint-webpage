@@ -2,9 +2,10 @@ import React, { useState, useMemo } from 'react';
 import { 
   Layout, Eye, Printer, Scissors, CheckSquare, Package, CheckCircle2,
   AlertTriangle, Clock, ArrowRight, ArrowLeft, Search, Filter,
-  FileText, MessageCircle, MoreVertical, XCircle, Sparkles, Check
+  FileText, MessageCircle, MoreVertical, XCircle, Sparkles, Check, Tag
 } from 'lucide-react';
 import { PRODUCTION_STAGES, updateOrderProductionStage, toISODate, cancelPOSOrder } from '../../lib/posStore';
+import { POSPackageLabelModal } from './POSPackageLabelModal';
 
 export function POSProductionKanban({ 
   store, 
@@ -18,6 +19,7 @@ export function POSProductionKanban({
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [cancelModalOrder, setCancelModalOrder] = useState(null);
   const [cancelReason, setCancelReason] = useState('');
+  const [labelModalOrder, setLabelModalOrder] = useState(null);
 
   const today = toISODate();
 
@@ -429,6 +431,21 @@ export function POSProductionKanban({
                             </button>
 
                             <button
+                              onClick={() => setLabelModalOrder(order)}
+                              title="Imprimir Etiqueta Térmica de Empaque"
+                              style={{
+                                padding: '5px 7px',
+                                borderRadius: '6px',
+                                border: '1px solid var(--line)',
+                                background: '#fff7ed',
+                                color: '#ea580c',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              <Tag size={13} />
+                            </button>
+
+                            <button
                               onClick={() => setCancelModalOrder(order)}
                               title="Anular / Cancelar Pedido"
                               style={{
@@ -535,6 +552,15 @@ export function POSProductionKanban({
             </div>
           </div>
         </div>
+      )}
+
+      {labelModalOrder && (
+        <POSPackageLabelModal
+          order={labelModalOrder}
+          items={(store.orderItems || []).filter((it) => it.orderId === labelModalOrder.id)}
+          isOpen={Boolean(labelModalOrder)}
+          onClose={() => setLabelModalOrder(null)}
+        />
       )}
     </div>
   );
