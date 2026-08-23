@@ -397,12 +397,35 @@
 }
 
 /* ------------------------------------------------------------------------------
-   FORM CONTROLS & INPUT SYSTEM (THE FIX)
+/* ------------------------------------------------------------------------------
+   FORM CONTROLS & INPUT SYSTEM (THE FIX & COMPLETE ISOLATION)
    ============================================================================== */
+.pos-container,
+.pos-container * {
+  box-sizing: border-box !important;
+}
+
+.pos-container label {
+  display: block !important;
+  width: 100% !important;
+  margin-bottom: 6px !important;
+  color: var(--pos-text-muted) !important;
+}
+
+.pos-container input,
+.pos-container select,
+.pos-container textarea {
+  box-sizing: border-box !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+}
+
 .pos-input,
 .pos-select,
 .pos-textarea {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   padding: 10px 14px;
   border-radius: 11px;
   border: 1.5px solid var(--pos-border);
@@ -460,6 +483,9 @@
   display: flex;
   align-items: center;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .pos-input-icon-left {
@@ -503,13 +529,42 @@
    ------------------------------------------------------------------------------ */
 .pos-cashier-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(360px, 0.75fr);
+  grid-template-columns: minmax(0, 1.3fr) minmax(360px, 0.85fr);
   gap: 20px;
+  align-items: start;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.pos-cashier-grid > div {
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (max-width: 1200px) {
+  .pos-cashier-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pos-crm-container {
+  display: grid;
+  grid-template-columns: minmax(320px, 380px) 1fr;
+  gap: 20px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   align-items: start;
 }
 
+.pos-crm-container > div {
+  min-width: 0;
+  max-width: 100%;
+}
+
 @media (max-width: 1024px) {
-  .pos-cashier-grid {
+  .pos-crm-container {
     grid-template-columns: 1fr;
   }
 }
@@ -522,7 +577,18 @@
   box-shadow: var(--pos-shadow-sm);
   display: grid;
   gap: 16px;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
   transition: border-color 0.2s ease;
+}
+
+.admin-shell .admin-content:has(.pos-container),
+.admin-shell:has(.pos-container) .admin-content {
+  padding: 0 !important;
+  max-width: 100% !important;
+  overflow-x: hidden !important;
 }
 
 .pos-card-header {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import {
   ShoppingBag,
   Clock,
@@ -88,12 +89,18 @@ import { SupabaseFileUploader } from '../../components/studio/SupabaseFileUpload
 import { POSProductQuickMatrix } from './components/POSProductQuickMatrix';
 import { useToast } from '../../components/studio/Toast';
 
-export function POSPage() {
+export function POSPage({ initialTab = 'cashier' }) {
   const toast = useToast();
   const [store, setStore] = useState(loadPOSStore);
   const [session, setSession] = useState(getPOSSession);
   const [syncStatus, setSyncStatus] = useState('synced');
-  const [activeTab, setActiveTab] = useState('cashier'); // 'cashier' | 'kanban' | 'crm' | 'products' | 'orders' | 'inventory' | 'purchases' | 'weekly' | 'expenses'
+  const [activeTab, setActiveTab] = useState(initialTab || 'cashier'); // 'cashier' | 'kanban' | 'crm' | 'products' | 'orders' | 'inventory' | 'purchases' | 'weekly' | 'expenses'
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   // Cashier Form State
   const [customerName, setCustomerName] = useState('');
@@ -726,6 +733,16 @@ export function POSPage() {
           >
             <Keyboard size={14} /> <span style={{ fontSize: '11px', fontWeight: 800 }}>Atajos (?)</span>
           </button>
+
+          {/* Admin Panel Return Link */}
+          <Link
+            to="/admin"
+            className="pos-lock-btn"
+            style={{ textDecoration: 'none', padding: '8px 12px', gap: '6px', color: 'inherit', display: 'flex', alignItems: 'center' }}
+            title="Volver al Panel Administrativo"
+          >
+            <Building2 size={14} style={{ color: 'var(--pos-primary)' }} /> <span style={{ fontSize: '11px', fontWeight: 800 }}>Panel Admin</span>
+          </Link>
 
           {/* Customer-Facing Display Launcher */}
           <a
