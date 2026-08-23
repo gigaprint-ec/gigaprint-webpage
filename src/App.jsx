@@ -719,6 +719,10 @@ function SmartProductDetailPage() {
   const [heightCm, setHeightCm] = useState(100);
   const [selection, setSelection] = useState({});
   const [designLevel, setDesignLevel] = useState('none');
+  const [finishing, setFinishing] = useState('none');
+  const [eyeletPreset, setEyeletPreset] = useState('corners');
+  const [customEyelets, setCustomEyelets] = useState(4);
+  const [installation, setInstallation] = useState(false);
   
   const options = getVariantOptions(product);
   const safeSelection = options.reduce((result, option) => ({
@@ -729,7 +733,14 @@ function SmartProductDetailPage() {
   }), {});
   
   const isArea = getProductCalcType(product) === 'm2';
-  const calcSettings = data.calculatorSettings || { taxRate: 15, designAdaptationPrice: 5, designFromScratchPrice: 15 };
+  const calcSettings = data.calculatorSettings || {
+    taxRate: 15,
+    designAdaptationPrice: 5,
+    designFromScratchPrice: 15,
+    eyeletSmallPrice: 0.30,
+    eyeletLargePrice: 0.50
+  };
+
   const designCost = designLevel === 'adaptation'
     ? Number(calcSettings.designAdaptationPrice || 5)
     : designLevel === 'full'
@@ -738,27 +749,78 @@ function SmartProductDetailPage() {
 
   const minQty = Math.max(1, Number(product?.minQuantity || 1));
   const effectiveQty = Math.max(minQty, quantity);
+
+  // Dynamic eyelets calculations
+  const calculatedPerimeter50 = useMemo(() => {
+    const w = Math.max(1, Math.ceil(widthCm / 50));
+    const h = Math.max(1, Math.ceil(heightCm / 50));
+    return Math.max(4, 2 * (w + h));
+  }, [widthCm, heightCm]);
+
+  const calculatedPerimeter30 = useMemo(() => {
+    const w = Math.max(1, Math.ceil(widthCm / 30));
+    const h = Math.max(1, Math.ceil(heightCm / 30));
+    return Math.max(4, 2 * (w + h));
+  }, [widthCm, heightCm]);
+
+  const effectiveEyeletCount = useMemo(() => {
+    if (finishing === 'none' || finishing === 'bolsillo') return 0;
+    if (eyeletPreset === 'corners') return 4;
+    if (eyeletPreset === 'every50') return calculatedPerimeter50;
+    if (eyeletPreset === 'every30') return calculatedPerimeter30;
+    return Math.max(1, Number(customEyelets) || 1);
+  }, [finishing, eyeletPreset, calculatedPerimeter50, calculatedPerimeter30, customEyelets]);
+
+  const eyeletUnitPrice = finishing === 'small' ? Number(calcSettings.eyeletSmallPrice || 0.30) : finishing === 'large' ? Number(calcSettings.eyeletLargePrice || 0.50) : 0;
+  const finishingCostPerPiece = finishing === 'bolsillo' ? 4.0 : (effectiveEyeletCount * eyeletUnitPrice);
+  const finishingCost = isArea ? finishingCostPerPiece * effectiveQty : 0;
+
+  const installationCost = installation && isArea && product?.price_inst
+    ? Math.max(0, (Number(product.price_inst) - Number(product.price || 0)) * ((widthCm / 100) * (heightCm / 100)) * effectiveQty)
+    : 0;
+
+  const extrasList = [];
+  if (finishingCost > 0) extrasList.push({ price: finishingCost, name: 'Acabados' });
+  if (installationCost > 0) extrasList.push({ price: installationCost, name: 'Instalación' });
+
   const quote = calculateCatalogQuote(product, {
     width: widthCm / 100,
     height: heightCm / 100,
     quantity: effectiveQty,
     options: safeSelection,
     taxRate: Number(calcSettings.taxRate) || 15,
-    designCost
+    designCost,
+    extras: extrasList
   });
   
   const activeTier = quote.tier;
   const tiers = quote.tiers || [];
-  const selectionText = Object.values(safeSelection).filter(Boolean).join(' · ');
+
+  const allSelectionLabels = [
+    selection.sustrato ? `Sustrato: ${selection.sustrato}` : '',
+    ...Object.values(safeSelection).filter(Boolean)
+  ].filter(Boolean);
+  const selectionText = allSelectionLabels.join(' · ');
+
+  const readableFinishing = finishing === 'bolsillo'
+    ? 'Bolsillo para tubo'
+    : finishing === 'small'
+      ? `${effectiveEyeletCount} ojales pequeños`
+      : finishing === 'large'
+        ? `${effectiveEyeletCount} ojales grandes`
+        : '';
+
   const readableVariant = [
     selectionText,
-    isArea ? `${widthCm} × ${heightCm} cm` : '',
-    `${effectiveQty} ${product.pricingMode === 'tier-total' ? 'unidades (lote)' : product.unit}`,
+    isArea ? `${widthCm} × ${heightCm} cm (${quote.area.toFixed(2)} m²)` : '',
+    `${effectiveQty} ${product.pricingMode === 'tier-total' ? 'unidades (lote)' : product.unit || 'unidades'}`,
+    readableFinishing ? `Acabado: ${readableFinishing}` : '',
+    installation ? 'Instalación incluida' : '',
     designLevel === 'adaptation' ? 'Ajuste de diseño' : designLevel === 'full' ? 'Diseño profesional' : ''
   ].filter(Boolean).join(' · ');
 
   const add = () => {
-    const fingerprint = `${product.id}:${JSON.stringify({ safeSelection, widthCm: isArea ? widthCm : null, heightCm: isArea ? heightCm : null, quantity: effectiveQty, designLevel })}`;
+    const fingerprint = `${product.id}:${JSON.stringify({ safeSelection, sustrato: selection.sustrato || null, widthCm: isArea ? widthCm : null, heightCm: isArea ? heightCm : null, quantity: effectiveQty, designLevel, finishing, installation })}`;
     addToCart({
       ...product,
       price: quote.total,
@@ -782,7 +844,7 @@ function SmartProductDetailPage() {
             <h1>{product.name}</h1>
             <p className="detail-description">{product.description}</p>
             <div className="detail-price">
-              Estimado: <strong>{money(quote.total)}</strong>
+              Estimado con IVA (15%): <strong>{money(quote.total)}</strong>
               <span> / {isArea ? `${(quote.area * effectiveQty).toFixed(2)} m²` : product.pricingMode === 'tier-total' ? 'lote' : `${effectiveQty} ${product.unit}`}</span>
             </div>
 
@@ -828,16 +890,90 @@ function SmartProductDetailPage() {
                   </label>
                 </div>
                 <div className="detail-area-tag">
-                  Área unitaria: {quote.area.toFixed(2)} m² · Tarifa: {money(quote.rate)} / m²
+                  Área unitaria: {quote.area.toFixed(2)} m² · Tarifa activa: {money(quote.rate)} / m²
                 </div>
                 <div style={{ marginTop: '16px', marginBottom: '16px' }}>
                   <LiveScaleVisualizer
                     widthCm={widthCm}
                     heightCm={heightCm}
+                    eyeletMode={finishing === 'none' || finishing === 'bolsillo' ? 'none' : eyeletPreset === 'corners' ? '4-corners' : eyeletPreset === 'every50' ? 'perimeter-50' : eyeletPreset === 'every30' ? 'perimeter-30' : 'custom'}
+                    customEyeletCount={effectiveEyeletCount}
                     productName={product.name}
                     category={product.category}
                   />
                 </div>
+
+                {/* Substrate Finishes Picker */}
+                <div style={{ marginTop: '16px', marginBottom: '16px' }}>
+                  <MaterialFinishPicker
+                    selectedMaterialId={selection.material || 'lona-13oz'}
+                    onSelectMaterial={(mat) => setSelection((curr) => ({ ...curr, material: mat.id, sustrato: mat.name }))}
+                  />
+                </div>
+
+                {/* Finishing & Confección (Only for Banners / Lonas / Gran Formato) */}
+                {(/lona|banner|mesh|valla|gran formato/i.test(product?.category || '') || /lona|banner|mesh|valla/i.test(product?.name || '')) && (
+                  <div className="finishing-select-group" style={{ marginTop: '16px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: 800, color: 'var(--ink)' }}>Acabados y confección:</label>
+                    <div className="design-options-grid" style={{ marginTop: '8px' }}>
+                      <label className={`design-option-card ${finishing === 'none' ? 'active' : ''}`}>
+                        <input
+                          type="radio"
+                          name="detail-finishing"
+                          checked={finishing === 'none'}
+                          onChange={() => setFinishing('none')}
+                        />
+                        <div className="design-option-copy">
+                          <b>Corte al ras</b>
+                          <small>Sin ojales ni bolsillos.</small>
+                        </div>
+                        <span className="design-option-price">$0</span>
+                      </label>
+
+                      <label className={`design-option-card ${finishing === 'small' ? 'active' : ''}`}>
+                        <input
+                          type="radio"
+                          name="detail-finishing"
+                          checked={finishing === 'small'}
+                          onChange={() => setFinishing('small')}
+                        />
+                        <div className="design-option-copy">
+                          <b>Ojales Pequeños</b>
+                          <small>10 mm estándar.</small>
+                        </div>
+                        <span className="design-option-price">$0.30 c/u</span>
+                      </label>
+
+                      <label className={`design-option-card ${finishing === 'large' ? 'active' : ''}`}>
+                        <input
+                          type="radio"
+                          name="detail-finishing"
+                          checked={finishing === 'large'}
+                          onChange={() => setFinishing('large')}
+                        />
+                        <div className="design-option-copy">
+                          <b>Ojales Grandes Reforzados</b>
+                          <small>15 mm exterior / alto viento.</small>
+                        </div>
+                        <span className="design-option-price">$0.50 c/u</span>
+                      </label>
+
+                      <label className={`design-option-card ${finishing === 'bolsillo' ? 'active' : ''}`}>
+                        <input
+                          type="radio"
+                          name="detail-finishing"
+                          checked={finishing === 'bolsillo'}
+                          onChange={() => setFinishing('bolsillo')}
+                        />
+                        <div className="design-option-copy">
+                          <b>Bolsillo para tubo</b>
+                          <small>Superior e inferior.</small>
+                        </div>
+                        <span className="design-option-price">+$4.00</span>
+                      </label>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -896,7 +1032,7 @@ function SmartProductDetailPage() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
               <a
-                href={`https://wa.me/${data.settings?.whatsapp || '593999999999'}?text=${encodeURIComponent(`¡Hola Gigaprint! Deseo cotizar *${product.name}*:\n• Detalle: ${readableVariant}\n• Total con IVA estimado: ${money(quote.total)}\n¿Tienen disponibilidad y entrega en Quito / Ecuador?`)}`}
+                href={`https://wa.me/${data.settings?.whatsapp || '593999999999'}?text=${encodeURIComponent(`¡Hola Gigaprint! Deseo cotizar *${product.name}*:\n• Detalle: ${readableVariant}\n• Subtotal: ${money(quote.subtotal)}\n• Total con IVA (15%): ${money(quote.total)}\n¿Tienen disponibilidad y entrega en Quito / Ecuador?`)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="whatsapp-action-btn"
@@ -905,7 +1041,7 @@ function SmartProductDetailPage() {
               </a>
 
               <Link to={`/cotizador`} className="detail-link">
-                ¿Quieres personalizar con acabados, instalación o diseño? Abrir cotizador completo <ArrowRight size={14} />
+                ¿Quieres personalizar con acabados, instalación o diseño completo? Abrir cotizador general <ArrowRight size={14} />
               </Link>
             </div>
           </div>
@@ -1061,7 +1197,11 @@ function SmartQuotePage() {
   });
 
   const activeTier = quote.tier;
-  const selectionText = Object.values(safeSelection).filter(Boolean).join(' · ');
+  const allSelectionLabels = [
+    selection.sustrato ? `Sustrato: ${selection.sustrato}` : '',
+    ...Object.values(safeSelection).filter(Boolean)
+  ].filter(Boolean);
+  const selectionText = allSelectionLabels.join(' · ');
 
   const chooseMode = (nextMode) => {
     setMode(nextMode);
@@ -1069,6 +1209,11 @@ function SmartQuotePage() {
     setSelectedId('');
     setCategoryFilter('Todos');
     setSelection({});
+    setFinishing('none');
+    setEyeletPreset('corners');
+    setCustomEyelets(4);
+    setInstallation(false);
+    setDesignLevel('none');
     setIsDropdownOpen(false);
     setQuantity(nextMode === 'medidas' ? 1 : nextMode === 'lotes' ? 1000 : 12);
   };
@@ -1118,7 +1263,7 @@ function SmartQuotePage() {
       installation ? 'Instalación incluida' : ''
     ].filter(Boolean).join(' · ');
 
-    const fingerprint = `${selectedProduct.id}:${JSON.stringify({ safeSelection, widthCm: isArea ? widthCm : null, heightCm: isArea ? heightCm : null, quantity: effectiveQuantity, designLevel, finishing, installation })}`;
+    const fingerprint = `${selectedProduct.id}:${JSON.stringify({ safeSelection, sustrato: selection.sustrato || null, widthCm: isArea ? widthCm : null, heightCm: isArea ? heightCm : null, quantity: effectiveQuantity, designLevel, finishing, installation })}`;
     addToCart({
       ...selectedProduct,
       price: quote.total,
@@ -1133,13 +1278,13 @@ function SmartQuotePage() {
   const whatsappMessage = encodeURIComponent(
     `¡Hola Gigaprint! Deseo solicitar una cotización con los siguientes datos:\n\n` +
     `• *Producto:* ${selectedProduct?.name} (${selectedProduct?.category})\n` +
-    (selectionText ? `• *Variante:* ${selectionText}\n` : '') +
+    (selectionText ? `• *Especificaciones:* ${selectionText}\n` : '') +
     `• *Medidas / Cantidad:* ${readableDimensions}\n` +
     `• *Diseño:* ${readableDesign}\n` +
     (isArea && finishing !== 'none' ? `• *Acabado:* ${readableFinishing}\n` : '') +
-    (installation ? `• *Instalación:* Sí\n` : '') +
+    (installation ? `• *Instalación:* Sí (en sitio)\n` : '') +
     `• *Subtotal estimado:* ${money(quote.subtotal)}\n` +
-    `• *Total con IVA:* ${money(quote.total)}\n\n` +
+    `• *Total con IVA (15%):* ${money(quote.total)}\n\n` +
     `¿Podrían confirmarme disponibilidad y tiempo de entrega?`
   );
 

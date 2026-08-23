@@ -414,12 +414,13 @@ export function ServiceCard({ service, index = 0 }) {
 export function ProductCard({ product, onAdd }) {
   const navigate = useNavigate();
   const calcType = getProductCalcType(product);
+  const isCustomConfig = calcType === 'm2' || product.pricingMode === 'tier-total' || (product.minQuantity && product.minQuantity > 1) || (product.variantOptions?.length > 0);
   const label = calcType === 'm2' ? 'Por medida' : product.pricingMode === 'tier-total' ? 'Por lote' : product.priceScales?.length ? 'Por volumen' : 'Personalizable';
 
   const handleAddClick = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (calcType === 'm2') {
+    if (isCustomConfig) {
       navigate(`/tienda/${product.id}`);
     } else {
       onAdd(product);
@@ -444,10 +445,10 @@ export function ProductCard({ product, onAdd }) {
           <button
             className="icon-button"
             onClick={handleAddClick}
-            aria-label={calcType === 'm2' ? `Configurar medidas de ${product.name}` : `Agregar ${product.name}`}
-            title={calcType === 'm2' ? 'Configurar medidas' : 'Agregar al carrito'}
+            aria-label={isCustomConfig ? `Configurar ${product.name}` : `Agregar ${product.name}`}
+            title={isCustomConfig ? 'Configurar opciones y medidas' : 'Agregar al carrito'}
           >
-            {calcType === 'm2' ? <ArrowUpRight size={17} /> : <Plus size={18} />}
+            {isCustomConfig ? <ArrowUpRight size={17} /> : <Plus size={18} />}
           </button>
         </div>
       </div>
@@ -457,7 +458,12 @@ export function ProductCard({ product, onAdd }) {
 
 export function CartSummary({ compact = false }) {
   const { cart, updateCartItem, removeCartItem, data } = useSite();
-  const total = cart.reduce((sum, item) => sum + (item.price || 0) * item.quantity, 0);
+  const total = cart.reduce((sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1), 0);
+  const subtotalNet = cart.reduce((sum, item) => {
+    const itemSub = Number(item.quoteBreakdown?.subtotal) || (Number(item.price) || 0) / 1.15;
+    return sum + itemSub * (Number(item.quantity) || 1);
+  }, 0);
+  const ivaAmount = Math.max(0, total - subtotalNet);
   const whatsappNumber = data?.settings?.whatsapp || '593999999999';
 
   if (!cart.length) return (
@@ -471,9 +477,11 @@ export function CartSummary({ compact = false }) {
 
   const whatsappCartMessage = encodeURIComponent([
     '¡Hola Gigaprint! Deseo solicitar la cotización de los siguientes productos de mi carrito:\n',
-    ...cart.map((item, idx) => `${idx + 1}. *${item.name}* (x${item.quantity})\n   • Detalle: ${item.variant || 'Estándar'}\n   • Subtotal estimado: $${((item.price || 0) * item.quantity).toFixed(2)}`),
-    `\n*Total estimado con IVA (15%):* $${total.toFixed(2)}`,
-    '\n¿Podrían indicarme los tiempos de entrega y disponibilidad para confirmar?'
+    ...cart.map((item, idx) => `${idx + 1}. *${item.name}* (x${item.quantity})\n   • Detalle: ${item.variant || 'Estándar'}\n   • Valor estimado: $${((Number(item.price) || 0) * item.quantity).toFixed(2)}`),
+    `\n• *Subtotal estimado:* $${subtotalNet.toFixed(2)}`,
+    `• *IVA (15%):* $${ivaAmount.toFixed(2)}`,
+    `• *Total estimado con IVA:* $${total.toFixed(2)}`,
+    '\n¿Podrían indicarme los tiempos de entrega y disponibilidad para confirmar el pedido?'
   ].join('\n'));
 
   return (
@@ -494,9 +502,19 @@ export function CartSummary({ compact = false }) {
           <button className="remove-link" onClick={() => removeCartItem(item.cartId)} aria-label="Eliminar"><X size={14} /></button>
         </div>
       ))}
-      <div className="cart-total">
-        <span>Estimado con IVA</span>
-        <strong>{money(total)}</strong>
+      <div className="cart-total" style={{ display: 'grid', gap: '4px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--muted)' }}>
+          <span>Subtotal (sin IVA):</span>
+          <strong>{money(subtotalNet)}</strong>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--muted)' }}>
+          <span>IVA SRI (15%):</span>
+          <strong>{money(ivaAmount)}</strong>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '15px', fontWeight: 900, color: 'var(--ink)', borderTop: '1px solid var(--line)', paddingTop: '6px', marginTop: '4px' }}>
+          <span>Total con IVA:</span>
+          <strong style={{ color: 'var(--orange)', fontFamily: 'Space Grotesk' }}>{money(total)}</strong>
+        </div>
       </div>
       {!compact && (
         <div className="cart-action-buttons">
