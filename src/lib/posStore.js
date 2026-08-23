@@ -481,44 +481,62 @@ export async function deleteEntityRemote(tableName, id) {
   }
 }
 
+let remoteTablesAvailable = true;
+
+async function safeQuery(fn) {
+  if (!remoteTablesAvailable) return { data: null, error: null };
+  try {
+    const res = await fn();
+    if (res.error) {
+      if (res.error.code === '42P01' || res.error.message?.includes('does not exist') || res.status === 404) {
+        remoteTablesAvailable = false;
+      }
+      return { data: null, error: res.error };
+    }
+    return res;
+  } catch (e) {
+    return { data: null, error: e };
+  }
+}
+
 // Remote Batch Fetch Engine to hydrate and merge from Supabase
 export async function fetchRemotePOSStore() {
-  if (!hasSupabase || !supabase) return loadPOSStore();
+  if (!hasSupabase || !supabase || !remoteTablesAvailable) return loadPOSStore();
   try {
     setSyncStatus('syncing');
     const [
       advRes, custRes, ordRes, itmRes, payRes, expRes, shfRes, matRes, logRes, cLogRes, supRes, prkRes, prdRes
     ] = await Promise.all([
-      supabase.from('pos_advisors').select('*'),
-      supabase.from('pos_customers').select('*'),
-      supabase.from('pos_orders').select('*').order('created_at', { ascending: false }).limit(200),
-      supabase.from('pos_order_items').select('*').limit(500),
-      supabase.from('pos_payments').select('*').limit(500),
-      supabase.from('pos_expenses').select('*').limit(200),
-      supabase.from('pos_cash_shifts').select('*').limit(100),
-      supabase.from('pos_materials_inventory').select('*'),
-      supabase.from('pos_material_usage_logs').select('*').limit(300),
-      supabase.from('pos_customer_activity_logs').select('*').order('created_at', { ascending: false }).limit(200),
-      supabase.from('pos_suppliers').select('*'),
-      supabase.from('pos_parked_sales').select('*'),
-      supabase.from('pos_products').select('*')
+      safeQuery(() => supabase.from('pos_advisors').select('*')),
+      safeQuery(() => supabase.from('pos_customers').select('*')),
+      safeQuery(() => supabase.from('pos_orders').select('*').order('created_at', { ascending: false }).limit(200)),
+      safeQuery(() => supabase.from('pos_order_items').select('*').limit(500)),
+      safeQuery(() => supabase.from('pos_payments').select('*').limit(500)),
+      safeQuery(() => supabase.from('pos_expenses').select('*').limit(200)),
+      safeQuery(() => supabase.from('pos_cash_shifts').select('*').limit(100)),
+      safeQuery(() => supabase.from('pos_materials_inventory').select('*')),
+      safeQuery(() => supabase.from('pos_material_usage_logs').select('*').limit(300)),
+      safeQuery(() => supabase.from('pos_customer_activity_logs').select('*').order('created_at', { ascending: false }).limit(200)),
+      safeQuery(() => supabase.from('pos_suppliers').select('*')),
+      safeQuery(() => supabase.from('pos_parked_sales').select('*')),
+      safeQuery(() => supabase.from('pos_products').select('*'))
     ]);
 
     const local = loadPOSStore();
 
-    const remoteAdvisors = (advRes.data || []).map(toCamelCase);
-    const remoteCustomers = (custRes.data || []).map(toCamelCase);
-    const remoteOrders = (ordRes.data || []).map(toCamelCase);
-    const remoteItems = (itmRes.data || []).map(toCamelCase);
-    const remotePayments = (payRes.data || []).map(toCamelCase);
-    const remoteExpenses = (expRes.data || []).map(toCamelCase);
-    const remoteShifts = (shfRes.data || []).map(toCamelCase);
-    const remoteMaterials = (matRes.data || []).map(toCamelCase);
-    const remoteUsageLogs = (logRes.data || []).map(toCamelCase);
-    const remoteCustLogs = (cLogRes.data || []).map(toCamelCase);
-    const remoteSuppliers = (supRes.data || []).map(toCamelCase);
-    const remoteParked = (prkRes.data || []).map(toCamelCase);
-    const remoteProducts = (prdRes.data || []).map(toCamelCase);
+    const remoteAdvisors = (advRes?.data || []).map(toCamelCase);
+    const remoteCustomers = (custRes?.data || []).map(toCamelCase);
+    const remoteOrders = (ordRes?.data || []).map(toCamelCase);
+    const remoteItems = (itmRes?.data || []).map(toCamelCase);
+    const remotePayments = (payRes?.data || []).map(toCamelCase);
+    const remoteExpenses = (expRes?.data || []).map(toCamelCase);
+    const remoteShifts = (shfRes?.data || []).map(toCamelCase);
+    const remoteMaterials = (matRes?.data || []).map(toCamelCase);
+    const remoteUsageLogs = (logRes?.data || []).map(toCamelCase);
+    const remoteCustLogs = (cLogRes?.data || []).map(toCamelCase);
+    const remoteSuppliers = (supRes?.data || []).map(toCamelCase);
+    const remoteParked = (prkRes?.data || []).map(toCamelCase);
+    const remoteProducts = (prdRes?.data || []).map(toCamelCase);
 
     const merged = {
       advisors: remoteAdvisors.length ? rotateAdvisorsCredentials(remoteAdvisors) : local.advisors,
@@ -541,7 +559,6 @@ export async function fetchRemotePOSStore() {
     setSyncStatus('synced');
     return merged;
   } catch (e) {
-    console.warn('[POS Store Remote Fetch] Fallback to local store:', e);
     setSyncStatus('offline');
     return loadPOSStore();
   }

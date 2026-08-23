@@ -549,6 +549,113 @@ CREATE TABLE IF NOT EXISTS public.pos_parked_sales (
 CREATE INDEX IF NOT EXISTS idx_pos_products_category ON public.pos_products(category);
 CREATE INDEX IF NOT EXISTS idx_pos_products_is_active ON public.pos_products(is_active);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_pos_orders_tracking_token ON public.pos_orders(tracking_token);
+
+
+-- ==============================================================================
+-- GIGAPRINT POS & CRM - FASE 1 & 2: CATALOGO UNIFICADO, CRM LOGS, TRACKING & PROVEEDORES
+-- Migracion: 20260822160000_crm_products_tracking.sql
+-- ==============================================================================
+
+-- 1. TABLA DE CATALOGO DE PRODUCTOS UNIFICADO (pos_products)
+CREATE TABLE IF NOT EXISTS public.pos_products (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  sku TEXT,
+  name TEXT NOT NULL,
+  category TEXT NOT NULL DEFAULT 'Gran Formato',
+  parent_category TEXT DEFAULT 'Gran Formato',
+  calc_type TEXT NOT NULL DEFAULT 'area', -- 'area', 'unit', 'scale', 'tier-total'
+  base_price NUMERIC(12, 4) NOT NULL DEFAULT 0.00,
+  min_price NUMERIC(12, 4) DEFAULT 0.00,
+  unit TEXT NOT NULL DEFAULT 'm2', -- 'm2', 'unidad', 'ciento', 'millar', 'metro_lineal'
+  price_tiers JSONB DEFAULT '[]'::jsonb, -- Escalas de volumen [{minQty, maxQty, price}]
+  finishing_options JSONB DEFAULT '[]'::jsonb, -- [{id, name, price, type}]
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  image_url TEXT,
+  description TEXT,
+  min_order_qty NUMERIC(10, 2) DEFAULT 1,
+  lead_time_days INTEGER DEFAULT 2,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 2. TABLA DE BITACORA DE ACTIVIDADES CRM (pos_customer_activity_logs)
+CREATE TABLE IF NOT EXISTS public.pos_customer_activity_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  customer_id UUID NOT NULL REFERENCES public.pos_customers(id) ON DELETE CASCADE,
+  advisor_id UUID REFERENCES public.pos_advisors(id) ON DELETE SET NULL,
+  activity_type TEXT NOT NULL, -- 'call', 'whatsapp', 'visit', 'email', 'note', 'proof_sent', 'proof_approved', 'payment_reminder'
+  title TEXT,
+  description TEXT NOT NULL,
+  metadata JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 3. TABLA DE PROVEEDORES (pos_suppliers)
+CREATE TABLE IF NOT EXISTS public.pos_suppliers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  identification TEXT,
+  contact_name TEXT,
+  phone TEXT,
+  email TEXT,
+  city TEXT DEFAULT 'Quito',
+  address TEXT,
+  materials_supplied TEXT[] DEFAULT '{}',
+  payment_terms TEXT DEFAULT 'Contado', -- 'Contado', 'Credito 15d', 'Credito 30d'
+  notes TEXT,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 4. AMPLIAR TABLA DE ORDENES (pos_orders) CON TRACKING PUBLICO Y DESCUENTOS
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'pos_orders' AND column_name = 'tracking_token') THEN
+    ALTER TABLE public.pos_orders ADD COLUMN tracking_token UUID NOT NULL DEFAULT gen_random_uuid();
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'pos_orders' AND column_name = 'stage_history') THEN
+    ALTER TABLE public.pos_orders ADD COLUMN stage_history JSONB DEFAULT '[]'::jsonb;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'pos_orders' AND column_name = 'pickup_location') THEN
+    ALTER TABLE public.pos_orders ADD COLUMN pickup_location TEXT DEFAULT 'Matriz Gigaprint - Av. de la Prensa y Vaca de Castro, Quito';
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'pos_orders' AND column_name = 'pickup_pin') THEN
+    ALTER TABLE public.pos_orders ADD COLUMN pickup_pin TEXT;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'pos_orders' AND column_name = 'discount_percent') THEN
+    ALTER TABLE public.pos_orders ADD COLUMN discount_percent NUMERIC(5, 2) DEFAULT 0.00;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'pos_orders' AND column_name = 'discount_amount') THEN
+    ALTER TABLE public.pos_orders ADD COLUMN discount_amount NUMERIC(12, 2) DEFAULT 0.00;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'pos_orders' AND column_name = 'discount_reason') THEN
+    ALTER TABLE public.pos_orders ADD COLUMN discount_reason TEXT;
+  END IF;
+END $$;
+
+-- 5. TABLA DE VENTAS EN ESPERA / BORRADORES (pos_parked_sales)
+CREATE TABLE IF NOT EXISTS public.pos_parked_sales (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  advisor_id UUID REFERENCES public.pos_advisors(id) ON DELETE CASCADE,
+  customer_name TEXT,
+  customer_phone TEXT,
+  cart_data JSONB NOT NULL,
+  total_amount NUMERIC(12, 2) DEFAULT 0.00,
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 6. INDICES PARA MAXIMO RENDIMIENTO
+CREATE INDEX IF NOT EXISTS idx_pos_products_category ON public.pos_products(category);
+CREATE INDEX IF NOT EXISTS idx_pos_products_is_active ON public.pos_products(is_active);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_pos_orders_tracking_token ON public.pos_orders(tracking_token);
 CREATE INDEX IF NOT EXISTS idx_pos_customer_activity_customer_id ON public.pos_customer_activity_logs(customer_id);
 CREATE INDEX IF NOT EXISTS idx_pos_customer_activity_created_at ON public.pos_customer_activity_logs(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_pos_suppliers_is_active ON public.pos_suppliers(is_active);
@@ -564,3 +671,57 @@ CREATE POLICY "Lectura y escritura publica o autenticada de productos" ON public
 CREATE POLICY "Lectura y escritura de bitacora CRM" ON public.pos_customer_activity_logs FOR ALL USING (true);
 CREATE POLICY "Lectura y escritura de proveedores" ON public.pos_suppliers FOR ALL USING (true);
 CREATE POLICY "Lectura y escritura de ventas en espera" ON public.pos_parked_sales FOR ALL USING (true);
+
+-- 8. TALLER MULTI-ROL Y ESTACIONES DE PRODUCCION
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'pos_orders' AND column_name = 'assigned_area') THEN
+    ALTER TABLE public.pos_orders ADD COLUMN assigned_area TEXT DEFAULT 'impresion';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'pos_orders' AND column_name = 'execution_date') THEN
+    ALTER TABLE public.pos_orders ADD COLUMN execution_date DATE DEFAULT CURRENT_DATE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'pos_orders' AND column_name = 'installation_date') THEN
+    ALTER TABLE public.pos_orders ADD COLUMN installation_date DATE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'pos_orders' AND column_name = 'requires_installation') THEN
+    ALTER TABLE public.pos_orders ADD COLUMN requires_installation BOOLEAN DEFAULT false;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'pos_orders' AND column_name = 'installation_address') THEN
+    ALTER TABLE public.pos_orders ADD COLUMN installation_address TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'pos_orders' AND column_name = 'field_measurements_notes') THEN
+    ALTER TABLE public.pos_orders ADD COLUMN field_measurements_notes TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'pos_orders' AND column_name = 'vector_url') THEN
+    ALTER TABLE public.pos_orders ADD COLUMN vector_url TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'pos_orders' AND column_name = 'machine_assigned') THEN
+    ALTER TABLE public.pos_orders ADD COLUMN machine_assigned TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'pos_orders' AND column_name = 'technician_assigned') THEN
+    ALTER TABLE public.pos_orders ADD COLUMN technician_assigned TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'pos_orders' AND column_name = 'station_stage') THEN
+    ALTER TABLE public.pos_orders ADD COLUMN station_stage TEXT DEFAULT 'pendiente';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'pos_orders' AND column_name = 'technical_specs') THEN
+    ALTER TABLE public.pos_orders ADD COLUMN technical_specs JSONB DEFAULT '{}'::jsonb;
+  END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS public.pos_workstations (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  area TEXT NOT NULL,
+  machine_model TEXT,
+  technician_name TEXT,
+  status TEXT DEFAULT 'activo',
+  max_width_cm NUMERIC,
+  capabilities JSONB DEFAULT '[]'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.pos_workstations ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Lectura y escritura publica de workstations" ON public.pos_workstations FOR ALL USING (true);

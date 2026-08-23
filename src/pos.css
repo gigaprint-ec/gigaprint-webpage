@@ -529,12 +529,13 @@
    ------------------------------------------------------------------------------ */
 .pos-cashier-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.3fr) minmax(360px, 0.85fr);
-  gap: 20px;
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 390px);
+  gap: 16px;
   align-items: start;
   width: 100%;
   max-width: 100%;
   min-width: 0;
+  box-sizing: border-box;
 }
 
 .pos-cashier-grid > div {
@@ -542,7 +543,7 @@
   max-width: 100%;
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1280px) {
   .pos-cashier-grid {
     grid-template-columns: 1fr;
   }

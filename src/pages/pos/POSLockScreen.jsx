@@ -346,6 +346,7 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess 
               <label className="pos-label required">PIN Maestro o Contraseña Admin</label>
               <input
                 type="password"
+                autoComplete="current-password"
                 autoFocus
                 className="pos-input"
                 placeholder="Ingresa clave de demostración (gigaprint)"

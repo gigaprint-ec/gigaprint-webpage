@@ -675,55 +675,81 @@ export function POSProductQuickMatrix({
 
           {/* Result Bar & Add Button */}
           <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
             background: '#fff',
-            borderRadius: '10px',
-            padding: '10px 14px',
-            border: '1px solid var(--line)',
-            flexWrap: 'wrap',
+            borderRadius: '12px',
+            padding: '12px 14px',
+            border: '1.5px solid var(--line)',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+            display: 'grid',
             gap: '10px'
           }}>
-            <div style={{ display: 'flex', gap: '14px', alignItems: 'center', fontSize: '12px', flexWrap: 'wrap' }}>
+            {/* Detailed breakdown chips */}
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', fontSize: '11.5px', color: 'var(--muted)', flexWrap: 'wrap' }}>
               {currentProduct.calcType === 'area' && (
-                <span><strong>Área:</strong> {calculated.areaM2} m²</span>
+                <span style={{ background: '#f8fafc', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--line)' }}>
+                  <strong>Área:</strong> {calculated.areaM2} m²
+                </span>
               )}
-              <span><strong>Subtotal:</strong> {money(calculated.baseItemSubtotal)}</span>
+              <span style={{ background: '#f8fafc', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--line)' }}>
+                <strong>Base:</strong> {money(calculated.baseItemSubtotal)}
+              </span>
               {calculated.finishingSubtotal > 0 && (
-                <span><strong>Acabados:</strong> +{money(calculated.finishingSubtotal)}</span>
+                <span style={{ background: '#f8fafc', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--line)' }}>
+                  <strong>Acabados:</strong> +{money(calculated.finishingSubtotal)}
+                </span>
               )}
               {calculated.designCost > 0 && (
-                <span><strong>Diseño:</strong> +{money(calculated.designCost)}</span>
+                <span style={{ background: '#eff6ff', color: '#1e40af', padding: '3px 8px', borderRadius: '6px', border: '1px solid #bfdbfe' }}>
+                  <strong>Diseño:</strong> +{money(calculated.designCost)}
+                </span>
               )}
               {calculated.installationCost > 0 && (
-                <span><strong>Montaje:</strong> +{money(calculated.installationCost)}</span>
+                <span style={{ background: '#ecfeff', color: '#0891b2', padding: '3px 8px', borderRadius: '6px', border: '1px solid #a5f3fc' }}>
+                  <strong>Montaje:</strong> +{money(calculated.installationCost)}
+                </span>
               )}
-              <span style={{ fontSize: '16px', fontWeight: 900, color: 'var(--orange-dark)', fontFamily: 'Space Grotesk' }}>
-                Total: {money(calculated.totalItemPrice)}
-              </span>
             </div>
 
-            <button
-              type="button"
-              onClick={handleAdd}
-              style={{
-                background: 'var(--orange)',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '8px 18px',
-                fontSize: '13px',
-                fontWeight: 800,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                boxShadow: '0 2px 8px rgba(234, 88, 12, 0.3)'
-              }}
-            >
-              <Plus size={16} /> Agregar al Carrito (↵)
-            </button>
+            {/* Primary Total & Action Button Row */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '10px',
+              borderTop: '1px solid var(--line)',
+              paddingTop: '8px'
+            }}>
+              <div>
+                <span style={{ fontSize: '10.5px', color: 'var(--muted)', fontWeight: 800, textTransform: 'uppercase', display: 'block' }}>
+                  Total a Cobrar
+                </span>
+                <span style={{ fontSize: '19px', fontWeight: 900, color: 'var(--orange-dark)', fontFamily: 'Space Grotesk' }}>
+                  {money(calculated.totalItemPrice)}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleAdd}
+                style={{
+                  background: 'var(--orange)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '10px',
+                  padding: '9px 20px',
+                  fontSize: '13px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '7px',
+                  boxShadow: '0 3px 10px rgba(234, 88, 12, 0.3)'
+                }}
+              >
+                <Plus size={16} /> Agregar al Carrito (↵)
+              </button>
+            </div>
           </div>
         </div>
       )}
