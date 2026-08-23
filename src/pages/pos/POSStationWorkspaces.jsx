@@ -21,11 +21,17 @@ import {
   Trash2,
   Eye,
   Check,
+  Play,
+  CheckSquare,
+  Square,
+  Search,
+  SlidersHorizontal,
   X
 } from 'lucide-react';
 import {
   filterOrdersByWorkstationArea,
   updateOrderStationStage,
+  toggleOrderItemStationCheck,
   logMaterialScrap,
   toISODate
 } from '../../lib/posStore';
@@ -39,6 +45,11 @@ export function POSStationWorkspaces({
   onOpenWorkOrder
 }) {
   const [station, setStation] = useState(activeStation);
+  const [viewMode, setViewMode] = useState('columns'); // 'columns' | 'list'
+  const [machineFilter, setMachineFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Scrap Modal
   const [scrapModalOrder, setScrapModalOrder] = useState(null);
   const [scrapMaterialId, setScrapMaterialId] = useState(store.materials?.[0]?.id || '');
   const [scrapQuantityM2, setScrapQuantityM2] = useState('1.5');
@@ -50,12 +61,57 @@ export function POSStationWorkspaces({
 
   // Filter orders for the active station
   const stationOrders = useMemo(() => {
-    return filterOrdersByWorkstationArea(store.orders || [], currentStation);
-  }, [store.orders, currentStation]);
+    const raw = filterOrdersByWorkstationArea(store.orders || [], currentStation);
+    return raw.filter((o) => {
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        const match =
+          (o.orderNumber || '').includes(q) ||
+          (o.customerName || '').toLowerCase().includes(q) ||
+          (o.jobName || '').toLowerCase().includes(q);
+        if (!match) return false;
+      }
+      if (machineFilter !== 'all') {
+        return (o.machineAssigned || '').toLowerCase().includes(machineFilter.toLowerCase());
+      }
+      return true;
+    });
+  }, [store.orders, currentStation, searchQuery, machineFilter]);
+
+  // Split into 3 columns:
+  // 1. pending / in queue ('pendiente', 'en_cola', or undefined)
+  // 2. currently working / printing ('en_maquina')
+  // 3. printed / curing / finishes ('en_secado', 'armado', 'aprobado_qc', 'listo_entrega')
+  const columns = useMemo(() => {
+    const pending = [];
+    const inProgress = [];
+    const completed = [];
+
+    stationOrders.forEach((o) => {
+      const st = o.stationStage || (o.productionStage === 'impresion' ? 'en_maquina' : 'en_cola');
+      if (st === 'en_maquina') {
+        inProgress.push(o);
+      } else if (st === 'en_secado' || st === 'armado' || st === 'aprobado_qc' || st === 'listo_entrega' || o.productionStage === 'acabados' || o.productionStage === 'control_calidad' || o.productionStage === 'listo') {
+        completed.push(o);
+      } else {
+        pending.push(o);
+      }
+    });
+
+    return { pending, inProgress, completed };
+  }, [stationOrders]);
 
   // Handle stage transition
   const handleUpdateStationStage = (orderId, stageName, note) => {
     const res = updateOrderStationStage(store, orderId, stageName, note, session?.id);
+    if (res.ok) {
+      setStore(res.updatedStore);
+    }
+  };
+
+  // Toggle item printed checkbox
+  const handleToggleItemPrinted = (orderId, itemKey) => {
+    const res = toggleOrderItemStationCheck(store, orderId, itemKey, session?.id);
     if (res.ok) {
       setStore(res.updatedStore);
     }
@@ -78,10 +134,272 @@ export function POSStationWorkspaces({
     }
   };
 
+  // Render a single order card
+  const renderOrderCard = (order, columnType) => {
+    const isUrgent = order.productionPriority === 'urgente' || order.priority === 'urgente';
+    const items = order.items || [];
+    const printedMap = order.printedItems || {};
+    const printedCount = items.filter((it, idx) => printedMap[it.id || idx]).length;
+    const allItemsPrinted = items.length > 0 && printedCount === items.length;
+
+    return (
+      <div
+        key={order.id}
+        style={{
+          background: columnType === 'inProgress' ? '#f0fdf4' : '#ffffff',
+          borderRadius: '12px',
+          border: columnType === 'inProgress'
+            ? '2px solid #22c55e'
+            : isUrgent
+            ? '1.5px solid #ef4444'
+            : '1px solid var(--line)',
+          padding: '12px 14px',
+          boxShadow: columnType === 'inProgress' ? '0 4px 12px rgba(34, 197, 94, 0.15)' : '0 1px 4px rgba(0,0,0,0.04)',
+          display: 'grid',
+          gap: '8px'
+        }}
+      >
+        {/* Card Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '13px', fontWeight: 900, color: 'var(--ink)' }}>
+              #{order.orderNumber}
+            </span>
+            {isUrgent && (
+              <span style={{ fontSize: '9.5px', background: '#dc2626', color: '#fff', fontWeight: 900, padding: '2px 5px', borderRadius: '4px' }}>
+                🔥 URGENTE
+              </span>
+            )}
+            {order.requiresInstallation && (
+              <span style={{ fontSize: '9.5px', background: '#cffafe', color: '#0e7490', fontWeight: 900, padding: '2px 5px', borderRadius: '4px' }}>
+                🚚 Montaje
+              </span>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', gap: '4px' }}>
+            {order.artUrl && (
+              <a
+                href={order.artUrl}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  background: 'var(--orange-soft)',
+                  border: '1px solid var(--orange)',
+                  color: 'var(--orange-dark)',
+                  borderRadius: '6px',
+                  padding: '3px 7px',
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  textDecoration: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '3px'
+                }}
+                title="Abrir vector / archivo para RIP"
+              >
+                <ExternalLink size={11} /> Vector
+              </a>
+            )}
+            <button
+              type="button"
+              onClick={() => onOpenWorkOrder && onOpenWorkOrder(order)}
+              style={{
+                background: '#f1f5f9',
+                border: '1px solid var(--line)',
+                borderRadius: '6px',
+                padding: '3px 6px',
+                fontSize: '11px',
+                fontWeight: 800,
+                cursor: 'pointer'
+              }}
+              title="Ver Orden de Trabajo (OT)"
+            >
+              <FileText size={12} />
+            </button>
+          </div>
+        </div>
+
+        {/* Job Title and Customer */}
+        <div>
+          <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--ink)', lineHeight: '1.25' }}>
+            {order.jobName || 'Trabajo Publicitario'}
+          </div>
+          <div style={{ fontSize: '11.5px', color: 'var(--muted)', marginTop: '2px' }}>
+            👤 <strong>{order.customerName}</strong>
+            {order.deliveryDate && ` · Entrega: ${order.deliveryDate}`}
+          </div>
+        </div>
+
+        {/* Machine Tag */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', background: '#f8fafc', padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--line)' }}>
+          <span>⚙️ <strong>{order.machineAssigned || 'Plotter Flora 3.20m'}</strong></span>
+          <span>👷 {order.technicianAssigned || 'Operario'}</span>
+        </div>
+
+        {/* Items Checklist for this Order */}
+        <div style={{ display: 'grid', gap: '4px', background: '#fff', borderRadius: '8px', padding: '6px 8px', border: '1px solid var(--line)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10.5px', color: 'var(--muted)', fontWeight: 800, textTransform: 'uppercase' }}>
+            <span>Ítems / Productos ({items.length})</span>
+            {items.length > 0 && (
+              <span style={{ color: allItemsPrinted ? '#16a34a' : 'var(--orange-dark)' }}>
+                {printedCount} de {items.length} listos
+              </span>
+            )}
+          </div>
+
+          {items.map((it, idx) => {
+            const itemKey = it.id || idx;
+            const isChecked = Boolean(printedMap[itemKey]);
+
+            return (
+              <div
+                key={idx}
+                onClick={() => handleToggleItemPrinted(order.id, itemKey)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '4px 6px',
+                  borderRadius: '6px',
+                  background: isChecked ? '#f0fdf4' : '#fafafa',
+                  border: isChecked ? '1px solid #bbf7d0' : '1px solid #f1f5f9',
+                  cursor: 'pointer',
+                  fontSize: '11px',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
+                  {isChecked ? (
+                    <CheckSquare size={14} style={{ color: '#16a34a', flexShrink: 0 }} />
+                  ) : (
+                    <Square size={14} style={{ color: 'var(--muted)', flexShrink: 0 }} />
+                  )}
+                  <span style={{
+                    fontWeight: 700,
+                    textDecoration: isChecked ? 'line-through' : 'none',
+                    color: isChecked ? '#16a34a' : 'var(--ink)',
+                    textOverflow: 'ellipsis',
+                    overflow: 'hidden',
+                    whiteSpace: 'nowrap'
+                  }}>
+                    {it.productName}
+                  </span>
+                </div>
+
+                <span style={{ fontSize: '10.5px', color: 'var(--muted)', fontWeight: 800, flexShrink: 0, marginLeft: '6px' }}>
+                  {it.widthCm && it.heightCm ? `${it.widthCm}×${it.heightCm}cm` : `x${it.quantity}`}
+                  {it.areaM2 ? ` (${it.areaM2}m²)` : ''}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Column Action Buttons (1-Click Workflow Advance) */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '6px', marginTop: '4px' }}>
+          {columnType === 'pending' && (
+            <button
+              type="button"
+              onClick={() => handleUpdateStationStage(order.id, 'en_maquina', 'Cargado en máquina / iniciado en plotter')}
+              style={{
+                background: '#2563eb',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '7px 10px',
+                fontSize: '11.5px',
+                fontWeight: 800,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '5px',
+                boxShadow: '0 2px 6px rgba(37, 99, 235, 0.2)'
+              }}
+            >
+              <Play size={13} fill="#fff" /> Iniciar Impresión en Máquina
+            </button>
+          )}
+
+          {columnType === 'inProgress' && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '6px' }}>
+              <button
+                type="button"
+                onClick={() => handleUpdateStationStage(order.id, 'en_secado', 'Impresión completada en máquina')}
+                style={{
+                  background: '#16a34a',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '7px 10px',
+                  fontSize: '11.5px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '5px',
+                  boxShadow: '0 2px 6px rgba(22, 163, 74, 0.2)'
+                }}
+              >
+                <Check size={14} /> ✓ Impresión Lista ➔ A Secado
+              </button>
+              <button
+                type="button"
+                onClick={() => setScrapModalOrder(order)}
+                style={{
+                  background: '#fef2f2',
+                  border: '1px solid #fecaca',
+                  color: '#dc2626',
+                  borderRadius: '8px',
+                  padding: '6px 8px',
+                  fontSize: '10.5px',
+                  fontWeight: 800,
+                  cursor: 'pointer'
+                }}
+                title="Registrar merma o atasco"
+              >
+                ⚠️ Merma
+              </button>
+            </div>
+          )}
+
+          {columnType === 'completed' && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <CheckCircle2 size={13} /> Impreso / En Acabados
+              </span>
+              <button
+                type="button"
+                onClick={() => handleUpdateStationStage(order.id, 'en_maquina', 'Reimprimiendo o devuelto a máquina')}
+                style={{
+                  background: '#f1f5f9',
+                  border: '1px solid var(--line)',
+                  borderRadius: '6px',
+                  padding: '4px 8px',
+                  fontSize: '10.5px',
+                  fontWeight: 700,
+                  color: 'var(--muted)',
+                  cursor: 'pointer'
+                }}
+                title="Devolver a máquina si se requiere reimpresión"
+              >
+                ↺ Devolver
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div style={{ display: 'grid', gap: '16px' }}>
-      {/* Station Selector Header */}
-      <div className="pos-card" style={{ padding: '14px 20px' }}>
+      {/* ----------------------------------------------------------------------
+          TOP CONTROLS & STATION SWITCHER BAR
+          ---------------------------------------------------------------------- */}
+      <div className="pos-card" style={{ padding: '16px 20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -94,11 +412,11 @@ export function POSStationWorkspaces({
                 {currentStation === 'corte_laser' && 'Estación de Corte Láser, CNC & Neón LED'}
               </h1>
               <span className="pos-nav-badge" style={{ background: '#f1f5f9', color: 'var(--ink)', fontSize: '11.5px', fontWeight: 800 }}>
-                {stationOrders.length} en cola
+                {stationOrders.length} trabajos
               </span>
             </div>
             <p style={{ margin: '3px 0 0', fontSize: '12px', color: 'var(--muted)' }}>
-              Terminal de taller para operarios con avance de etapas táctil y parámetros técnicos en pantalla.
+              Panel de control de producción con 3 estados: <strong>Por Imprimir</strong>, <strong>Imprimiendo en Máquina</strong> y <strong>Ya Impreso</strong>.
             </p>
           </div>
 
@@ -121,7 +439,7 @@ export function POSStationWorkspaces({
                 gap: '6px'
               }}
             >
-              <Printer size={14} /> Impresión
+              <Printer size={14} /> 🖨️ Impresión
             </button>
             <button
               type="button"
@@ -140,7 +458,7 @@ export function POSStationWorkspaces({
                 gap: '6px'
               }}
             >
-              <Flame size={14} /> Sublimación & DTF
+              <Flame size={14} /> 👕 Sublimación
             </button>
             <button
               type="button"
@@ -159,364 +477,194 @@ export function POSStationWorkspaces({
                 gap: '6px'
               }}
             >
-              <Zap size={14} /> Corte Láser & CNC
+              <Zap size={14} /> ⚡ Corte Láser
             </button>
+          </div>
+        </div>
+
+        <hr style={{ border: 'none', borderTop: '1px solid var(--line)', margin: '14px 0' }} />
+
+        {/* Filter & Search Bar */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '11.5px', fontWeight: 800, color: 'var(--muted)' }}>Máquina:</span>
+            <select
+              className="pos-select"
+              value={machineFilter}
+              onChange={(e) => setMachineFilter(e.target.value)}
+              style={{ fontSize: '12px', padding: '5px 8px', width: 'auto' }}
+            >
+              <option value="all">Todas las Máquinas</option>
+              {currentStation === 'impresion' && (
+                <>
+                  <option value="Flora">Plotter Flora Solvente 3.20m</option>
+                  <option value="Roland">Plotter Roland TrueVIS 1.60m</option>
+                  <option value="Konica">Prensa Digital Konica</option>
+                </>
+              )}
+              {currentStation === 'sublimacion' && (
+                <>
+                  <option value="DTF">Plotter Textil DTF 60cm</option>
+                  <option value="Plancha">Plancha Térmica Neumática</option>
+                </>
+              )}
+              {currentStation === 'corte_laser' && (
+                <>
+                  <option value="Láser">Cortadora Láser CO2</option>
+                  <option value="CNC">Ruteadora CNC 1.30x2.50m</option>
+                </>
+              )}
+            </select>
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <input
+              type="text"
+              className="pos-input"
+              placeholder="🔎 Buscar # orden, cliente, trabajo..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ fontSize: '12px', padding: '6px 10px', width: '220px' }}
+            />
           </div>
         </div>
       </div>
 
-      {/* Orders Station Queue */}
-      <div style={{ display: 'grid', gap: '14px' }}>
-        {stationOrders.length === 0 ? (
-          <div className="pos-card" style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--muted)' }}>
-            <Box size={40} style={{ margin: '0 auto 10px', opacity: 0.4 }} />
-            <h3 style={{ margin: 0, fontSize: '15px', color: 'var(--ink)' }}>No hay trabajos en cola para esta estación</h3>
-            <p style={{ margin: '4px 0 0', fontSize: '12px' }}>Los pedidos cotizados aparecerán aquí automáticamente según su sustrato.</p>
+      {/* ----------------------------------------------------------------------
+          3-STATE PRODUCTION BOARD (POR IMPRIMIR | IMPRIMIENDO | YA IMPRESO)
+          ---------------------------------------------------------------------- */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))',
+        gap: '16px',
+        alignItems: 'start'
+      }}>
+        {/* COLUMN 1: POR IMPRIMIR / EN COLA */}
+        <div style={{
+          background: '#f8fafc',
+          borderRadius: '14px',
+          border: '1.5px solid #cbd5e1',
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: '450px'
+        }}>
+          <div style={{
+            padding: '12px 16px',
+            borderBottom: '1px solid #cbd5e1',
+            background: '#ffffff',
+            borderTopLeftRadius: '12px',
+            borderTopRightRadius: '12px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            borderTop: '4px solid #f59e0b'
+          }}>
+            <div>
+              <strong style={{ fontSize: '13.5px', color: '#b45309', display: 'block' }}>
+                ⏳ 1. Por Imprimir / En Cola
+              </strong>
+              <small style={{ color: 'var(--muted)', fontSize: '11px' }}>Listos para ripear o cargar bobina</small>
+            </div>
+            <span style={{ fontSize: '12px', background: '#fef3c7', color: '#b45309', fontWeight: 900, padding: '2px 8px', borderRadius: '8px' }}>
+              {columns.pending.length}
+            </span>
           </div>
-        ) : (
-          stationOrders.map((order) => {
-            const isUrgent = order.productionPriority === 'urgente' || order.priority === 'urgente';
 
-            return (
-              <div
-                key={order.id}
-                className="pos-card"
-                style={{
-                  padding: '16px 20px',
-                  borderLeft: `6px solid ${
-                    currentStation === 'impresion' ? '#2563eb' : currentStation === 'sublimacion' ? '#db2777' : '#7c3aed'
-                  }`
-                }}
-              >
-                {/* Header Row */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px' }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '15px', fontWeight: 900, color: 'var(--ink)' }}>
-                        Orden #{order.orderNumber}
-                      </span>
-                      {isUrgent && (
-                        <span style={{ fontSize: '10.5px', background: '#dc2626', color: '#fff', fontWeight: 900, padding: '2px 6px', borderRadius: '4px' }}>
-                          🔥 URGENTE
-                        </span>
-                      )}
-                      <span style={{ fontSize: '11.5px', color: 'var(--muted)', fontWeight: 700 }}>
-                        · Cliente: <strong>{order.customerName}</strong>
-                      </span>
-                    </div>
-                    <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--ink)', marginTop: '2px' }}>
-                      {order.jobName || 'Trabajo Publicitario'}
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <button
-                      type="button"
-                      onClick={() => onOpenWorkOrder && onOpenWorkOrder(order)}
-                      style={{
-                        background: '#f8fafc',
-                        border: '1px solid var(--line)',
-                        borderRadius: '6px',
-                        padding: '5px 10px',
-                        fontSize: '11.5px',
-                        fontWeight: 800,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}
-                    >
-                      <FileText size={13} /> Ver OT
-                    </button>
-                    {order.artUrl && (
-                      <a
-                        href={order.artUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{
-                          background: 'var(--orange-soft)',
-                          border: '1px solid var(--orange)',
-                          color: 'var(--orange-dark)',
-                          borderRadius: '6px',
-                          padding: '5px 10px',
-                          fontSize: '11.5px',
-                          fontWeight: 800,
-                          textDecoration: 'none',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px'
-                        }}
-                      >
-                        <ExternalLink size={13} /> Vector Arte
-                      </a>
-                    )}
-                  </div>
-                </div>
-
-                <hr style={{ border: 'none', borderTop: '1px solid var(--line)', margin: '12px 0' }} />
-
-                {/* -----------------------------------------------------------
-                    STATION-SPECIFIC TECHNICAL BOX
-                    ----------------------------------------------------------- */}
-                {currentStation === 'impresion' && (
-                  <div style={{
-                    background: '#eff6ff',
-                    border: '1px solid #bfdbfe',
-                    borderRadius: '10px',
-                    padding: '12px 14px',
-                    display: 'grid',
-                    gap: '8px'
-                  }}>
-                    <div style={{ fontSize: '11.5px', fontWeight: 900, color: '#1e40af', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      <Printer size={14} /> Parámetros RIP & Impresión
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '8px', fontSize: '12px', color: '#1e3a8a' }}>
-                      <div><strong>Plotter Asignado:</strong> {order.machineAssigned || 'Flora 3.20m'}</div>
-                      <div><strong>Perfil RIP:</strong> Generic Solvent Banner</div>
-                      <div><strong>Resolución:</strong> 720 x 720 DPI (4 Pass)</div>
-                      <div><strong>Margen Bastidor:</strong> +4cm blanco perimetral</div>
-                    </div>
-                  </div>
-                )}
-
-                {currentStation === 'sublimacion' && (
-                  <div style={{
-                    background: '#fdf2f8',
-                    border: '1px solid #fbcfe8',
-                    borderRadius: '10px',
-                    padding: '12px 14px',
-                    display: 'grid',
-                    gap: '8px'
-                  }}>
-                    <div style={{ fontSize: '11.5px', fontWeight: 900, color: '#9d174d', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      <Flame size={14} /> Ficha Técnica de Termofijado & Confección
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '8px', fontSize: '12px', color: '#831843' }}>
-                      <div>🌡️ <strong>Temperatura:</strong> 185°C - 200°C</div>
-                      <div>⏱️ <strong>Tiempo Plancha:</strong> 60 seg (Subli) / 15 seg (DTF)</div>
-                      <div>🏋️ <strong>Presión:</strong> Media-Alta (5 Bar)</div>
-                      <div>🧵 <strong>Relleno/Cierre:</strong> Plumón siliconado antialérgico</div>
-                    </div>
-                  </div>
-                )}
-
-                {currentStation === 'corte_laser' && (
-                  <div style={{
-                    background: '#f5f3ff',
-                    border: '1px solid #ddd6fe',
-                    borderRadius: '10px',
-                    padding: '12px 14px',
-                    display: 'grid',
-                    gap: '8px'
-                  }}>
-                    <div style={{ fontSize: '11.5px', fontWeight: 900, color: '#5b21b6', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      <Zap size={14} /> Parámetros Láser, Ruteado CNC & Test Neón LED
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '8px', fontSize: '12px', color: '#4c1d95' }}>
-                      <div>⚙️ <strong>Espesor Plancha:</strong> 3mm / 5mm Acrílico Cristal</div>
-                      <div>⚡ <strong>Potencia / Velocidad:</strong> 65% Potencia / 14 mm/s</div>
-                      <div>🔌 <strong>Transformador 12V:</strong> Probar continuidad y carga 15 min</div>
-                      <div>🔩 <strong>Herrajes:</strong> Separadores Standoff 19x25mm</div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Workflow Progression Bar */}
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginTop: '12px',
-                  flexWrap: 'wrap',
-                  gap: '10px'
-                }}>
-                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '11.5px', fontWeight: 800, color: 'var(--muted)' }}>Avance Rápido:</span>
-                    
-                    {currentStation === 'impresion' && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateStationStage(order.id, 'en_maquina', 'Iniciado en plotter de impresión')}
-                          style={{
-                            background: order.stationStage === 'en_maquina' ? '#2563eb' : '#fff',
-                            color: order.stationStage === 'en_maquina' ? '#fff' : '#2563eb',
-                            border: '1px solid #2563eb',
-                            borderRadius: '6px',
-                            padding: '5px 10px',
-                            fontSize: '11.5px',
-                            fontWeight: 800,
-                            cursor: 'pointer'
-                          }}
-                        >
-                          ▶ 1. En Máquina / RIP
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateStationStage(order.id, 'en_secado', 'Impresión completada, en reposo/secado')}
-                          style={{
-                            background: order.stationStage === 'en_secado' ? '#0891b2' : '#fff',
-                            color: order.stationStage === 'en_secado' ? '#fff' : '#0891b2',
-                            border: '1px solid #0891b2',
-                            borderRadius: '6px',
-                            padding: '5px 10px',
-                            fontSize: '11.5px',
-                            fontWeight: 800,
-                            cursor: 'pointer'
-                          }}
-                        >
-                          ⏳ 2. En Secado
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateStationStage(order.id, 'armado', 'Enviado a mesa de acabados y ojetes')}
-                          style={{
-                            background: order.stationStage === 'armado' ? '#7c3aed' : '#fff',
-                            color: order.stationStage === 'armado' ? '#fff' : '#7c3aed',
-                            border: '1px solid #7c3aed',
-                            borderRadius: '6px',
-                            padding: '5px 10px',
-                            fontSize: '11.5px',
-                            fontWeight: 800,
-                            cursor: 'pointer'
-                          }}
-                        >
-                          ✂️ 3. A Acabados / Ojetes
-                        </button>
-                      </>
-                    )}
-
-                    {currentStation === 'sublimacion' && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateStationStage(order.id, 'en_maquina', 'En plancha térmica / calandra')}
-                          style={{
-                            background: order.stationStage === 'en_maquina' ? '#db2777' : '#fff',
-                            color: order.stationStage === 'en_maquina' ? '#fff' : '#db2777',
-                            border: '1px solid #db2777',
-                            borderRadius: '6px',
-                            padding: '5px 10px',
-                            fontSize: '11.5px',
-                            fontWeight: 800,
-                            cursor: 'pointer'
-                          }}
-                        >
-                          🔥 1. Planchando
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateStationStage(order.id, 'armado', 'En costura, relleno y confección')}
-                          style={{
-                            background: order.stationStage === 'armado' ? '#9333ea' : '#fff',
-                            color: order.stationStage === 'armado' ? '#fff' : '#9333ea',
-                            border: '1px solid #9333ea',
-                            borderRadius: '6px',
-                            padding: '5px 10px',
-                            fontSize: '11.5px',
-                            fontWeight: 800,
-                            cursor: 'pointer'
-                          }}
-                        >
-                          🧵 2. Confección / Relleno
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateStationStage(order.id, 'aprobado_qc', 'Empaque individual listo')}
-                          style={{
-                            background: order.stationStage === 'aprobado_qc' ? '#16a34a' : '#fff',
-                            color: order.stationStage === 'aprobado_qc' ? '#fff' : '#16a34a',
-                            border: '1px solid #16a34a',
-                            borderRadius: '6px',
-                            padding: '5px 10px',
-                            fontSize: '11.5px',
-                            fontWeight: 800,
-                            cursor: 'pointer'
-                          }}
-                        >
-                          📦 3. Empaque Listo
-                        </button>
-                      </>
-                    )}
-
-                    {currentStation === 'corte_laser' && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateStationStage(order.id, 'en_maquina', 'En mesa de corte láser / CNC')}
-                          style={{
-                            background: order.stationStage === 'en_maquina' ? '#7c3aed' : '#fff',
-                            color: order.stationStage === 'en_maquina' ? '#fff' : '#7c3aed',
-                            border: '1px solid #7c3aed',
-                            borderRadius: '6px',
-                            padding: '5px 10px',
-                            fontSize: '11.5px',
-                            fontWeight: 800,
-                            cursor: 'pointer'
-                          }}
-                        >
-                          ⚙️ 1. En Láser / CNC
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateStationStage(order.id, 'armado', 'En pulido y soldadura Neón')}
-                          style={{
-                            background: order.stationStage === 'armado' ? '#d97706' : '#fff',
-                            color: order.stationStage === 'armado' ? '#fff' : '#d97706',
-                            border: '1px solid #d97706',
-                            borderRadius: '6px',
-                            padding: '5px 10px',
-                            fontSize: '11.5px',
-                            fontWeight: 800,
-                            cursor: 'pointer'
-                          }}
-                        >
-                          💡 2. Pulido / Armado
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateStationStage(order.id, 'aprobado_qc', 'Test eléctrico aprobado')}
-                          style={{
-                            background: order.stationStage === 'aprobado_qc' ? '#16a34a' : '#fff',
-                            color: order.stationStage === 'aprobado_qc' ? '#fff' : '#16a34a',
-                            border: '1px solid #16a34a',
-                            borderRadius: '6px',
-                            padding: '5px 10px',
-                            fontSize: '11.5px',
-                            fontWeight: 800,
-                            cursor: 'pointer'
-                          }}
-                        >
-                          ✅ 3. Calidad Aprobada
-                        </button>
-                      </>
-                    )}
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <button
-                      type="button"
-                      onClick={() => setScrapModalOrder(order)}
-                      style={{
-                        background: '#fef2f2',
-                        border: '1px solid #fecaca',
-                        color: '#dc2626',
-                        borderRadius: '6px',
-                        padding: '5px 10px',
-                        fontSize: '11.5px',
-                        fontWeight: 800,
-                        cursor: 'pointer'
-                      }}
-                      title="Registrar merma o fallo técnico"
-                    >
-                      ⚠️ Merma / Scrap
-                    </button>
-                  </div>
-                </div>
+          <div style={{ padding: '12px', display: 'grid', gap: '10px', alignContent: 'start', flex: 1 }}>
+            {columns.pending.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--muted)', fontSize: '12px' }}>
+                ✓ No hay trabajos pendientes en cola
               </div>
-            );
-          })
-        )}
+            ) : (
+              columns.pending.map((order) => renderOrderCard(order, 'pending'))
+            )}
+          </div>
+        </div>
+
+        {/* COLUMN 2: IMPRIMIENDO ACTIVAMENTE EN MAQUINA */}
+        <div style={{
+          background: '#f0fdf4',
+          borderRadius: '14px',
+          border: '2px solid #22c55e',
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: '450px',
+          boxShadow: '0 4px 14px rgba(34, 197, 94, 0.08)'
+        }}>
+          <div style={{
+            padding: '12px 16px',
+            borderBottom: '1px solid #86efac',
+            background: '#ffffff',
+            borderTopLeftRadius: '12px',
+            borderTopRightRadius: '12px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            borderTop: '4px solid #22c55e'
+          }}>
+            <div>
+              <strong style={{ fontSize: '13.5px', color: '#15803d', display: 'block' }}>
+                ▶ 2. Imprimiendo en Máquina
+              </strong>
+              <small style={{ color: 'var(--muted)', fontSize: '11px' }}>En plotter / marca ítems impresos</small>
+            </div>
+            <span style={{ fontSize: '12px', background: '#dcfce7', color: '#15803d', fontWeight: 900, padding: '2px 8px', borderRadius: '8px' }}>
+              {columns.inProgress.length}
+            </span>
+          </div>
+
+          <div style={{ padding: '12px', display: 'grid', gap: '10px', alignContent: 'start', flex: 1 }}>
+            {columns.inProgress.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--muted)', fontSize: '12px' }}>
+                Máquinas libres. Presiona "Iniciar Impresión" en un trabajo.
+              </div>
+            ) : (
+              columns.inProgress.map((order) => renderOrderCard(order, 'inProgress'))
+            )}
+          </div>
+        </div>
+
+        {/* COLUMN 3: YA IMPRESO / EN SECADO Y ACABADOS */}
+        <div style={{
+          background: '#f8fafc',
+          borderRadius: '14px',
+          border: '1.5px solid #cbd5e1',
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: '450px'
+        }}>
+          <div style={{
+            padding: '12px 16px',
+            borderBottom: '1px solid #cbd5e1',
+            background: '#ffffff',
+            borderTopLeftRadius: '12px',
+            borderTopRightRadius: '12px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            borderTop: '4px solid #6366f1'
+          }}>
+            <div>
+              <strong style={{ fontSize: '13.5px', color: '#4338ca', display: 'block' }}>
+                ✅ 3. Ya Impreso / En Secado & Acabados
+              </strong>
+              <small style={{ color: 'var(--muted)', fontSize: '11px' }}>En reposo o mesa de confección/ojales</small>
+            </div>
+            <span style={{ fontSize: '12px', background: '#e0e7ff', color: '#4338ca', fontWeight: 900, padding: '2px 8px', borderRadius: '8px' }}>
+              {columns.completed.length}
+            </span>
+          </div>
+
+          <div style={{ padding: '12px', display: 'grid', gap: '10px', alignContent: 'start', flex: 1 }}>
+            {columns.completed.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--muted)', fontSize: '12px' }}>
+                Sin trabajos en secado o acabados
+              </div>
+            ) : (
+              columns.completed.map((order) => renderOrderCard(order, 'completed'))
+            )}
+          </div>
+        </div>
       </div>
 
       {/* ----------------------------------------------------------------------
@@ -529,7 +677,7 @@ export function POSStationWorkspaces({
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <AlertTriangle size={20} style={{ color: '#dc2626' }} />
                 <h2 style={{ margin: 0, fontSize: '17px', fontWeight: 900 }}>
-                  Registrar Merma Técnica
+                  Registrar Merma Técnica (Orden #{scrapModalOrder.orderNumber})
                 </h2>
               </div>
               <button type="button" onClick={() => setScrapModalOrder(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>

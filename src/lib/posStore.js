@@ -1357,6 +1357,29 @@ export function updateOrderStationStage(store, orderId, newStationStage, note = 
   return { ok: true, updatedStore, order: updatedOrder };
 }
 
+// Toggle individual item check within workstation (e.g. Lona 3x2m printed)
+export function toggleOrderItemStationCheck(store, orderId, itemKey, advisorId = '') {
+  const order = (store.orders || []).find((o) => o.id === orderId);
+  if (!order) return { ok: false, error: 'Orden no encontrada.' };
+
+  const printedItems = { ...(order.printedItems || {}) };
+  printedItems[itemKey] = !printedItems[itemKey];
+
+  const updatedOrder = {
+    ...order,
+    printedItems,
+    updatedAt: new Date().toISOString()
+  };
+
+  const updatedOrders = (store.orders || []).map((o) => (o.id === orderId ? updatedOrder : o));
+  const updatedStore = { ...store, orders: updatedOrders };
+
+  savePOSStoreLocal(updatedStore);
+  syncEntityRemote('pos_orders', updatedOrder);
+
+  return { ok: true, updatedStore, order: updatedOrder, isChecked: printedItems[itemKey] };
+}
+
 // Helper to filter orders for a specific workstation area
 export function filterOrdersByWorkstationArea(orders = [], area = 'impresion') {
   return orders.filter((o) => {
