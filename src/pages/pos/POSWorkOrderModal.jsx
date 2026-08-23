@@ -133,7 +133,7 @@ export function POSWorkOrderModal({ order, items = [], advisor, isOpen, onClose 
             </div>
 
             {/* Job Details Meta Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
               <div>
                 <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold', display: 'block' }}>TRABAJO</span>
                 <strong style={{ fontSize: '14px', color: '#0f172a' }}>{order.jobName}</strong>
@@ -141,26 +141,56 @@ export function POSWorkOrderModal({ order, items = [], advisor, isOpen, onClose 
               <div>
                 <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold', display: 'block' }}>CLIENTE</span>
                 <strong style={{ fontSize: '14px', color: '#0f172a' }}>{order.customerName}</strong>
+                {order.customerPhone && <span style={{ fontSize: '11.5px', color: '#16a34a', display: 'block' }}>📞 {order.customerPhone}</span>}
               </div>
               <div>
-                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold', display: 'block' }}>FECHA DE INGRESO</span>
-                <span style={{ fontSize: '13px', color: '#0f172a', fontWeight: '600' }}>{order.orderDate}</span>
+                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold', display: 'block' }}>ÁREA DE PRODUCCIÓN</span>
+                <strong style={{ fontSize: '13px', color: '#6366f1', textTransform: 'capitalize' }}>
+                  {order.assignedArea === 'sublimacion' ? '👕 Sublimación & DTF' : order.assignedArea === 'corte_laser' ? '⚡ Corte Láser & CNC' : '🖨️ Impresión Gran Formato'}
+                </strong>
               </div>
               <div>
-                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold', display: 'block' }}>FECHA DE ENTREGA COMPROMETIDA</span>
-                <strong style={{ fontSize: '14px', color: '#dc2626' }}>{order.deliveryDate || 'Por coordinar'}</strong>
+                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold', display: 'block' }}>FECHA DE EJECUCIÓN (TALLER)</span>
+                <strong style={{ fontSize: '13px', color: '#0f172a' }}>{order.executionDate || order.orderDate}</strong>
+              </div>
+              <div>
+                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold', display: 'block' }}>FECHA DE ENTREGA / MONTAJE</span>
+                <strong style={{ fontSize: '13.5px', color: '#dc2626' }}>{order.installationDate || order.deliveryDate || 'Por coordinar'}</strong>
+              </div>
+              <div>
+                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold', display: 'block' }}>MÁQUINA & TÉCNICO</span>
+                <span style={{ fontSize: '12px', color: '#0f172a', fontWeight: 'bold' }}>
+                  ⚙️ {order.machineAssigned || 'Plotter Solvente 3.20m'} · 👷 {order.technicianAssigned || 'Operario'}
+                </span>
               </div>
               <div>
                 <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold', display: 'block' }}>ASESORA COMERCIAL</span>
                 <span style={{ fontSize: '13px', color: '#0f172a' }}>{advisor?.name || 'Ventas'}</span>
               </div>
-              <div>
+              <div style={{ gridColumn: 'span 2' }}>
                 <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold', display: 'block' }}>ESTADO DE ARTE</span>
                 <span style={{ fontSize: '12px', fontWeight: 'bold', color: order.artApproved ? '#16a34a' : '#d97706' }}>
                   {order.artApproved ? '✓ ARTE APROBADO' : '⚠ ARTE PENDIENTE DE REVISIÓN'}
                 </span>
               </div>
             </div>
+
+            {/* On-Site Installation & Measurements Box */}
+            {order.requiresInstallation && (
+              <div style={{ background: '#ecfeff', padding: '10px 14px', borderRadius: '8px', border: '1.5px solid #a5f3fc', display: 'grid', gap: '4px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#0891b2', fontWeight: 900, fontSize: '12px' }}>
+                  🚚 <span>MONTAJE & INSTALACIÓN EN SITIO REQUERIDA:</span>
+                </div>
+                <div style={{ fontSize: '12.5px', color: '#0e7490' }}>
+                  <strong>Dirección:</strong> {order.installationAddress || 'Por confirmar con cliente'}
+                </div>
+                {order.fieldMeasurementsNotes && (
+                  <div style={{ fontSize: '12px', color: '#155e75' }}>
+                    <strong>Notas de Medidas / Cuadrilla:</strong> {order.fieldMeasurementsNotes}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Artwork Attachment Link Box (Workshop RIP access) */}
             {order.artUrl && (

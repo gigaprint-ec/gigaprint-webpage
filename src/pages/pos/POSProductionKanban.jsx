@@ -25,6 +25,7 @@ export function POSProductionKanban({
   const [search, setSearch] = useState('');
   const [advisorFilter, setAdvisorFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
+  const [areaFilter, setAreaFilter] = useState('all');
   const [cancelModalOrder, setCancelModalOrder] = useState(null);
   const [cancelReason, setCancelReason] = useState('');
   const [labelModalOrder, setLabelModalOrder] = useState(null);
@@ -49,10 +50,11 @@ export function POSProductionKanban({
 
       const matchAdvisor = advisorFilter === 'all' || o.advisorId === advisorFilter;
       const matchPriority = priorityFilter === 'all' || o.productionPriority === priorityFilter;
+      const matchArea = areaFilter === 'all' || (o.assignedArea || 'impresion') === areaFilter;
 
-      return matchText && matchAdvisor && matchPriority;
+      return matchText && matchAdvisor && matchPriority && matchArea;
     });
-  }, [store.orders, search, advisorFilter, priorityFilter]);
+  }, [store.orders, search, advisorFilter, priorityFilter, areaFilter]);
 
   // Group by production stage
   const stageOrders = useMemo(() => {
@@ -255,6 +257,25 @@ export function POSProductionKanban({
             <option value="alta">⚡ Alta</option>
             <option value="normal">Normal</option>
           </select>
+
+          <select
+            value={areaFilter}
+            onChange={(e) => setAreaFilter(e.target.value)}
+            style={{
+              padding: '7px 10px',
+              borderRadius: '10px',
+              border: '1px solid var(--line)',
+              background: 'var(--bg)',
+              fontSize: '12px',
+              color: 'var(--ink)',
+              fontWeight: '600'
+            }}
+          >
+            <option value="all">Todas las Áreas</option>
+            <option value="impresion">🖨️ Impresión</option>
+            <option value="sublimacion">👕 Sublimación & DTF</option>
+            <option value="corte_laser">⚡ Corte Láser & CNC</option>
+          </select>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--muted)', fontWeight: '700' }}>
@@ -356,17 +377,41 @@ export function POSProductionKanban({
                         }}
                       >
                         {/* Card Top Row: Order # and Urgency Badge */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{
-                            fontSize: '11px',
-                            fontWeight: '900',
-                            padding: '2px 6px',
-                            borderRadius: '6px',
-                            background: 'var(--orange-soft)',
-                            color: 'var(--orange-dark)'
-                          }}>
-                            #{order.orderNumber}
-                          </span>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: '900',
+                              padding: '2px 6px',
+                              borderRadius: '6px',
+                              background: 'var(--orange-soft)',
+                              color: 'var(--orange-dark)'
+                            }}>
+                              #{order.orderNumber}
+                            </span>
+                            <span style={{
+                              fontSize: '9.5px',
+                              fontWeight: '800',
+                              padding: '2px 5px',
+                              borderRadius: '4px',
+                              background: order.assignedArea === 'sublimacion' ? '#fce7f3' : order.assignedArea === 'corte_laser' ? '#ede9fe' : '#dbeafe',
+                              color: order.assignedArea === 'sublimacion' ? '#be185d' : order.assignedArea === 'corte_laser' ? '#6d28d9' : '#1d4ed8'
+                            }}>
+                              {order.assignedArea === 'sublimacion' ? '👕 Subli' : order.assignedArea === 'corte_laser' ? '⚡ Láser' : '🖨️ Print'}
+                            </span>
+                            {order.requiresInstallation && (
+                              <span style={{
+                                fontSize: '9.5px',
+                                fontWeight: '800',
+                                padding: '2px 5px',
+                                borderRadius: '4px',
+                                background: '#cffafe',
+                                color: '#0e7490'
+                              }}>
+                                🚚 Montaje
+                              </span>
+                            )}
+                          </div>
 
                           <span style={{
                             fontSize: '10px',

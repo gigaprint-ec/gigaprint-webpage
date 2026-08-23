@@ -127,6 +127,12 @@ export function POSPage({ initialTab = 'cashier' }) {
   const [customerId, setCustomerId] = useState(null);
   const [jobName, setJobName] = useState('');
   const [deliveryDate, setDeliveryDate] = useState(toISODate());
+  const [executionDate, setExecutionDate] = useState(toISODate());
+  const [assignedArea, setAssignedArea] = useState('impresion');
+  const [requiresInstallation, setRequiresInstallation] = useState(false);
+  const [installationAddress, setInstallationAddress] = useState('');
+  const [installationDate, setInstallationDate] = useState(toISODate());
+  const [fieldMeasurementsNotes, setFieldMeasurementsNotes] = useState('');
   const [pickupLocation, setPickupLocation] = useState('Matriz Gigaprint - Av. de la Prensa y Vaca de Castro, Quito');
   const [productionPriority, setProductionPriority] = useState('normal');
   const [productionNotes, setProductionNotes] = useState('');
@@ -497,12 +503,19 @@ export function POSPage({ initialTab = 'cashier' }) {
       customerPhone: customerPhone.trim(),
       jobName: jobName.trim() || `Trabajo ${cartItems[0]?.productName}`,
       deliveryDate,
+      executionDate: executionDate || deliveryDate,
+      assignedArea: assignedArea || 'impresion',
+      requiresInstallation: Boolean(requiresInstallation),
+      installationAddress: installationAddress.trim(),
+      installationDate: installationDate || deliveryDate,
+      fieldMeasurementsNotes: fieldMeasurementsNotes.trim(),
       pickupLocation,
       productionPriority,
       productionNotes,
       artUrl,
       artApproved: false,
       productionStage: 'preprensa',
+      stationStage: 'pendiente',
       subtotal,
       discountPercent: Number(discountPercent) || 0,
       discountAmount,
@@ -1075,6 +1088,76 @@ export function POSPage({ initialTab = 'cashier' }) {
                       placeholder="Ej. Lona Frontlit 3x2m con dobladillo y ojales cada 30cm"
                     />
                   </div>
+                </div>
+
+                {/* Workshop Area & On-Site Installation Coordination */}
+                <div style={{ marginTop: '12px', padding: '12px', background: '#f8fafc', borderRadius: '10px', border: '1px solid var(--line)', display: 'grid', gap: '10px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <div>
+                      <label className="pos-label" style={{ fontSize: '11px' }}>Área de Producción Principal</label>
+                      <select
+                        className="pos-select"
+                        value={assignedArea}
+                        onChange={(e) => setAssignedArea(e.target.value)}
+                        style={{ fontSize: '12px', padding: '6px 8px' }}
+                      >
+                        <option value="impresion">🖨️ Impresión (Gran Formato & Digital)</option>
+                        <option value="sublimacion">👕 Sublimación & DTF Textil</option>
+                        <option value="corte_laser">⚡ Corte Láser & CNC Rígidos</option>
+                        <option value="acabados">✂️ Acabados & Confección</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="pos-label" style={{ fontSize: '11px' }}>Fecha Fabricación en Taller</label>
+                      <input
+                        type="date"
+                        className="pos-input"
+                        value={executionDate}
+                        onChange={(e) => setExecutionDate(e.target.value)}
+                        style={{ fontSize: '12px', padding: '6px 8px' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input
+                      type="checkbox"
+                      id="posReqInstCheck"
+                      checked={requiresInstallation}
+                      onChange={(e) => setRequiresInstallation(e.target.checked)}
+                      style={{ width: '17px', height: '17px', accentColor: 'var(--orange)' }}
+                    />
+                    <label htmlFor="posReqInstCheck" style={{ fontSize: '12px', fontWeight: 800, cursor: 'pointer', color: 'var(--ink)' }}>
+                      🚚 Requiere Montaje / Instalación en Sitio
+                    </label>
+                  </div>
+
+                  {requiresInstallation && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '10px' }}>
+                      <div>
+                        <label className="pos-label" style={{ fontSize: '11px' }}>Dirección de Instalación</label>
+                        <input
+                          type="text"
+                          className="pos-input"
+                          placeholder="Calle principal, número y referencia..."
+                          value={installationAddress}
+                          onChange={(e) => setInstallationAddress(e.target.value)}
+                          style={{ fontSize: '11.5px', padding: '6px 8px' }}
+                        />
+                      </div>
+                      <div>
+                        <label className="pos-label" style={{ fontSize: '11px' }}>Fecha de Montaje</label>
+                        <input
+                          type="date"
+                          className="pos-input"
+                          value={installationDate}
+                          onChange={(e) => setInstallationDate(e.target.value)}
+                          style={{ fontSize: '11.5px', padding: '6px 8px' }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Cloud File Uploader for Artwork */}
