@@ -10,9 +10,14 @@ import {
   PenTool,
   RotateCcw,
   ShieldCheck,
-  Download
+  Download,
+  MapPin,
+  Plus,
+  Trash2,
+  Copy,
+  ExternalLink
 } from 'lucide-react';
-import { approveOrderArtProof } from '../../lib/posStore';
+import { approveOrderArtProof, addArtProofPin } from '../../lib/posStore';
 
 export function POSArtProofModal({ order, store, setStore, isOpen, onClose }) {
   if (!isOpen || !order) return null;
@@ -21,9 +26,13 @@ export function POSArtProofModal({ order, store, setStore, isOpen, onClose }) {
   const [approverName, setApproverName] = useState(order.customerName || '');
   const [confirmedSpecs, setConfirmedSpecs] = useState(true);
   const [confirmedSpelling, setConfirmedSpelling] = useState(true);
-  const [hasSignature, setHasSignature] = useState(false);
+  const [hasSignature, setHasSignature] = useState(Boolean(order.artProofSignature));
+  const [pins, setPins] = useState(order.artProofPins || []);
+  const [activePinComment, setActivePinComment] = useState('');
+  const [tempPinCoord, setTempPinCoord] = useState(null);
 
   const canvasRef = useRef(null);
+  const imageContainerRef = useRef(null);
   const isDrawing = useRef(false);
 
   const startDrawing = (e) => {
@@ -47,7 +56,7 @@ export function POSArtProofModal({ order, store, setStore, isOpen, onClose }) {
     const rect = canvas.getBoundingClientRect();
     const x = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left;
     const y = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2.5;
     ctx.lineCap = 'round';
     ctx.strokeStyle = '#0f172a';
     ctx.lineTo(x, y);
@@ -66,10 +75,56 @@ export function POSArtProofModal({ order, store, setStore, isOpen, onClose }) {
     setHasSignature(false);
   };
 
+  // Image Pin Drop Handler
+  const handleImageClick = (e) => {
+    if (!imageContainerRef.current) return;
+    const rect = imageContainerRef.current.getBoundingClientRect();
+    const xPercent = ((e.clientX - rect.left) / rect.width) * 100;
+    const yPercent = ((e.clientY - rect.top) / rect.height) * 100;
+    setTempPinCoord({ x: Number(xPercent.toFixed(1)), y: Number(yPercent.toFixed(1)) });
+  };
+
+  const handleAddPin = () => {
+    if (!tempPinCoord || !activePinComment.trim()) return;
+    const newPin = {
+      id: `pin-${Date.now()}`,
+      number: pins.length + 1,
+      x: tempPinCoord.x,
+      y: tempPinCoord.y,
+      comment: activePinComment.trim(),
+      author: 'Diseño / Cliente',
+      createdAt: new Date().toISOString(),
+      resolved: false
+    };
+    const updated = [...pins, newPin];
+    setPins(updated);
+    setActivePinComment('');
+    setTempPinCoord(null);
+  };
+
+  const handleRemovePin = (pinId) => {
+    setPins(pins.filter((p) => p.id !== pinId));
+  };
+
+  const handleTogglePinResolved = (pinId) => {
+    setPins(pins.map((p) => (p.id === pinId ? { ...p, resolved: !p.resolved } : p)));
+  };
+
+  const publicProofUrl = `${window.location.origin}${window.location.pathname}#/prueba-arte/${order.id}`;
+
   const handleSaveAndApprove = () => {
-    const nextState = approveOrderArtProof(store, order.id, artUrl, approverName);
-    setStore(nextState);
-    onClose();
+    let signatureUrl = order.artProofSignature || null;
+    if (hasSignature && canvasRef.current) {
+      try {
+        signatureUrl = canvasRef.current.toDataURL('image/png');
+      } catch (e) {}
+    }
+
+    const res = approveOrderArtProof(store, order.id, approverName, artUrl, signatureUrl, pins);
+    if (res.ok) {
+      setStore(res.updatedStore);
+      onClose();
+    }
   };
 
   const handleSendWhatsAppProof = () => {
@@ -78,11 +133,12 @@ export function POSArtProofModal({ order, store, setStore, isOpen, onClose }) {
 
     let msg = '*GIGAPRINT — APROBACIÓN DE ARTE & DISEÑO*\n';
     msg += '================================\n';
-    msg += `Hola *${order.customerName}*, adjuntamos la vista previa / boceto para tu trabajo: *${order.jobName}* (Orden #${order.orderNumber}).\n\n`;
+    msg += `Hola *${order.customerName}*, adjuntamos la vista previa interactiva para tu trabajo: *${order.jobName}* (Orden #${order.orderNumber}).\n\n`;
+    msg += `📱 *Portal de Aprobación y Firma en Vivo:* ${publicProofUrl}\n\n`;
     if (artUrl) {
-      msg += `🔗 *Enlace de Revisión de Arte:* ${artUrl}\n\n`;
+      msg += `🔗 *Ver Boceto en Alta Calidad:* ${artUrl}\n\n`;
     }
-    msg += 'Por favor revisa que textos, teléfonos, medidas y diseño estén correctos y confírmanos con un *"APROBADO"* para iniciar la impresión.\n\n';
+    msg += 'Por favor abre el portal desde tu celular para verificar textos, medidas y firmar la aprobación con tu dedo para iniciar la impresión.\n\n';
     msg += '¡Gracias por confiar en Gigaprint! 🚀';
 
     window.open(`https://wa.me/${clean}?text=${encodeURIComponent(msg)}`, '_blank');
@@ -174,6 +230,199 @@ export function POSArtProofModal({ order, store, setStore, isOpen, onClose }) {
               }}
             />
           </div>
+        </div>
+
+        {/* Artwork Image Viewer with Interactive Pin Dropper */}
+        {artUrl && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <label style={{ fontSize: '12px', fontWeight: 800, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <MapPin size={14} color="var(--orange)" /> Vista Previa del Arte (Haz clic para clavar un pin de corrección):
+              </label>
+              <a
+                href={artUrl}
+                target="_blank"
+                rel="noreferrer"
+                style={{ fontSize: '11px', color: '#2563eb', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 700 }}
+              >
+                <ExternalLink size={12} /> Abrir HD
+              </a>
+            </div>
+
+            <div
+              ref={imageContainerRef}
+              onClick={handleImageClick}
+              style={{
+                position: 'relative',
+                maxHeight: '220px',
+                borderRadius: '12px',
+                overflow: 'hidden',
+                border: '1.5px solid var(--line)',
+                background: '#0f172a',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'crosshair'
+              }}
+            >
+              <img
+                src={artUrl}
+                alt="Boceto de arte"
+                style={{ maxWidth: '100%', maxHeight: '220px', objectFit: 'contain', display: 'block' }}
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+              />
+
+              {/* Render Pins */}
+              {pins.map((p) => (
+                <div
+                  key={p.id}
+                  style={{
+                    position: 'absolute',
+                    left: `${p.x}%`,
+                    top: `${p.y}%`,
+                    transform: 'translate(-50%, -100%)',
+                    background: p.resolved ? '#10b981' : '#ea580c',
+                    color: '#fff',
+                    borderRadius: '999px',
+                    width: '24px',
+                    height: '24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '11px',
+                    fontWeight: 900,
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+                    border: '2px solid #fff',
+                    pointerEvents: 'none'
+                  }}
+                  title={p.comment}
+                >
+                  {p.number}
+                </div>
+              ))}
+
+              {/* Temporary Pin Marker */}
+              {tempPinCoord && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: `${tempPinCoord.x}%`,
+                    top: `${tempPinCoord.y}%`,
+                    transform: 'translate(-50%, -100%)',
+                    background: '#3b82f6',
+                    color: '#fff',
+                    borderRadius: '999px',
+                    width: '26px',
+                    height: '26px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '12px',
+                    fontWeight: 900,
+                    boxShadow: '0 0 0 4px rgba(59, 130, 246, 0.4)',
+                    border: '2px solid #fff'
+                  }}
+                >
+                  +
+                </div>
+              )}
+            </div>
+
+            {/* Pin Creation Input */}
+            {tempPinCoord && (
+              <div style={{ marginTop: '8px', padding: '10px', background: '#eff6ff', borderRadius: '10px', border: '1px solid #bfdbfe', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <input
+                  type="text"
+                  placeholder="Escribe la corrección para este pin (ej. Corregir número de teléfono)..."
+                  value={activePinComment}
+                  onChange={(e) => setActivePinComment(e.target.value)}
+                  className="pos-input"
+                  style={{ fontSize: '12px', padding: '6px 10px', background: '#fff' }}
+                  autoFocus
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleAddPin(); }}
+                />
+                <button
+                  type="button"
+                  onClick={handleAddPin}
+                  className="pos-submit-order-btn"
+                  style={{ padding: '6px 12px', fontSize: '12px', whiteSpace: 'nowrap' }}
+                >
+                  Guardar Pin
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTempPinCoord(null)}
+                  className="pos-cat-pill"
+                  style={{ padding: '6px 10px', fontSize: '12px' }}
+                >
+                  Cancelar
+                </button>
+              </div>
+            )}
+
+            {/* Pins List */}
+            {pins.length > 0 && (
+              <div style={{ marginTop: '8px', display: 'grid', gap: '4px', maxHeight: '100px', overflowY: 'auto' }}>
+                {pins.map((p) => (
+                  <div
+                    key={p.id}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '6px 10px',
+                      borderRadius: '8px',
+                      background: p.resolved ? '#f0fdf4' : '#fff7ed',
+                      border: `1px solid ${p.resolved ? '#bbf7d0' : '#fed7aa'}`,
+                      fontSize: '11.5px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <strong style={{ color: p.resolved ? '#166534' : '#c2410c' }}>Pin {p.number}:</strong>
+                      <span style={{ textDecoration: p.resolved ? 'line-through' : 'none', color: p.resolved ? '#64748b' : '#1e293b' }}>
+                        {p.comment}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleTogglePinResolved(p.id)}
+                        style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '11px', fontWeight: 800, color: p.resolved ? '#166534' : '#c2410c' }}
+                      >
+                        {p.resolved ? '✓ Resuelto' : 'Marcar Resuelto'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePin(p.id)}
+                        style={{ border: 'none', background: 'none', color: '#dc2626', cursor: 'pointer' }}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Public Proof Magic Link */}
+        <div style={{ padding: '8px 12px', background: '#f8fafc', borderRadius: '10px', border: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Sparkles size={14} color="var(--orange)" />
+            <span><strong>Portal de Firma Móvil para Cliente:</strong></span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              navigator.clipboard.writeText(publicProofUrl);
+              alert('Enlace copiado al portapapeles.');
+            }}
+            className="pos-cat-pill"
+            style={{ padding: '3px 8px', fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+          >
+            <Copy size={12} /> Copiar Link
+          </button>
         </div>
 
         {/* In-Person Verification Checklist */}

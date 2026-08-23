@@ -2,9 +2,17 @@ import React, { useState, useMemo } from 'react';
 import { 
   Layout, Eye, Printer, Scissors, CheckSquare, Package, CheckCircle2,
   AlertTriangle, Clock, ArrowRight, ArrowLeft, Search, Filter,
-  FileText, MessageCircle, MoreVertical, XCircle, Sparkles, Check, Tag
+  FileText, MessageCircle, MoreVertical, XCircle, Sparkles, Check, Tag,
+  QrCode, Cpu, UserCheck
 } from 'lucide-react';
-import { PRODUCTION_STAGES, updateOrderProductionStage, toISODate, cancelPOSOrder } from '../../lib/posStore';
+import {
+  PRODUCTION_STAGES,
+  updateOrderProductionStage,
+  toISODate,
+  cancelPOSOrder,
+  advanceOrderProductionStageByScan,
+  assignOrderProductionResource
+} from '../../lib/posStore';
 import { POSPackageLabelModal } from './POSPackageLabelModal';
 
 export function POSProductionKanban({ 
@@ -20,6 +28,12 @@ export function POSProductionKanban({
   const [cancelModalOrder, setCancelModalOrder] = useState(null);
   const [cancelReason, setCancelReason] = useState('');
   const [labelModalOrder, setLabelModalOrder] = useState(null);
+
+  // Scan-to-Advance and Machine Assignment States
+  const [scanCode, setScanCode] = useState('');
+  const [assignModalOrder, setAssignModalOrder] = useState(null);
+  const [assignedMachine, setAssignedMachine] = useState('');
+  const [assignedTechnician, setAssignedTechnician] = useState('');
 
   const today = toISODate();
 
@@ -85,6 +99,41 @@ export function POSProductionKanban({
     setCancelReason('');
   };
 
+  // Scan-to-Advance Fast Floor Handler
+  const handleScanAdvanceSubmit = (e) => {
+    e.preventDefault();
+    if (!scanCode.trim()) return;
+    const res = advanceOrderProductionStageByScan(store, scanCode.trim(), session?.id || '');
+    if (res.ok) {
+      setStore(res.updatedStore);
+      setScanCode('');
+      alert(`✓ Orden #${res.order?.orderNumber} avanzada a etapa: ${res.order?.productionStage}`);
+    } else {
+      alert(`⚠️ ${res.error}`);
+    }
+  };
+
+  // Machine and Technician Assignment
+  const handleOpenAssignModal = (order) => {
+    setAssignModalOrder(order);
+    setAssignedMachine(order.machineAssigned || 'Plotter Solvente 3.20m');
+    setAssignedTechnician(order.technicianAssigned || (store.advisors?.[0]?.name || 'Operario Taller'));
+  };
+
+  const handleSaveResourceAssignment = (e) => {
+    e.preventDefault();
+    if (!assignModalOrder) return;
+    const res = assignOrderProductionResource(store, assignModalOrder.id, {
+      machine: assignedMachine,
+      technician: assignedTechnician,
+      advisorId: session?.id || ''
+    });
+    if (res.ok) {
+      setStore(res.updatedStore);
+      setAssignModalOrder(null);
+    }
+  };
+
   // Helper for delivery status badge
   const getDeliveryStatus = (deliveryDate) => {
     if (!deliveryDate) return { label: 'Sin fecha', color: '#94a3b8', bg: '#f1f5f9' };
@@ -99,7 +148,7 @@ export function POSProductionKanban({
 
   return (
     <div className="pos-kanban-container" style={{ display: 'grid', gap: '16px' }}>
-      {/* Top Filter Bar */}
+      {/* Top Filter Bar with Fast Scan-to-Advance Station */}
       <div className="pos-kanban-toolbar" style={{
         display: 'flex',
         flexWrap: 'wrap',
@@ -111,21 +160,59 @@ export function POSProductionKanban({
         borderRadius: '16px',
         border: '1px solid var(--line)'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: '240px' }}>
-          <div style={{ position: 'relative', width: '100%', maxWidth: '320px' }}>
-            <Search size={16} style={{ position: 'absolute', left: '10px', top: '10px', color: 'var(--muted)' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: '240px', flexWrap: 'wrap' }}>
+          {/* Scan-to-Advance Input Box */}
+          <form onSubmit={handleScanAdvanceSubmit} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ position: 'relative' }}>
+              <QrCode size={15} style={{ position: 'absolute', left: '10px', top: '9px', color: 'var(--orange)' }} />
+              <input
+                type="text"
+                placeholder="Escanear Hoja de Ruta (Scan-to-Advance)..."
+                value={scanCode}
+                onChange={(e) => setScanCode(e.target.value)}
+                style={{
+                  padding: '7px 10px 7px 32px',
+                  borderRadius: '10px',
+                  border: '1.5px solid var(--orange)',
+                  background: '#fff',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  width: '230px'
+                }}
+              />
+            </div>
+            <button
+              type="submit"
+              style={{
+                padding: '7px 12px',
+                borderRadius: '10px',
+                background: 'var(--orange)',
+                color: '#fff',
+                border: 'none',
+                fontWeight: '800',
+                fontSize: '12px',
+                cursor: 'pointer'
+              }}
+              title="Avanzar de fase mediante escaneo de código"
+            >
+              Avanzar (↵)
+            </button>
+          </form>
+
+          <div style={{ position: 'relative', width: '100%', maxWidth: '240px' }}>
+            <Search size={15} style={{ position: 'absolute', left: '10px', top: '10px', color: 'var(--muted)' }} />
             <input
               type="text"
-              placeholder="Buscar por # Orden, Cliente o Trabajo..."
+              placeholder="Buscar por # Orden o Cliente..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{
                 width: '100%',
-                padding: '8px 10px 8px 34px',
+                padding: '7px 10px 7px 32px',
                 borderRadius: '10px',
                 border: '1px solid var(--line)',
                 background: 'var(--bg)',
-                fontSize: '13px',
+                fontSize: '12.5px',
                 color: 'var(--ink)'
               }}
             />
@@ -135,11 +222,11 @@ export function POSProductionKanban({
             value={advisorFilter}
             onChange={(e) => setAdvisorFilter(e.target.value)}
             style={{
-              padding: '8px 12px',
+              padding: '7px 10px',
               borderRadius: '10px',
               border: '1px solid var(--line)',
               background: 'var(--bg)',
-              fontSize: '13px',
+              fontSize: '12px',
               color: 'var(--ink)',
               fontWeight: '600'
             }}
@@ -154,11 +241,11 @@ export function POSProductionKanban({
             value={priorityFilter}
             onChange={(e) => setPriorityFilter(e.target.value)}
             style={{
-              padding: '8px 12px',
+              padding: '7px 10px',
               borderRadius: '10px',
               border: '1px solid var(--line)',
               background: 'var(--bg)',
-              fontSize: '13px',
+              fontSize: '12px',
               color: 'var(--ink)',
               fontWeight: '600'
             }}
@@ -348,6 +435,25 @@ export function POSProductionKanban({
                           </span>
                         </div>
 
+                        {/* Machine & Technician Assignment Tag */}
+                        <div style={{
+                          fontSize: '10.5px',
+                          background: '#f8fafc',
+                          padding: '4px 6px',
+                          borderRadius: '6px',
+                          border: '1px solid var(--line)',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center'
+                        }}>
+                          <span style={{ fontWeight: 700, color: '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '130px' }}>
+                            🖨️ {order.machineAssigned || 'Sin Máquina'}
+                          </span>
+                          <span style={{ fontWeight: 600, color: '#64748b' }}>
+                            👷 {order.technicianAssigned || 'Taller'}
+                          </span>
+                        </div>
+
                         {/* Action Buttons Row */}
                         <div style={{
                           display: 'flex',
@@ -401,6 +507,21 @@ export function POSProductionKanban({
                           {/* Technical Work Order & Art Buttons */}
                           <div style={{ display: 'flex', gap: '4px' }}>
                             <button
+                              onClick={() => handleOpenAssignModal(order)}
+                              title="Asignar Máquina de Impresión y Técnico Operario"
+                              style={{
+                                padding: '5px 7px',
+                                borderRadius: '6px',
+                                border: '1px solid var(--line)',
+                                background: order.machineAssigned ? '#eff6ff' : 'var(--paper)',
+                                color: order.machineAssigned ? '#1d4ed8' : 'var(--ink)',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              <Cpu size={13} />
+                            </button>
+
+                            <button
                               onClick={() => onOpenArtProof && onOpenArtProof(order)}
                               title="Revisar y Aprobar Boceto de Arte"
                               style={{
@@ -437,23 +558,23 @@ export function POSProductionKanban({
                                 padding: '5px 7px',
                                 borderRadius: '6px',
                                 border: '1px solid var(--line)',
-                                background: '#fff7ed',
-                                color: '#ea580c',
+                                background: 'var(--paper)',
+                                color: 'var(--ink)',
                                 cursor: 'pointer'
                               }}
                             >
-                              <Tag size={13} />
+                              <Package size={13} />
                             </button>
 
                             <button
                               onClick={() => setCancelModalOrder(order)}
-                              title="Anular / Cancelar Pedido"
+                              title="Anular Trabajo"
                               style={{
                                 padding: '5px 7px',
                                 borderRadius: '6px',
                                 border: '1px solid var(--line)',
                                 background: 'var(--paper)',
-                                color: '#ef4444',
+                                color: '#dc2626',
                                 cursor: 'pointer'
                               }}
                             >
@@ -550,6 +671,106 @@ export function POSProductionKanban({
                 Confirmar Anulación
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Resource & Machinery Assignment Modal */}
+      {assignModalOrder && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.6)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px'
+        }}>
+          <div style={{
+            background: 'var(--paper)',
+            borderRadius: '16px',
+            padding: '24px',
+            maxWidth: '480px',
+            width: '100%',
+            border: '1px solid var(--line)',
+            display: 'grid',
+            gap: '16px',
+            boxShadow: '0 25px 60px rgba(0,0,0,0.3)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--line)', paddingBottom: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Cpu size={20} color="var(--orange)" />
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '900', color: 'var(--ink)' }}>
+                  Asignar Recursos — Orden #{assignModalOrder.orderNumber}
+                </h3>
+              </div>
+              <button
+                onClick={() => setAssignModalOrder(null)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }}
+              >
+                <XCircle size={18} />
+              </button>
+            </div>
+
+            <div>
+              <strong style={{ fontSize: '13px', color: 'var(--ink)', display: 'block' }}>{assignModalOrder.jobName}</strong>
+              <span style={{ fontSize: '12px', color: 'var(--muted)' }}>Cliente: {assignModalOrder.customerName}</span>
+            </div>
+
+            <form onSubmit={handleSaveResourceAssignment} style={{ display: 'grid', gap: '14px' }}>
+              <div>
+                <label className="pos-label required">Máquina de Producción / Taller</label>
+                <select
+                  className="pos-select"
+                  value={assignedMachine}
+                  onChange={(e) => setAssignedMachine(e.target.value)}
+                  required
+                >
+                  <option value="Plotter Solvente 3.20m">🖨️ Plotter Solvente 3.20m (Lonas, Microperforado, Vallas)</option>
+                  <option value="Plotter Roland Ecosolvente 1.60m">🎨 Plotter Roland Ecosolvente 1.60m (Vinil HD, Troquelados)</option>
+                  <option value="Cama Plana UV Mimaki">⚡ Cama Plana UV Mimaki (Sintra, Acrílico, Vidrio, Madera)</option>
+                  <option value="Prensa Digital Láser Konica">📄 Prensa Digital Láser Konica (Papelería, Flyers, Tarjetas)</option>
+                  <option value="Plotter DTF Textil 60cm">👕 Plotter DTF Textil 60cm (Camisetas, Bolsos, Sublimación)</option>
+                  <option value="Ruteadora CNC & Láser CO2">⚙️ Ruteadora CNC & Corte Láser CO2 (Rótulos 3D)</option>
+                  <option value="Mesa de Acabados Manual">✂️ Mesa de Acabados & Confección (Ojales, Bastidores)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="pos-label required">Técnico / Operador Responsable</label>
+                <select
+                  className="pos-select"
+                  value={assignedTechnician}
+                  onChange={(e) => setAssignedTechnician(e.target.value)}
+                  required
+                >
+                  {(store.advisors || []).map((adv) => (
+                    <option key={adv.id} value={adv.name}>{adv.name} ({adv.role})</option>
+                  ))}
+                  <option value="Operario Taller Turno 1">Operario Taller Turno 1</option>
+                  <option value="Operario Taller Turno 2">Operario Taller Turno 2</option>
+                  <option value="Instalador en Sitio">Instalador en Sitio</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '6px' }}>
+                <button
+                  type="button"
+                  className="pos-cat-pill"
+                  onClick={() => setAssignModalOrder(null)}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="pos-add-cart-btn"
+                  style={{ width: 'auto', padding: '10px 18px' }}
+                >
+                  <Check size={16} /> Guardar Asignación
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

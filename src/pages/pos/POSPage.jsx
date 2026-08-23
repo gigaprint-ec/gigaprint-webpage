@@ -144,6 +144,14 @@ export function POSPage() {
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
   const [isMuted, setIsMuted] = useState(isAudioMuted);
 
+  // Miscellaneous / Freeform Custom Item Modal State
+  const [isFreeItemModalOpen, setIsFreeItemModalOpen] = useState(false);
+  const [freeItemName, setFreeItemName] = useState('');
+  const [freeItemPrice, setFreeItemPrice] = useState('');
+  const [freeItemQty, setFreeItemQty] = useState(1);
+  const [freeItemCategory, setFreeItemCategory] = useState('Servicios Especiales');
+  const [freeItemNotes, setFreeItemNotes] = useState('');
+
   // Orders Tab Filters
   const [orderSearchTerm, setOrderSearchTerm] = useState('');
   const [orderPaymentFilter, setOrderPaymentFilter] = useState('all');
@@ -498,6 +506,40 @@ export function POSPage() {
     }
   };
 
+  // Handler for adding Miscellaneous / Freeform Custom Item
+  const handleAddFreeItem = (e) => {
+    e.preventDefault();
+    if (!freeItemName.trim()) {
+      toast.warning('Ingresa el nombre o concepto del ítem.');
+      return;
+    }
+    const unitP = Number(freeItemPrice) || 0;
+    const qty = Math.max(1, Number(freeItemQty) || 1);
+    const itemTotal = Number((unitP * qty).toFixed(2));
+
+    setCartItems((prev) => [
+      ...prev,
+      {
+        id: `cart-free-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        productName: freeItemName.trim(),
+        category: freeItemCategory || 'Servicios Especiales',
+        calcType: 'unit',
+        unitPrice: unitP,
+        quantity: qty,
+        totalPrice: itemTotal,
+        notes: freeItemNotes.trim(),
+        finishing: ''
+      }
+    ]);
+
+    toast.success(`Ítem especial "${freeItemName.trim()}" agregado al carrito.`);
+    setFreeItemName('');
+    setFreeItemPrice('');
+    setFreeItemQty(1);
+    setFreeItemNotes('');
+    setIsFreeItemModalOpen(false);
+  };
+
   // Reorder hook from CRM
   const handleReorderFromCRM = (reorderData) => {
     setCustomerName(reorderData.customerName || '');
@@ -509,9 +551,78 @@ export function POSPage() {
     setActiveTab('cashier');
   };
 
-  // Keyboard Shortcuts Listener for fast cashier counter flow
+  // Global Hardware Barcode / QR Scanner Buffer & Keyboard Shortcuts Listener
   useEffect(() => {
+    let scanBuffer = '';
+    let lastKeyTimestamp = Date.now();
+
     const handleKeyDown = (e) => {
+      const now = Date.now();
+      const timeDiff = now - lastKeyTimestamp;
+      lastKeyTimestamp = now;
+
+      // 1. Check for Barcode Scanner EOT (Enter key with rapid burst < 65ms per char)
+      if (e.key === 'Enter') {
+        if (scanBuffer.length >= 3 && timeDiff < 80) {
+          const scannedCode = scanBuffer.trim();
+          scanBuffer = '';
+
+          // A. Match Order Number / Barcode
+          const matchingOrder = (store.orders || []).find(
+            (o) => (o.orderNumber || '').toUpperCase() === scannedCode.toUpperCase() || (o.id || '').toUpperCase() === scannedCode.toUpperCase()
+          );
+          if (matchingOrder) {
+            toast.info(`📦 Trabajo #${matchingOrder.orderNumber} localizado mediante escáner.`);
+            setSelectedOrderForReceipt(matchingOrder);
+            return;
+          }
+
+          // B. Match Product SKU or Name
+          const matchingProduct = (store.products || []).find(
+            (p) => (p.sku && p.sku.toUpperCase() === scannedCode.toUpperCase()) || p.name.toUpperCase() === scannedCode.toUpperCase()
+          );
+          if (matchingProduct) {
+            toast.success(`🏷️ Sustrato "${matchingProduct.name}" agregado por escáner.`);
+            setCartItems((prev) => [
+              ...prev,
+              {
+                id: `cart-scan-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+                productId: matchingProduct.id,
+                productName: matchingProduct.name,
+                category: matchingProduct.category,
+                calcType: matchingProduct.calcType,
+                quantity: 1,
+                unitPrice: Number(matchingProduct.basePrice || 5.0),
+                totalPrice: Number(matchingProduct.basePrice || 5.0),
+                finishing: ''
+              }
+            ]);
+            return;
+          }
+
+          // C. Match Customer RUC / Cédula / Teléfono
+          const matchingCustomer = (store.customers || []).find(
+            (c) => (c.identification || '').toUpperCase() === scannedCode.toUpperCase() || (c.phone || '').includes(scannedCode)
+          );
+          if (matchingCustomer) {
+            toast.success(`👤 Cliente "${matchingCustomer.name}" identificado por escáner.`);
+            setCustomerId(matchingCustomer.id);
+            setCustomerName(matchingCustomer.name);
+            setCustomerIdentification(matchingCustomer.identification);
+            setCustomerPhone(matchingCustomer.phone || '');
+            return;
+          }
+        }
+        scanBuffer = '';
+      } else if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        if (timeDiff > 120) {
+          scanBuffer = e.key;
+        } else {
+          scanBuffer += e.key;
+        }
+      }
+
+      // 2. Global Modal and Navigation Shortcuts
       if (e.key === '?' || e.key === 'F12') {
         e.preventDefault();
         setShowShortcutsModal((prev) => !prev);
@@ -521,6 +632,7 @@ export function POSPage() {
       if (e.key === 'Escape') {
         setShowShortcutsModal(false);
         setIsShiftModalOpen(false);
+        setIsFreeItemModalOpen(false);
       }
 
       if (activeTab !== 'cashier') return;
@@ -529,6 +641,18 @@ export function POSPage() {
         e.preventDefault();
         const searchInput = document.getElementById('pos-customer-search-input');
         if (searchInput) searchInput.focus();
+      } else if (e.key === 'F2') {
+        // Quick Exact Cash
+        e.preventDefault();
+        handleQuickCash(totalAmount);
+      } else if (e.key === 'F3') {
+        // Quick Exact Transfer
+        e.preventDefault();
+        setPayments([{ method: 'transfer', amount: totalAmount.toFixed(2), bankName: 'Banco Pichincha', referenceNumber: '' }]);
+      } else if (e.key === 'F4') {
+        // Open Free Item Modal
+        e.preventDefault();
+        setIsFreeItemModalOpen(true);
       } else if (e.key === 'F6') {
         e.preventDefault();
         handleParkSale();
@@ -540,7 +664,7 @@ export function POSPage() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeTab, cartItems, customerName, customerIdentification, customerPhone, totalAmount, payments]);
+  }, [activeTab, cartItems, customerName, customerIdentification, customerPhone, totalAmount, payments, store.orders, store.products, store.customers]);
 
   // Lock Screen Check
   if (!session) {
@@ -927,6 +1051,31 @@ export function POSPage() {
                     </div>
                   )}
                 </div>
+
+                {/* Customer Credit Alert Banner */}
+                {selectedCustomerObj && (Number(selectedCustomerObj.creditLimit) > 0 || customerDebt > 0) && (
+                  <div style={{
+                    marginTop: '10px',
+                    padding: '10px 14px',
+                    borderRadius: '12px',
+                    background: customerDebt > (Number(selectedCustomerObj.creditLimit) || 0) && Number(selectedCustomerObj.creditLimit) > 0 ? '#fef2f2' : '#f0fdf4',
+                    border: `1.5px solid ${customerDebt > (Number(selectedCustomerObj.creditLimit) || 0) && Number(selectedCustomerObj.creditLimit) > 0 ? '#fca5a5' : '#86efac'}`,
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    fontSize: '12px',
+                    flexWrap: 'wrap',
+                    gap: '6px'
+                  }}>
+                    <div>
+                      <strong>Cupo de Crédito:</strong> ${(Number(selectedCustomerObj.creditLimit) || 0).toFixed(2)} | <strong>Plazo:</strong> {selectedCustomerObj.creditDays || 0} días
+                      {selectedCustomerObj.isVip && <span style={{ marginLeft: '8px', color: 'var(--orange)', fontWeight: 900 }}>★ Tarifa VIP</span>}
+                    </div>
+                    <div style={{ fontWeight: 900, color: customerDebt > 0 ? '#dc2626' : '#166534' }}>
+                      {customerDebt > 0 ? `⚠️ Deuda Pendiente: $${customerDebt.toFixed(2)}` : '✓ Cartera al Día'}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Card 2: Visual Product Matrix & Dynamic Area Calculator */}
@@ -962,15 +1111,26 @@ export function POSPage() {
                   <h3 className="pos-card-title">
                     <ShoppingBag size={17} /> Carrito de Venta ({cartItems.length})
                   </h3>
-                  <button
-                    type="button"
-                    onClick={handleParkSale}
-                    className="pos-cat-pill"
-                    style={{ padding: '4px 10px', fontSize: '11.5px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
-                    title="Pausar venta para atender a otro cliente"
-                  >
-                    <PauseCircle size={13} /> En Espera
-                  </button>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setIsFreeItemModalOpen(true)}
+                      className="pos-cat-pill"
+                      style={{ padding: '4px 10px', fontSize: '11.5px', display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#eff6ff', borderColor: '#bfdbfe', color: '#1e40af' }}
+                      title="Agregar servicio especial o producto no catalogado (F4)"
+                    >
+                      <Plus size={13} /> + Ítem Libre (F4)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleParkSale}
+                      className="pos-cat-pill"
+                      style={{ padding: '4px 10px', fontSize: '11.5px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+                      title="Pausar venta para atender a otro cliente (F6)"
+                    >
+                      <PauseCircle size={13} /> En Espera
+                    </button>
+                  </div>
                 </div>
 
                 {/* Cart Items List */}
@@ -1655,6 +1815,100 @@ export function POSPage() {
                 </button>
                 <button type="submit" className="pos-add-cart-btn" style={{ width: 'auto', padding: '10px 18px' }}>
                   {shiftAction === 'open' ? 'Abrir Turno' : 'Cerrar y Cuadrar'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Miscellaneous / Freeform Custom Item Modal (F4) */}
+      {isFreeItemModalOpen && (
+        <div className="pos-modal-overlay">
+          <div className="pos-modal-card" style={{ maxWidth: '480px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Plus size={20} color="var(--orange)" /> + Ítem Libre / Servicio Especial
+              </h2>
+              <button type="button" onClick={() => setIsFreeItemModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                <Minus size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddFreeItem} style={{ display: 'grid', gap: '14px' }}>
+              <div>
+                <label className="pos-label required">Concepto / Nombre del Servicio o Producto</label>
+                <input
+                  type="text"
+                  className="pos-input"
+                  value={freeItemName}
+                  onChange={(e) => setFreeItemName(e.target.value)}
+                  placeholder="Ej. Instalación de rótulo en sitio / Retiro de estructura vieja"
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '12px' }}>
+                <div>
+                  <label className="pos-label required">Precio Unitario ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    className="pos-input"
+                    value={freeItemPrice}
+                    onChange={(e) => setFreeItemPrice(e.target.value)}
+                    placeholder="0.00"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="pos-label required">Cantidad</label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    className="pos-input"
+                    value={freeItemQty}
+                    onChange={(e) => setFreeItemQty(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="pos-label">Categoría / Familia</label>
+                <select
+                  className="pos-select"
+                  value={freeItemCategory}
+                  onChange={(e) => setFreeItemCategory(e.target.value)}
+                >
+                  <option value="Servicios Especiales">🔧 Servicios Especiales / Instalación</option>
+                  <option value="Diseño Gráfico">🎨 Diseño Gráfico & Diagramación</option>
+                  <option value="Estructuras Metálicas">🏗️ Estructuras & Cajas Metálicas</option>
+                  <option value="Transporte y Flete">🚚 Transporte & Flete Foráneo</option>
+                  <option value="Varios">📦 Varios / Misceláneos</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="pos-label">Notas Técnicas para Taller</label>
+                <textarea
+                  className="pos-textarea"
+                  rows={2}
+                  value={freeItemNotes}
+                  onChange={(e) => setFreeItemNotes(e.target.value)}
+                  placeholder="Detalles específicos para la orden de trabajo..."
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '6px' }}>
+                <button type="button" className="pos-cat-pill" onClick={() => setIsFreeItemModalOpen(false)}>
+                  Cancelar
+                </button>
+                <button type="submit" className="pos-add-cart-btn" style={{ width: 'auto', padding: '10px 20px' }}>
+                  <Plus size={16} /> Agregar al Carrito (↵)
                 </button>
               </div>
             </form>

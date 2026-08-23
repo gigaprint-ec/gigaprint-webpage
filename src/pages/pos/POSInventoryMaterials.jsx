@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { 
   Package, Search, Plus, AlertTriangle, CheckCircle2, 
-  Layers, ArrowDownRight, RefreshCw, Edit2, ShieldAlert
+  Layers, ArrowDownRight, RefreshCw, Edit2, ShieldAlert,
+  Printer, Tag, Trash2, XCircle, Check, Sparkles, QrCode
 } from 'lucide-react';
-import { DEFAULT_MATERIALS, toISODate } from '../../lib/posStore';
+import { DEFAULT_MATERIALS, toISODate, logMaterialScrap } from '../../lib/posStore';
 
 export function POSInventoryMaterials({ store, setStore }) {
   const [search, setSearch] = useState('');
@@ -11,6 +12,18 @@ export function POSInventoryMaterials({ store, setStore }) {
   const [adjustModalMaterial, setAdjustModalMaterial] = useState(null);
   const [adjustQty, setAdjustQty] = useState('');
   const [adjustNotes, setAdjustNotes] = useState('');
+
+  // Roll Label Modal State
+  const [rollLabelModalMaterial, setRollLabelModalMaterial] = useState(null);
+  const [rollWidthM, setRollWidthM] = useState('1.60');
+  const [rollLengthM, setRollLengthM] = useState('50');
+  const [rollLotCode, setRollLotCode] = useState(`LOT-${new Date().getFullYear()}-001`);
+
+  // Technical Scrap Modal State
+  const [scrapModalMaterial, setScrapModalMaterial] = useState(null);
+  const [scrapQtyM2, setScrapQtyM2] = useState('');
+  const [scrapReason, setScrapReason] = useState('Falla de cabezal / Inyección');
+  const [scrapNotes, setScrapNotes] = useState('');
 
   const materials = store.materials?.length ? store.materials : DEFAULT_MATERIALS;
 
@@ -62,6 +75,28 @@ export function POSInventoryMaterials({ store, setStore }) {
     setAdjustModalMaterial(null);
     setAdjustQty('');
     setAdjustNotes('');
+  };
+
+  const handleSaveScrap = (e) => {
+    e.preventDefault();
+    if (!scrapModalMaterial || !scrapQtyM2) return;
+
+    const res = logMaterialScrap(store, {
+      materialId: scrapModalMaterial.id,
+      quantityM2: scrapQtyM2,
+      reason: scrapReason,
+      notes: scrapNotes
+    });
+
+    if (res.ok) {
+      setStore(res.updatedStore);
+      alert(`✓ Merma de ${scrapQtyM2} m² registrada y descontada de inventario.`);
+      setScrapModalMaterial(null);
+      setScrapQtyM2('');
+      setScrapNotes('');
+    } else {
+      alert(`⚠️ Error: ${res.error}`);
+    }
   };
 
   return (
@@ -194,26 +229,78 @@ export function POSInventoryMaterials({ store, setStore }) {
                 <span>{mat.supplierName || 'Proveedor'}</span>
               </div>
 
-              {/* Adjustment Button */}
-              <button
-                onClick={() => setAdjustModalMaterial(mat)}
-                style={{
-                  padding: '8px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--line)',
-                  background: 'var(--bg)',
-                  color: 'var(--ink)',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px'
-                }}
-              >
-                <Plus size={14} /> Ingreso de Rollos / Ajuste
-              </button>
+              {/* Action Buttons Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '6px' }}>
+                <button
+                  type="button"
+                  onClick={() => setAdjustModalMaterial(mat)}
+                  style={{
+                    padding: '7px 8px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--line)',
+                    background: 'var(--bg)',
+                    color: 'var(--ink)',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px'
+                  }}
+                  title="Ajuste manual o recepción de rollos"
+                >
+                  <Plus size={13} /> Ajustar
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRollLabelModalMaterial(mat);
+                    setRollWidthM(mat.widthM || '1.60');
+                    setRollLengthM(mat.lengthM || '50');
+                  }}
+                  style={{
+                    padding: '7px 8px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--line)',
+                    background: '#eff6ff',
+                    color: '#1e40af',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px'
+                  }}
+                  title="Generar e imprimir etiqueta térmica para rollo / bobina"
+                >
+                  <Printer size={13} /> Etiqueta
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setScrapModalMaterial(mat)}
+                  style={{
+                    padding: '7px 8px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--line)',
+                    background: '#fef2f2',
+                    color: '#dc2626',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px'
+                  }}
+                  title="Registrar merma o desperdicio técnico"
+                >
+                  <AlertTriangle size={13} /> Merma
+                </button>
+              </div>
             </div>
           );
         })}
@@ -291,6 +378,220 @@ export function POSInventoryMaterials({ store, setStore }) {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* Technical Scrap / Waste Modal */}
+      {scrapModalMaterial && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.6)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px'
+        }}>
+          <form onSubmit={handleSaveScrap} style={{
+            background: 'var(--paper)',
+            borderRadius: '16px',
+            padding: '24px',
+            maxWidth: '440px',
+            width: '100%',
+            border: '1px solid var(--line)',
+            display: 'grid',
+            gap: '14px',
+            boxShadow: '0 25px 50px rgba(0,0,0,0.3)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#dc2626' }}>
+              <AlertTriangle size={22} />
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '900' }}>
+                Registro de Merma / Desperdicio Técnico
+              </h3>
+            </div>
+
+            <p style={{ margin: 0, fontSize: '12px', color: 'var(--muted)' }}>
+              Sustrato afectado: <strong>{scrapModalMaterial.name}</strong> (Stock: {scrapModalMaterial.currentStock} {scrapModalMaterial.unit})
+            </p>
+
+            <div style={{ display: 'grid', gap: '4px' }}>
+              <label className="pos-label required">Cantidad Desperdiciada / Dañada ({scrapModalMaterial.unit}):</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                required
+                placeholder="Ej. 3.50"
+                value={scrapQtyM2}
+                onChange={(e) => setScrapQtyM2(e.target.value)}
+                className="pos-input"
+              />
+            </div>
+
+            <div style={{ display: 'grid', gap: '4px' }}>
+              <label className="pos-label required">Causa de la Merma:</label>
+              <select
+                className="pos-select"
+                value={scrapReason}
+                onChange={(e) => setScrapReason(e.target.value)}
+              >
+                <option value="Falla de cabezal / Inyección">Falla de cabezal / Inyección de tinta</option>
+                <option value="Arrugamiento de sustrato en rodillos">Arrugamiento / Atasco en rodillos</option>
+                <option value="Descarte por inicio de bobina sucia">Descarte por inicio de bobina / punta sucia</option>
+                <option value="Error en archivo de diseño / Medidas">Error en archivo de diseño / Medidas cliente</option>
+                <option value="Falla de curado UV / Adherencia">Falla de curado UV / Adherencia de tinta</option>
+                <option value="Otro motivo técnico">Otro motivo técnico</option>
+              </select>
+            </div>
+
+            <div style={{ display: 'grid', gap: '4px' }}>
+              <label className="pos-label">Notas Adicionales / Operario:</label>
+              <input
+                type="text"
+                placeholder="Detalle de máquina o lote..."
+                value={scrapNotes}
+                onChange={(e) => setScrapNotes(e.target.value)}
+                className="pos-input"
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '6px' }}>
+              <button
+                type="button"
+                onClick={() => setScrapModalMaterial(null)}
+                className="pos-cat-pill"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                style={{ padding: '8px 16px', borderRadius: '8px', border: 0, background: '#dc2626', color: '#fff', cursor: 'pointer', fontWeight: '800', fontSize: '13px' }}
+              >
+                Registrar y Descontar Merma
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Roll / Bobbin Barcode Label Modal */}
+      {rollLabelModalMaterial && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.7)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px'
+        }}>
+          <div style={{
+            background: 'var(--paper)',
+            borderRadius: '16px',
+            padding: '24px',
+            maxWidth: '460px',
+            width: '100%',
+            border: '1px solid var(--line)',
+            display: 'grid',
+            gap: '16px',
+            boxShadow: '0 25px 50px rgba(0,0,0,0.3)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--line)', paddingBottom: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Tag size={20} color="var(--orange)" />
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '900', color: 'var(--ink)' }}>
+                  Etiqueta de Bobina / Rollo
+                </h3>
+              </div>
+              <button onClick={() => setRollLabelModalMaterial(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                <XCircle size={18} />
+              </button>
+            </div>
+
+            {/* Thermal Label Preview Card */}
+            <div style={{
+              background: '#fff',
+              color: '#000',
+              border: '2px dashed #000',
+              padding: '16px',
+              borderRadius: '8px',
+              textAlign: 'center',
+              fontFamily: 'monospace'
+            }}>
+              <div style={{ fontSize: '15px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px' }}>
+                GIGAPRINT — BODEGA DE BOBINAS
+              </div>
+              <div style={{ fontSize: '11px', borderBottom: '1px solid #000', paddingBottom: '4px', marginBottom: '8px' }}>
+                CONTROL DE MATERIA PRIMA & TRAZABILIDAD
+              </div>
+
+              <div style={{ fontSize: '16px', fontWeight: 900, margin: '6px 0' }}>
+                {rollLabelModalMaterial.name}
+              </div>
+
+              <div style={{ fontSize: '13px', margin: '4px 0' }}>
+                <strong>DIMENSIONES:</strong> {rollWidthM}m ancho × {rollLengthM}m largo ({(Number(rollWidthM) * Number(rollLengthM)).toFixed(1)} m²)
+              </div>
+
+              <div style={{ fontSize: '12px', margin: '4px 0' }}>
+                <strong>LOTE:</strong> {rollLotCode} | <strong>PROV:</strong> {rollLabelModalMaterial.supplierName || 'Importador'}
+              </div>
+
+              <div style={{ fontSize: '11px', color: '#333', marginTop: '6px' }}>
+                FECHA INGRESO: {new Date().toLocaleDateString()}
+              </div>
+
+              {/* Barcode Simulation */}
+              <div style={{ margin: '12px auto 4px', padding: '6px', background: '#000', color: '#fff', fontSize: '13px', fontWeight: 900, letterSpacing: '4px', maxWidth: '240px' }}>
+                ||| | |||| | ||||| ||
+              </div>
+              <span style={{ fontSize: '10px' }}>ROLL-{rollLabelModalMaterial.id.toUpperCase()}-{rollLotCode.replace(/[^0-9]/g, '') || '01'}</span>
+            </div>
+
+            {/* Label Parameters */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <div>
+                <label className="pos-label">Ancho de Bobina (m):</label>
+                <input
+                  type="number"
+                  step="0.05"
+                  className="pos-input"
+                  value={rollWidthM}
+                  onChange={(e) => setRollWidthM(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="pos-label">Metraje Lineal (m):</label>
+                <input
+                  type="number"
+                  step="1"
+                  className="pos-input"
+                  value={rollLengthM}
+                  onChange={(e) => setRollLengthM(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={() => setRollLabelModalMaterial(null)}
+                className="pos-cat-pill"
+              >
+                Cerrar
+              </button>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="pos-submit-order-btn"
+                style={{ padding: '8px 16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Printer size={15} /> Imprimir Etiqueta Térmica (Alt+P)
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

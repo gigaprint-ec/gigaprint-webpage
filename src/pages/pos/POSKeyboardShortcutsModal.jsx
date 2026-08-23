@@ -6,12 +6,13 @@ export function POSKeyboardShortcutsModal({ isOpen, onClose }) {
 
   const shortcuts = [
     { key: 'F1', desc: 'Enfocar buscador de cliente / RUC en mostrador' },
-    { key: 'F2', desc: 'Alternar catálogo de sustratos y calculadora m²' },
+    { key: 'F2', desc: 'Cobro rápido: Efectivo Exacto' },
+    { key: 'F3', desc: 'Cobro rápido: Transferencia / Tarjeta Exacta' },
+    { key: 'F4', desc: '+ Ítem Libre / Servicio Especial no catalogado' },
     { key: 'F6', desc: 'Pausar venta actual (Guardar en espera / Parked Sale)' },
-    { key: 'F8', desc: 'Seleccionar método de cobro (Efectivo / Transferencia)' },
     { key: 'F9 / Ctrl + ↵', desc: 'Registrar orden, liquidar y abrir comprobante' },
+    { key: 'Lector Óptico', desc: 'Escaneo global de código de barras (SKU, Orden o RUC)' },
     { key: 'Alt + P', desc: 'Imprimir comprobante / ticket térmico' },
-    { key: 'Alt + E', desc: 'Imprimir etiqueta térmica de bulto / empaque' },
     { key: 'Esc', desc: 'Cerrar cualquier ventana emergente o modal activo' },
     { key: '? / F12', desc: 'Abrir esta guía de atajos de teclado' }
   ];

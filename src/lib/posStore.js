@@ -1081,8 +1081,8 @@ export function clonePOSOrder(store, sourceOrderId) {
   };
 }
 
-// Function to approve art proof
-export function approveOrderArtProof(store, orderId, approvedBy = 'Cliente') {
+// Function to approve art proof with signature, pins and metadata
+export function approveOrderArtProof(store, orderId, approvedBy = 'Cliente', artUrl = null, signatureDataUrl = null, pins = null) {
   const order = (store.orders || []).find((o) => o.id === orderId);
   if (!order) return { ok: false, error: 'Orden no encontrada.' };
 
@@ -1096,10 +1096,13 @@ export function approveOrderArtProof(store, orderId, approvedBy = 'Cliente') {
 
   const updatedOrder = {
     ...order,
+    artUrl: artUrl || order.artUrl,
     artApproved: true,
     artApprovedAt: new Date().toISOString(),
     artApprovedBy: approvedBy,
-    productionStage: order.productionStage === 'aprobacion_arte' ? 'impresion' : order.productionStage,
+    artProofSignature: signatureDataUrl || order.artProofSignature,
+    artProofPins: Array.isArray(pins) ? pins : (order.artProofPins || []),
+    productionStage: order.productionStage === 'aprobacion_arte' || order.productionStage === 'preprensa' ? 'impresion' : order.productionStage,
     stageHistory: history,
     updatedAt: new Date().toISOString()
   };
@@ -1111,6 +1114,141 @@ export function approveOrderArtProof(store, orderId, approvedBy = 'Cliente') {
   syncEntityRemote('pos_orders', updatedOrder);
 
   return { ok: true, updatedStore, order: updatedOrder };
+}
+
+// Function to add a visual feedback pin to an order art proof
+export function addArtProofPin(store, orderId, pinData) {
+  const order = (store.orders || []).find((o) => o.id === orderId);
+  if (!order) return { ok: false, error: 'Orden no encontrada.' };
+
+  const existingPins = Array.isArray(order.artProofPins) ? [...order.artProofPins] : [];
+  const newPin = {
+    id: `pin-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+    number: existingPins.length + 1,
+    x: Number(pinData.x) || 0, // percentage 0 - 100
+    y: Number(pinData.y) || 0, // percentage 0 - 100
+    comment: pinData.comment || '',
+    author: pinData.author || 'Cliente',
+    createdAt: new Date().toISOString(),
+    resolved: false
+  };
+
+  const updatedPins = [...existingPins, newPin];
+  const updatedOrder = {
+    ...order,
+    artProofPins: updatedPins,
+    updatedAt: new Date().toISOString()
+  };
+
+  const updatedOrders = (store.orders || []).map((o) => (o.id === orderId ? updatedOrder : o));
+  const updatedStore = { ...store, orders: updatedOrders };
+
+  savePOSStoreLocal(updatedStore);
+  syncEntityRemote('pos_orders', updatedOrder);
+
+  return { ok: true, updatedStore, pin: newPin, order: updatedOrder };
+}
+
+// Function to assign machine and technician resources to an order in production
+export function assignOrderProductionResource(store, orderId, { machine, technician, advisorId = '' }) {
+  const order = (store.orders || []).find((o) => o.id === orderId);
+  if (!order) return { ok: false, error: 'Orden no encontrada.' };
+
+  const history = Array.isArray(order.stageHistory) ? [...order.stageHistory] : [];
+  if (machine || technician) {
+    history.push({
+      stage: order.productionStage || 'impresion',
+      timestamp: new Date().toISOString(),
+      advisorId: advisorId || order.advisorId,
+      note: `Asignado a Máquina: ${machine || 'N/A'} | Técnico: ${technician || 'N/A'}`
+    });
+  }
+
+  const updatedOrder = {
+    ...order,
+    machineAssigned: machine !== undefined ? machine : order.machineAssigned,
+    technicianAssigned: technician !== undefined ? technician : order.technicianAssigned,
+    stageHistory: history,
+    updatedAt: new Date().toISOString()
+  };
+
+  const updatedOrders = (store.orders || []).map((o) => (o.id === orderId ? updatedOrder : o));
+  const updatedStore = { ...store, orders: updatedOrders };
+
+  savePOSStoreLocal(updatedStore);
+  syncEntityRemote('pos_orders', updatedOrder);
+
+  return { ok: true, updatedStore, order: updatedOrder };
+}
+
+// Function for Barcode Scan-to-Advance on Floor / Kanban
+export function advanceOrderProductionStageByScan(store, scanCode, advisorId = '') {
+  if (!scanCode) return { ok: false, error: 'Código de escaneo vacío' };
+
+  const clean = scanCode.trim().toUpperCase();
+  // Find order by exact match or barcode / orderNumber
+  const order = (store.orders || []).find((o) => {
+    return (
+      (o.orderNumber || '').toUpperCase() === clean ||
+      (o.id || '').toUpperCase() === clean ||
+      clean.includes((o.orderNumber || '').toUpperCase())
+    );
+  });
+
+  if (!order) {
+    return { ok: false, error: `No se encontró trabajo con código ${scanCode}` };
+  }
+
+  const stages = ['preprensa', 'aprobacion_arte', 'impresion', 'acabados', 'control_calidad', 'listo', 'entregado'];
+  const currentIdx = stages.indexOf(order.productionStage || 'preprensa');
+  if (currentIdx >= stages.length - 1) {
+    return { ok: true, message: `La orden #${order.orderNumber} ya está en etapa final (${order.productionStage}).`, order, updatedStore: store };
+  }
+
+  const nextStage = stages[currentIdx + 1];
+  return updateOrderProductionStage(store, order.id, nextStage, `Avance por escaneo de código de barras: ${scanCode}`, advisorId);
+}
+
+// Function to log material scrap / waste
+export function logMaterialScrap(store, { materialId, quantityM2, reason = 'Falla técnica', notes = '', advisorId = '' }) {
+  const material = (store.materials || []).find((m) => m.id === materialId);
+  if (!material) return { ok: false, error: 'Sustrato no encontrado en inventario.' };
+
+  const scrapQty = Math.max(0.1, Number(quantityM2) || 0);
+  const now = new Date().toISOString();
+
+  // Deduct from current stock
+  const newStock = Math.max(0, Number((material.currentStock - scrapQty).toFixed(2)));
+  const updatedMaterial = {
+    ...material,
+    currentStock: newStock,
+    updatedAt: now
+  };
+
+  const scrapLog = {
+    id: `scrap-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+    materialId,
+    materialName: material.name,
+    quantityM2: scrapQty,
+    costEstimated: Number((scrapQty * (material.costPerUnit || 1.5)).toFixed(2)),
+    reason,
+    notes,
+    advisorId,
+    createdAt: now
+  };
+
+  const updatedMaterials = (store.materials || []).map((m) => (m.id === materialId ? updatedMaterial : m));
+  const existingScraps = Array.isArray(store.scraps) ? store.scraps : [];
+  const updatedStore = {
+    ...store,
+    materials: updatedMaterials,
+    scraps: [scrapLog, ...existingScraps]
+  };
+
+  savePOSStoreLocal(updatedStore);
+  syncEntityRemote('pos_materials_inventory', updatedMaterial);
+
+  return { ok: true, updatedStore, scrapLog };
 }
 
 // Function to upsert/edit Customer in CRM

@@ -65,6 +65,11 @@ export function POSCustomerCRM({ store, onStoreUpdate, onReorder }) {
     description: ''
   });
 
+  // Modal WhatsApp Dynamic Template Picker
+  const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
+  const [selectedTemplateKey, setSelectedTemplateKey] = useState('ready');
+  const [customWhatsAppMsg, setCustomWhatsAppMsg] = useState('');
+
   // Derived Customer Stats
   const customerStats = useMemo(() => {
     const stats = {};
@@ -231,24 +236,62 @@ export function POSCustomerCRM({ store, onStoreUpdate, onReorder }) {
     }
   };
 
-  // WhatsApp Reactivation Message Link
-  const handleSendWhatsApp = (cust, messageType = 'general') => {
-    if (!cust.phone) {
+  // WhatsApp Dynamic Template Generator
+  const getWhatsAppTemplates = (cust, stats) => {
+    const lastOrd = stats?.orders?.[0];
+    const orderNum = lastOrd?.orderNumber || '0000';
+    const jobTitle = lastOrd?.jobName || 'tu proyecto de impresión';
+    const balance = (stats?.totalBalanceDue || 0).toFixed(2);
+    const proofUrl = `${window.location.origin}${window.location.pathname}#/prueba-arte/${lastOrd?.id || ''}`;
+
+    return [
+      {
+        key: 'ready',
+        title: '🎉 Pedido Listo para Retiro',
+        text: `¡Hola *${cust?.name}*! 👋 Te informamos que tu trabajo *${jobTitle}* (Orden #${orderNum}) está 100% terminado y listo para retiro en el taller de *Gigaprint*. ¡Te esperamos!`
+      },
+      {
+        key: 'proof',
+        title: '🎨 Solicitud de Aprobación de Boceto',
+        text: `¡Hola *${cust?.name}*! 🎨 Adjuntamos el boceto de tu trabajo *${jobTitle}* para revisión.\nPuedes verificar medidas y firmar la aprobación aquí: ${proofUrl}\n¡Esperamos tu confirmación para imprimir!`
+      },
+      {
+        key: 'collection',
+        title: '💳 Recordatorio de Saldo Pendiente',
+        text: `Estimado/a *${cust?.name}*, le saludamos cordialmente de *Gigaprint*. Le recordamos que mantiene un saldo pendiente de *$${balance}* por sus trabajos recientes. ¿Podría confirmarnos la fecha estimada de pago? ¡Gracias!`
+      },
+      {
+        key: 'promo',
+        title: '🚀 Promoción & Reactivación Mensual',
+        text: `¡Hola *${cust?.name}*! En *Gigaprint* tenemos tarifas preferenciales para tu empresa *${cust?.companyName || cust?.name}* en vinil adhesivo, lonas y rótulos luminosos. ¿Te gustaría cotizar tu próxima campaña publicitaria?`
+      },
+      {
+        key: 'general',
+        title: '💬 Asesoría General / Saludo',
+        text: `¡Hola *${cust?.name}*! Te saluda el equipo de asesoría de *Gigaprint*. ¿En qué proyecto publicitario o de señalética te podemos colaborar hoy?`
+      }
+    ];
+  };
+
+  const handleOpenWhatsAppModal = (cust) => {
+    if (!cust?.phone) {
       toast.warning('El cliente no tiene teléfono registrado para enviar WhatsApp.');
       return;
     }
-    let cleanPhone = cust.phone.replace(/[^0-9]/g, '');
+    const templates = getWhatsAppTemplates(cust, currentStats);
+    setSelectedTemplateKey('ready');
+    setCustomWhatsAppMsg(templates[0].text);
+    setIsWhatsAppModalOpen(true);
+  };
+
+  const handleSendCustomWhatsApp = () => {
+    if (!selectedCustomer?.phone) return;
+    let cleanPhone = selectedCustomer.phone.replace(/[^0-9]/g, '');
     if (cleanPhone.startsWith('0')) cleanPhone = `593${cleanPhone.substring(1)}`;
     if (!cleanPhone.startsWith('593')) cleanPhone = `593${cleanPhone}`;
 
-    let text = `¡Hola ${cust.name}! Te saluda el equipo de Gigaprint. ¿En qué proyecto publicitario o de impresión te podemos asesorar hoy?`;
-    if (messageType === 'reactivation') {
-      text = `¡Hola ${cust.name}! En Gigaprint tenemos promociones especiales en lonas, viniles y rótulos para este mes. ¿Te gustaría cotizar la renovación de tu publicidad?`;
-    } else if (messageType === 'collection') {
-      text = `Estimado/a ${cust.name}, le recordamos cordialmente que tiene un saldo pendiente de $${(currentStats?.totalBalanceDue || 0).toFixed(2)} por sus trabajos en Gigaprint. ¿Podría confirmarnos su comprobante de pago?`;
-    }
-
-    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`, '_blank');
+    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(customWhatsAppMsg)}`, '_blank');
+    setIsWhatsAppModalOpen(false);
   };
 
   return (
@@ -411,7 +454,7 @@ export function POSCustomerCRM({ store, onStoreUpdate, onReorder }) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleSendWhatsApp(selectedCustomer, 'general')}
+                  onClick={() => handleOpenWhatsAppModal(selectedCustomer)}
                   style={{
                     padding: '8px 14px',
                     borderRadius: '10px',
@@ -425,6 +468,7 @@ export function POSCustomerCRM({ store, onStoreUpdate, onReorder }) {
                     alignItems: 'center',
                     gap: '6px'
                   }}
+                  title="Abrir selector de plantillas interactivas de WhatsApp"
                 >
                   <MessageCircle size={15} /> WhatsApp
                 </button>
@@ -828,6 +872,130 @@ export function POSCustomerCRM({ store, onStoreUpdate, onReorder }) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Dynamic WhatsApp Template Picker Modal */}
+      {isWhatsAppModalOpen && selectedCustomer && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.65)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px'
+        }}>
+          <div style={{
+            background: 'var(--paper)',
+            borderRadius: '16px',
+            padding: '24px',
+            maxWidth: '520px',
+            width: '100%',
+            border: '1px solid var(--line)',
+            display: 'grid',
+            gap: '14px',
+            boxShadow: '0 25px 60px rgba(0,0,0,0.3)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--line)', paddingBottom: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ background: '#dcfce7', padding: '6px', borderRadius: '8px', color: '#16a34a' }}>
+                  <MessageCircle size={20} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 900, color: 'var(--ink)' }}>
+                    Plantillas WhatsApp — {selectedCustomer.name}
+                  </h3>
+                  <span style={{ fontSize: '11.5px', color: 'var(--muted)' }}>
+                    📱 {selectedCustomer.phone || 'Sin número'}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsWhatsAppModalOpen(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Template Selection Chips */}
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: 800, color: 'var(--ink)', display: 'block', marginBottom: '6px' }}>
+                Selecciona una plantilla predefinida:
+              </label>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                {getWhatsAppTemplates(selectedCustomer, currentStats).map((tmpl) => (
+                  <button
+                    key={tmpl.key}
+                    type="button"
+                    onClick={() => {
+                      setSelectedTemplateKey(tmpl.key);
+                      setCustomWhatsAppMsg(tmpl.text);
+                    }}
+                    style={{
+                      padding: '5px 10px',
+                      borderRadius: '8px',
+                      border: `1.5px solid ${selectedTemplateKey === tmpl.key ? '#16a34a' : 'var(--line)'}`,
+                      background: selectedTemplateKey === tmpl.key ? '#dcfce7' : 'var(--bg)',
+                      color: selectedTemplateKey === tmpl.key ? '#166534' : 'var(--ink)',
+                      fontSize: '11.5px',
+                      fontWeight: 800,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {tmpl.title}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Editable Message Text Area */}
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: 800, color: 'var(--ink)', display: 'block', marginBottom: '4px' }}>
+                Mensaje a Enviar (Puedes editar o personalizar el texto):
+              </label>
+              <textarea
+                className="pos-textarea"
+                rows={5}
+                value={customWhatsAppMsg}
+                onChange={(e) => setCustomWhatsAppMsg(e.target.value)}
+                style={{ fontSize: '13px', lineHeight: 1.4 }}
+              />
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '4px' }}>
+              <button
+                type="button"
+                className="pos-cat-pill"
+                onClick={() => setIsWhatsAppModalOpen(false)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSendCustomWhatsApp}
+                style={{
+                  padding: '10px 18px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: '#25D366',
+                  color: '#fff',
+                  fontWeight: 900,
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <MessageCircle size={16} /> Abrir WhatsApp & Enviar
+              </button>
+            </div>
           </div>
         </div>
       )}
