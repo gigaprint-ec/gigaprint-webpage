@@ -121,15 +121,60 @@ export function formatWeeklyCredentialsForWhatsApp(advisors = []) {
 
 export const formatWeeklyCredentialsText = formatWeeklyCredentialsForWhatsApp;
 
-// Default initial advisors with 6-digit PINs
+export const SYSTEM_ROLES = [
+  { id: 'admin', label: '👑 Administrador General', area: 'gerencia', color: '#ea580c' },
+  { id: 'encargado_local', label: '🏬 Encargado de Local', area: 'sucursal', color: '#d97706' },
+  { id: 'coordinador_taller', label: '📋 Coordinador/a de Taller', area: 'taller', color: '#6366f1' },
+  { id: 'operador_impresion', label: '🖨️ Operador Impresión (Gran Formato & Digital)', area: 'impresion', color: '#3b82f6' },
+  { id: 'operador_sublimacion', label: '👕 Operador Sublimación & Textil DTF', area: 'sublimacion', color: '#ec4899' },
+  { id: 'operador_corte_laser', label: '⚡ Operador Corte Láser & CNC', area: 'corte_laser', color: '#8b5cf6' },
+  { id: 'asesora', label: '💼 Asesora Comercial & Caja', area: 'ventas', color: '#10b981' }
+];
+
+export function getRoleCapabilities(role = 'asesora') {
+  return {
+    isAdmin: role === 'admin' || role === 'super_admin',
+    isStoreManager: role === 'encargado_local' || role === 'admin' || role === 'super_admin',
+    isWorkshopCoordinator: role === 'coordinador_taller' || role === 'admin' || role === 'super_admin',
+    isPrintOperator: role === 'operador_impresion' || role === 'admin' || role === 'coordinador_taller',
+    isSublimationOperator: role === 'operador_sublimacion' || role === 'admin' || role === 'coordinador_taller',
+    isLaserOperator: role === 'operador_corte_laser' || role === 'admin' || role === 'coordinador_taller',
+    isAdvisor: role === 'asesora' || role === 'cajera' || role === 'admin' || role === 'encargado_local',
+    canEditMasterCatalog: ['admin', 'super_admin', 'encargado_local'].includes(role),
+    canManageExpenses: ['admin', 'super_admin', 'encargado_local'].includes(role),
+    canCreatePurchaseOrders: ['admin', 'super_admin', 'encargado_local'].includes(role),
+    canAuditCash: ['admin', 'super_admin', 'encargado_local'].includes(role),
+    canDispatchWorkshop: ['admin', 'super_admin', 'coordinador_taller', 'encargado_local'].includes(role)
+  };
+}
+
+export const DEFAULT_WORKSTATIONS = [
+  { id: 'ws-flora-320', code: 'FLORA-01', name: 'Plotter Flora Solvente 3.20m', area: 'impresion', model: 'Flora LJ-320P', maxWidthM: 3.20, status: 'active', notes: 'Cabezales Konica 512i alta velocidad para lonas.' },
+  { id: 'ws-roland-160', code: 'ROLAND-01', name: 'Plotter Roland TrueVIS 1.60m', area: 'impresion', model: 'TrueVIS VG3-640', maxWidthM: 1.60, status: 'active', notes: 'Tinta eco-solvente para viniles y adhesivos.' },
+  { id: 'ws-prensa-dtf', code: 'DTF-01', name: 'Plotter Textil DTF 60cm', area: 'sublimacion', model: 'DTF Pro 60', maxWidthM: 0.60, status: 'active', notes: 'Impresión y poliamida para prendas textiles.' },
+  { id: 'ws-plancha-neum', code: 'HEAT-01', name: 'Plancha Térmica Neumática 40x60', area: 'sublimacion', model: 'HeatPress Auto 4060', maxWidthM: 0.60, status: 'active', notes: 'Planchado de camisetas y almohadas a 180°C-200°C.' },
+  { id: 'ws-laser-co2', code: 'LASER-01', name: 'Cortadora Láser CO2 130W 130x90', area: 'corte_laser', model: 'RedSail 1390 CO2', maxWidthM: 1.30, status: 'active', notes: 'Corte y grabado de acrílico, MDF y Sintra.' },
+  { id: 'ws-router-cnc', code: 'CNC-01', name: 'Ruteadora CNC 1.30x2.50m', area: 'corte_laser', model: 'CNC HeavyDuty 1325', maxWidthM: 1.30, status: 'active', notes: 'Corte de PVC espumado, Alucobond y madera.' }
+];
+
+// Default initial advisors with 6-digit PINs & multi-role support
 export const DEFAULT_ADVISORS = [
-  { id: 'adv-vicky', name: 'Vicky', email: 'vicky@gigaprint.ec', pin: '842190', weeklyPin: '842190', weeklyPassword: 'vicky-842190', phone: '0990000001', role: 'asesora', weeklyGoal: 3200, isActive: true, currentWeekCode: getISOWeekCode(), pinLastRotatedAt: getMondayOfWeek() },
-  { id: 'adv-karla', name: 'Karla', email: 'karla@gigaprint.ec', pin: '395214', weeklyPin: '395214', weeklyPassword: 'karla-395214', phone: '0990000002', role: 'asesora', weeklyGoal: 3200, isActive: true, currentWeekCode: getISOWeekCode(), pinLastRotatedAt: getMondayOfWeek() },
-  { id: 'adv-mariela', name: 'Mariela', email: 'mariela@gigaprint.ec', pin: '618472', weeklyPin: '618472', weeklyPassword: 'mariela-618472', phone: '0990000003', role: 'asesora', weeklyGoal: 3200, isActive: true, currentWeekCode: getISOWeekCode(), pinLastRotatedAt: getMondayOfWeek() },
-  { id: 'adv-karen', name: 'Karen', email: 'karen@gigaprint.ec', pin: '749153', weeklyPin: '749153', weeklyPassword: 'karen-749153', phone: '0990000004', role: 'asesora', weeklyGoal: 3200, isActive: true, currentWeekCode: getISOWeekCode(), pinLastRotatedAt: getMondayOfWeek() },
-  { id: 'adv-amy', name: 'Amy', email: 'amy@gigaprint.ec', pin: '283506', weeklyPin: '283506', weeklyPassword: 'amy-283506', phone: '0990000005', role: 'asesora', weeklyGoal: 3200, isActive: true, currentWeekCode: getISOWeekCode(), pinLastRotatedAt: getMondayOfWeek() },
-  { id: 'adv-fernando', name: 'Fernando', email: 'fernando@gigaprint.ec', pin: '916328', weeklyPin: '916328', weeklyPassword: 'fernando-916328', phone: '0990000006', role: 'asesora', weeklyGoal: 3200, isActive: true, currentWeekCode: getISOWeekCode(), pinLastRotatedAt: getMondayOfWeek() },
-  { id: 'adv-otros', name: 'Ventas Externas / Otros', email: 'externas@gigaprint.ec', pin: '530841', weeklyPin: '530841', weeklyPassword: 'ventas-530841', phone: '0990000007', role: 'asesora', weeklyGoal: 3500, isActive: true, currentWeekCode: getISOWeekCode(), pinLastRotatedAt: getMondayOfWeek() }
+  // Encargado de Local
+  { id: 'adv-encargado', name: 'Esteban (Encargado Local)', email: 'esteban@gigaprint.ec', pin: '654321', weeklyPin: '654321', weeklyPassword: 'esteban-654321', phone: '0990000100', role: 'encargado_local', assignedArea: 'sucursal', weeklyGoal: 5000, isActive: true, currentWeekCode: getISOWeekCode(), pinLastRotatedAt: getMondayOfWeek() },
+  // Coordinador de Taller
+  { id: 'adv-coordinador', name: 'Mauricio (Coordinador Taller)', email: 'taller@gigaprint.ec', pin: '456789', weeklyPin: '456789', weeklyPassword: 'taller-456789', phone: '0990000101', role: 'coordinador_taller', assignedArea: 'taller', weeklyGoal: 0, isActive: true, currentWeekCode: getISOWeekCode(), pinLastRotatedAt: getMondayOfWeek() },
+  // Operadores de Estaciones
+  { id: 'adv-carlos-print', name: 'Carlos M. (Impresión)', email: 'carlos.print@gigaprint.ec', pin: '112233', weeklyPin: '112233', weeklyPassword: 'carlos-112233', phone: '0990000102', role: 'operador_impresion', assignedArea: 'impresion', weeklyGoal: 0, isActive: true, currentWeekCode: getISOWeekCode(), pinLastRotatedAt: getMondayOfWeek() },
+  { id: 'adv-anita-subli', name: 'Anita R. (Sublimación & DTF)', email: 'anita.textil@gigaprint.ec', pin: '223344', weeklyPin: '223344', weeklyPassword: 'anita-223344', phone: '0990000103', role: 'operador_sublimacion', assignedArea: 'sublimacion', weeklyGoal: 0, isActive: true, currentWeekCode: getISOWeekCode(), pinLastRotatedAt: getMondayOfWeek() },
+  { id: 'adv-jorge-laser', name: 'Jorge L. (Corte Láser & CNC)', email: 'jorge.laser@gigaprint.ec', pin: '334455', weeklyPin: '334455', weeklyPassword: 'jorge-334455', phone: '0990000104', role: 'operador_corte_laser', assignedArea: 'corte_laser', weeklyGoal: 0, isActive: true, currentWeekCode: getISOWeekCode(), pinLastRotatedAt: getMondayOfWeek() },
+  // Asesoras Comerciales
+  { id: 'adv-vicky', name: 'Vicky', email: 'vicky@gigaprint.ec', pin: '842190', weeklyPin: '842190', weeklyPassword: 'vicky-842190', phone: '0990000001', role: 'asesora', assignedArea: 'ventas', weeklyGoal: 3200, isActive: true, currentWeekCode: getISOWeekCode(), pinLastRotatedAt: getMondayOfWeek() },
+  { id: 'adv-karla', name: 'Karla', email: 'karla@gigaprint.ec', pin: '395214', weeklyPin: '395214', weeklyPassword: 'karla-395214', phone: '0990000002', role: 'asesora', assignedArea: 'ventas', weeklyGoal: 3200, isActive: true, currentWeekCode: getISOWeekCode(), pinLastRotatedAt: getMondayOfWeek() },
+  { id: 'adv-mariela', name: 'Mariela', email: 'mariela@gigaprint.ec', pin: '618472', weeklyPin: '618472', weeklyPassword: 'mariela-618472', phone: '0990000003', role: 'asesora', assignedArea: 'ventas', weeklyGoal: 3200, isActive: true, currentWeekCode: getISOWeekCode(), pinLastRotatedAt: getMondayOfWeek() },
+  { id: 'adv-karen', name: 'Karen', email: 'karen@gigaprint.ec', pin: '749153', weeklyPin: '749153', weeklyPassword: 'karen-749153', phone: '0990000004', role: 'asesora', assignedArea: 'ventas', weeklyGoal: 3200, isActive: true, currentWeekCode: getISOWeekCode(), pinLastRotatedAt: getMondayOfWeek() },
+  { id: 'adv-amy', name: 'Amy', email: 'amy@gigaprint.ec', pin: '283506', weeklyPin: '283506', weeklyPassword: 'amy-283506', phone: '0990000005', role: 'asesora', assignedArea: 'ventas', weeklyGoal: 3200, isActive: true, currentWeekCode: getISOWeekCode(), pinLastRotatedAt: getMondayOfWeek() },
+  { id: 'adv-fernando', name: 'Fernando', email: 'fernando@gigaprint.ec', pin: '916328', weeklyPin: '916328', weeklyPassword: 'fernando-916328', phone: '0990000006', role: 'asesora', assignedArea: 'ventas', weeklyGoal: 3200, isActive: true, currentWeekCode: getISOWeekCode(), pinLastRotatedAt: getMondayOfWeek() },
+  { id: 'adv-otros', name: 'Ventas Externas / Otros', email: 'externas@gigaprint.ec', pin: '530841', weeklyPin: '530841', weeklyPassword: 'ventas-530841', phone: '0990000007', role: 'asesora', assignedArea: 'ventas', weeklyGoal: 3500, isActive: true, currentWeekCode: getISOWeekCode(), pinLastRotatedAt: getMondayOfWeek() }
 ];
 
 // Default Customers with rich CRM metadata
@@ -225,6 +270,7 @@ export const INITIAL_POS_STORE = {
   materialLogs: [],
   customerLogs: [],
   suppliers: DEFAULT_SUPPLIERS,
+  workstations: DEFAULT_WORKSTATIONS,
   parkedSales: [],
   lastUpdated: new Date().toISOString()
 };
@@ -268,6 +314,7 @@ export function loadPOSStore() {
     materialLogs: parsed.materialLogs || [],
     customerLogs: parsed.customerLogs || [],
     suppliers: (parsed.suppliers && parsed.suppliers.length > 0) ? parsed.suppliers : DEFAULT_SUPPLIERS,
+    workstations: (parsed.workstations && parsed.workstations.length > 0) ? parsed.workstations : DEFAULT_WORKSTATIONS,
     parkedSales: parsed.parkedSales || [],
     lastUpdated: parsed.lastUpdated || new Date().toISOString()
   };
@@ -1207,6 +1254,154 @@ export function advanceOrderProductionStageByScan(store, scanCode, advisorId = '
 
   const nextStage = stages[currentIdx + 1];
   return updateOrderProductionStage(store, order.id, nextStage, `Avance por escaneo de código de barras: ${scanCode}`, advisorId);
+}
+
+// Full Workshop Coordination Assignment
+export function assignOrderToWorkstation(store, orderId, {
+  assignedArea,
+  machine,
+  technician,
+  executionDate,
+  installationDate,
+  requiresInstallation,
+  installationAddress,
+  fieldMeasurementsNotes,
+  notes,
+  advisorId = ''
+}) {
+  const order = (store.orders || []).find((o) => o.id === orderId);
+  if (!order) return { ok: false, error: 'Orden no encontrada.' };
+
+  const history = Array.isArray(order.stageHistory) ? [...order.stageHistory] : [];
+  history.push({
+    stage: order.productionStage || 'preprensa',
+    timestamp: new Date().toISOString(),
+    advisorId: advisorId || order.advisorId,
+    note: notes || `Coordinación Taller: Área [${assignedArea || order.assignedArea || 'impresion'}] | Máquina [${machine || order.machineAssigned || 'N/A'}] | Técnico [${technician || order.technicianAssigned || 'N/A'}]`
+  });
+
+  const updatedOrder = {
+    ...order,
+    assignedArea: assignedArea !== undefined ? assignedArea : (order.assignedArea || 'impresion'),
+    machineAssigned: machine !== undefined ? machine : order.machineAssigned,
+    technicianAssigned: technician !== undefined ? technician : order.technicianAssigned,
+    executionDate: executionDate !== undefined ? executionDate : (order.executionDate || order.orderDate),
+    installationDate: installationDate !== undefined ? installationDate : (order.installationDate || order.deliveryDate),
+    requiresInstallation: requiresInstallation !== undefined ? Boolean(requiresInstallation) : Boolean(order.requiresInstallation),
+    installationAddress: installationAddress !== undefined ? installationAddress : (order.installationAddress || ''),
+    fieldMeasurementsNotes: fieldMeasurementsNotes !== undefined ? fieldMeasurementsNotes : (order.fieldMeasurementsNotes || ''),
+    stageHistory: history,
+    updatedAt: new Date().toISOString()
+  };
+
+  const updatedOrders = (store.orders || []).map((o) => (o.id === orderId ? updatedOrder : o));
+  const updatedStore = { ...store, orders: updatedOrders };
+
+  savePOSStoreLocal(updatedStore);
+  syncEntityRemote('pos_orders', updatedOrder);
+
+  return { ok: true, updatedStore, order: updatedOrder };
+}
+
+// Update specific workstation stage ('en_cola', 'en_maquina', 'en_secado', 'armado', 'aprobado_qc')
+export function updateOrderStationStage(store, orderId, newStationStage, note = '', advisorId = '') {
+  const order = (store.orders || []).find((o) => o.id === orderId);
+  if (!order) return { ok: false, error: 'Orden no encontrada.' };
+
+  let kanbanStage = order.productionStage;
+  if (newStationStage === 'en_maquina') kanbanStage = 'impresion';
+  else if (newStationStage === 'en_secado' || newStationStage === 'armado') kanbanStage = 'acabados';
+  else if (newStationStage === 'aprobado_qc') kanbanStage = 'control_calidad';
+  else if (newStationStage === 'listo_entrega') kanbanStage = 'listo';
+
+  const history = Array.isArray(order.stageHistory) ? [...order.stageHistory] : [];
+  history.push({
+    stage: kanbanStage,
+    stationStage: newStationStage,
+    timestamp: new Date().toISOString(),
+    advisorId: advisorId || order.advisorId,
+    note: note || `Estación ${order.assignedArea || 'Taller'}: Estado actualizado a [${newStationStage}]`
+  });
+
+  const updatedOrder = {
+    ...order,
+    stationStage: newStationStage,
+    productionStage: kanbanStage,
+    stageHistory: history,
+    updatedAt: new Date().toISOString()
+  };
+
+  const updatedOrders = (store.orders || []).map((o) => (o.id === orderId ? updatedOrder : o));
+  const updatedStore = { ...store, orders: updatedOrders };
+
+  savePOSStoreLocal(updatedStore);
+  syncEntityRemote('pos_orders', updatedOrder);
+
+  return { ok: true, updatedStore, order: updatedOrder };
+}
+
+// Helper to filter orders for a specific workstation area
+export function filterOrdersByWorkstationArea(orders = [], area = 'impresion') {
+  return orders.filter((o) => {
+    if (o.status === 'cancelled' || o.productionStage === 'entregado') return false;
+    const assigned = (o.assignedArea || '').toLowerCase();
+    if (assigned === area) return true;
+
+    // Automatic area inference from order job name / items if not explicitly set
+    const text = `${o.jobName || ''} ${(o.items || []).map((i) => `${i.productName} ${i.category}`).join(' ')}`.toLowerCase();
+    if (area === 'impresion') {
+      return !assigned || assigned === 'impresion' || text.includes('lona') || text.includes('vinil') || text.includes('banner') || text.includes('afiche') || text.includes('microperforado');
+    }
+    if (area === 'sublimacion') {
+      return assigned === 'sublimacion' || text.includes('almohada') || text.includes('camiseta') || text.includes('taza') || text.includes('gorra') || text.includes('textil') || text.includes('dtf') || text.includes('cojin');
+    }
+    if (area === 'corte_laser') {
+      return assigned === 'corte_laser' || text.includes('acrilico') || text.includes('acrílico') || text.includes('mdf') || text.includes('sintra') || text.includes('laser') || text.includes('láser') || text.includes('cnc') || text.includes('neon') || text.includes('neón') || text.includes('rotulo') || text.includes('rótulo');
+    }
+    return true;
+  });
+}
+
+// Helper to generate Weekly Dispatch Billboard Matrix (Monday to Saturday)
+export function getWorkshopWeeklyDispatchMatrix(orders = [], mondayDate = getMondayOfWeek(), { groupBy = 'executionDate', area = 'all' } = {}) {
+  const start = new Date(mondayDate);
+  const days = [];
+
+  const activeOrders = orders.filter((o) => o.status !== 'cancelled' && o.productionStage !== 'entregado');
+
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(start);
+    d.setDate(d.getDate() + i);
+    const dateStr = toISODate(d);
+
+    const dayOrders = activeOrders.filter((o) => {
+      const matchDate = groupBy === 'installationDate'
+        ? (o.installationDate || o.deliveryDate) === dateStr
+        : (o.executionDate || o.deliveryDate || o.orderDate) === dateStr;
+
+      if (!matchDate) return false;
+      if (area !== 'all') {
+        return (o.assignedArea || 'impresion') === area;
+      }
+      return true;
+    });
+
+    days.push({
+      date: dateStr,
+      dayName: DAYS_SPANISH[d.getDay()],
+      orders: dayOrders,
+      orderCount: dayOrders.length,
+      installationCount: dayOrders.filter((o) => o.requiresInstallation).length,
+      urgentCount: dayOrders.filter((o) => o.productionPriority === 'urgente' || o.priority === 'urgente').length
+    });
+  }
+
+  return {
+    weekCode: getISOWeekCode(start),
+    mondayDate,
+    groupBy,
+    days
+  };
 }
 
 // Function to log material scrap / waste

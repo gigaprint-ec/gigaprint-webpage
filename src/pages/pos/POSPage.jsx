@@ -85,6 +85,8 @@ import { POSAdvisorsManagement } from './POSAdvisorsManagement';
 import { POSPurchaseOrdersManager } from './POSPurchaseOrdersManager';
 import { POSKeyboardShortcutsModal } from './POSKeyboardShortcutsModal';
 import { POSPackageLabelModal } from './POSPackageLabelModal';
+import { POSWorkshopMasterBillboard } from './POSWorkshopMasterBillboard';
+import { POSStationWorkspaces } from './POSStationWorkspaces';
 import { SupabaseFileUploader } from '../../components/studio/SupabaseFileUploader';
 import { POSProductQuickMatrix } from './components/POSProductQuickMatrix';
 import { useToast } from '../../components/studio/Toast';
@@ -94,13 +96,29 @@ export function POSPage({ initialTab = 'cashier' }) {
   const [store, setStore] = useState(loadPOSStore);
   const [session, setSession] = useState(getPOSSession);
   const [syncStatus, setSyncStatus] = useState('synced');
-  const [activeTab, setActiveTab] = useState(initialTab || 'cashier'); // 'cashier' | 'kanban' | 'crm' | 'products' | 'orders' | 'inventory' | 'purchases' | 'weekly' | 'expenses'
+  
+  // Resolve initial tab based on role if default
+  const getDefaultTabForRole = (userSession, requestedTab) => {
+    if (requestedTab && requestedTab !== 'cashier') return requestedTab;
+    const r = userSession?.role;
+    if (r === 'coordinador_taller') return 'billboard';
+    if (r === 'operador_impresion' || r === 'operador_sublimacion' || r === 'operador_corte_laser') return 'stations';
+    return requestedTab || 'cashier';
+  };
+
+  const [activeTab, setActiveTab] = useState(() => getDefaultTabForRole(getPOSSession(), initialTab));
+  const [activeStationArea, setActiveStationArea] = useState(() => {
+    const r = getPOSSession()?.role;
+    if (r === 'operador_sublimacion') return 'sublimacion';
+    if (r === 'operador_corte_laser') return 'corte_laser';
+    return 'impresion';
+  });
 
   useEffect(() => {
     if (initialTab) {
-      setActiveTab(initialTab);
+      setActiveTab(getDefaultTabForRole(session, initialTab));
     }
-  }, [initialTab]);
+  }, [initialTab, session?.role]);
 
   // Cashier Form State
   const [customerName, setCustomerName] = useState('');
@@ -819,14 +837,28 @@ export function POSPage({ initialTab = 'cashier' }) {
             className={`pos-nav-tab ${activeTab === 'cashier' ? 'active' : ''}`}
             onClick={() => setActiveTab('cashier')}
           >
-            <ShoppingBag size={16} /> Cajero POS
+            <ShoppingBag size={16} /> Mostrador POS
+          </button>
+          <button
+            type="button"
+            className={`pos-nav-tab ${activeTab === 'billboard' ? 'active' : ''}`}
+            onClick={() => setActiveTab('billboard')}
+          >
+            <Calendar size={16} /> Cartelera Semanal (Dispatcher)
+          </button>
+          <button
+            type="button"
+            className={`pos-nav-tab ${activeTab === 'stations' ? 'active' : ''}`}
+            onClick={() => setActiveTab('stations')}
+          >
+            <Printer size={16} /> Estaciones de Taller
           </button>
           <button
             type="button"
             className={`pos-nav-tab ${activeTab === 'kanban' ? 'active' : ''}`}
             onClick={() => setActiveTab('kanban')}
           >
-            <Layers size={16} /> Tablero de Taller (Kanban)
+            <Layers size={16} /> Tablero Kanban
           </button>
           <button
             type="button"
@@ -883,7 +915,7 @@ export function POSPage({ initialTab = 'cashier' }) {
             className={`pos-nav-tab ${activeTab === 'advisors' ? 'active' : ''}`}
             onClick={() => setActiveTab('advisors')}
           >
-            <Users size={16} /> Equipo & PINs
+            <Users size={16} /> Equipo & Roles
           </button>
         </nav>
       </div>
@@ -1358,6 +1390,41 @@ export function POSPage({ initialTab = 'cashier' }) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ----------------------------------------------------------------------
+          TAB: WORKSHOP DISPATCHER BILLBOARD (CARTELERA SEMANAL)
+          ---------------------------------------------------------------------- */}
+      {activeTab === 'billboard' && (
+        <POSWorkshopMasterBillboard
+          store={store}
+          setStore={setStore}
+          session={session}
+          onOpenWorkOrder={(order) => {
+            const items = (store.orderItems || []).filter((i) => i.orderId === order.id);
+            const adv = (store.advisors || []).find((a) => a.id === order.advisorId);
+            setWorkOrderData({ order, items, advisor: adv });
+          }}
+          onOpenArtProof={(order) => setArtProofOrder(order)}
+        />
+      )}
+
+      {/* ----------------------------------------------------------------------
+          TAB: WORKSHOP STATIONS (IMPRESION, SUBLIMACION, CORTE LASER)
+          ---------------------------------------------------------------------- */}
+      {activeTab === 'stations' && (
+        <POSStationWorkspaces
+          store={store}
+          setStore={setStore}
+          session={session}
+          activeStation={activeStationArea}
+          onStationChange={(st) => setActiveStationArea(st)}
+          onOpenWorkOrder={(order) => {
+            const items = (store.orderItems || []).filter((i) => i.orderId === order.id);
+            const adv = (store.advisors || []).find((a) => a.id === order.advisorId);
+            setWorkOrderData({ order, items, advisor: adv });
+          }}
+        />
       )}
 
       {/* ----------------------------------------------------------------------

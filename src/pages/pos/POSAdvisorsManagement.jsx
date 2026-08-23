@@ -434,15 +434,23 @@ export function POSAdvisorsManagement({ store: parentStore, setStore: parentSetS
         {/* Role & Status Filter Pills */}
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
           <span style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 700 }}>Rol:</span>
-          {['all', 'asesora', 'cajera', 'disenador', 'supervisor'].map((role) => (
+          {[
+            { id: 'all', label: 'Todos' },
+            { id: 'encargado_local', label: '🏬 Encargado' },
+            { id: 'coordinador_taller', label: '📋 Coordinador' },
+            { id: 'operador_impresion', label: '🖨️ Impresión' },
+            { id: 'operador_sublimacion', label: '👕 Sublimación' },
+            { id: 'operador_corte_laser', label: '⚡ Corte Láser' },
+            { id: 'asesora', label: '💼 Asesoras' }
+          ].map((r) => (
             <button
-              key={role}
+              key={r.id}
               type="button"
-              className={`pos-cat-pill ${selectedRoleFilter === role ? 'active' : ''}`}
-              style={{ padding: '6px 12px', fontSize: '12px', textTransform: 'capitalize' }}
-              onClick={() => setSelectedRoleFilter(role)}
+              className={`pos-cat-pill ${selectedRoleFilter === r.id ? 'active' : ''}`}
+              style={{ padding: '6px 12px', fontSize: '12px' }}
+              onClick={() => setSelectedRoleFilter(r.id)}
             >
-              {role === 'all' ? 'Todos' : (role === 'disenador' ? 'Diseño' : role)}
+              {r.label}
             </button>
           ))}
 
@@ -817,7 +825,7 @@ export function POSAdvisorsManagement({ store: parentStore, setStore: parentSetS
                 </div>
 
                 <div className="pos-form-group">
-                  <label>Rol en el Taller</label>
+                  <label>Rol y Responsabilidad</label>
                   <select
                     value={formData.role}
                     onChange={(e) => setFormData({ ...formData, role: e.target.value })}
@@ -828,13 +836,17 @@ export function POSAdvisorsManagement({ store: parentStore, setStore: parentSetS
                       border: '1px solid var(--line)',
                       background: 'var(--bg)',
                       color: 'var(--ink)',
-                      fontSize: '13px'
+                      fontSize: '13px',
+                      fontWeight: 700
                     }}
                   >
-                    <option value="asesora">Asesora Comercial</option>
-                    <option value="cajera">Cajero / Cobranzas</option>
-                    <option value="disenador">Diseñador Gráfico</option>
-                    <option value="supervisor">Supervisor de Taller</option>
+                    <option value="encargado_local">🏬 Encargado de Local (Ventas, Precios & Compras)</option>
+                    <option value="coordinador_taller">📋 Coordinador/a de Taller (Cartelera & Despacho)</option>
+                    <option value="operador_impresion">🖨️ Operador Impresión (Gran Formato & Digital)</option>
+                    <option value="operador_sublimacion">👕 Operador Sublimación & DTF Textil</option>
+                    <option value="operador_corte_laser">⚡ Operador Corte Láser & CNC Rígidos</option>
+                    <option value="asesora">💼 Asesora Comercial & Caja POS</option>
+                    <option value="cajera">💵 Cajero / Cobranzas</option>
                   </select>
                 </div>
               </div>
