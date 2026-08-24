@@ -48,7 +48,6 @@ export function POSProductQuickMatrix({
     setInstallationService('none');
     setCustomInstallationCost('');
     setCustomPriceOverride('');
-    setShowVisualScale(false);
   }, [currentProduct?.id]);
 
   // Context-aware available finishings for the active product
