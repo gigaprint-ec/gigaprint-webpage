@@ -72,6 +72,7 @@ import {
   getSyncHealth
 } from '../../lib/posStore';
 import { useAuth } from '../../store';
+import { hasSupabase } from '../../lib/supabase';
 import {
   playSuccessSound,
   playParkSound,
@@ -105,9 +106,12 @@ import { getGoogleMapsEmbedUrl, getGoogleMapsOpenUrl, isGoogleMapsUrl } from '..
 
 export function POSPage({ initialTab = 'cashier' }) {
   const toast = useToast();
-  const { login: loginAdmin, isAdmin: hasAdminSession, user: authUser, userProfile, authMode } = useAuth();
+  const { login: loginAdmin, isAdmin: hasAdminSession, user: authUser, userProfile, authMode, authLoading } = useAuth();
   const [store, setStore] = useState(loadPOSStore);
-  const [session, setSession] = useState(getPOSSession);
+  const [session, setSession] = useState(() => {
+    const cached = getPOSSession();
+    return hasSupabase && cached?.isAdmin ? null : cached;
+  });
   const [syncStatus, setSyncStatus] = useState('synced');
   const [syncHealth, setSyncHealth] = useState(getSyncHealth);
 
@@ -127,6 +131,21 @@ export function POSPage({ initialTab = 'cashier' }) {
       session: createAdminPOSSession({ email: credentials.email, name: userProfile?.display_name || 'Administrador General' })
     };
   };
+
+  useEffect(() => {
+    if (!hasSupabase || authLoading) return;
+    if (hasAdminSession && authUser) {
+      setSession((current) => current?.isAdmin && current.authUserId === authUser.id
+        ? current
+        : createAdminPOSSession({ ...authUser, name: userProfile?.display_name || 'Administrador General' }));
+      return;
+    }
+    setSession((current) => {
+      if (!current?.isAdmin) return current;
+      logoutPOSSession();
+      return null;
+    });
+  }, [authLoading, hasAdminSession, authUser?.id, userProfile?.display_name]);
   
   // Resolve initial tab based on role if default
   const getDefaultTabForRole = (userSession, requestedTab) => {
