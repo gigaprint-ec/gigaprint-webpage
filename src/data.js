@@ -1,5 +1,6 @@
 import { assetPath, media } from './data/media.js';
 import { estebanCatalogProducts, catalogCategories } from './catalog.js';
+import { DEFAULT_BUSINESS_SCHEDULE } from './lib/scheduleEngine.js';
 
 export { assetPath, media };
 
@@ -70,10 +71,16 @@ export const initialData = {
     email: 'hola@gigaprint.ec',
     address: 'Av. de la Prensa N58-120 y Vaca de Castro, Quito - Ecuador',
     whatsapp: '593987654321',
+    quoteWhatsappRoutes: [
+      { id: 'ventas-principal', label: 'Ventas', number: '593987654321', categories: [], active: true, priority: 0 },
+    ],
+    quoteMessageIntro: '¡Hola Gigaprint! Acabo de generar una solicitud de cotización.',
+    quoteMessageClosing: '¿Podrían confirmar disponibilidad, precio final y tiempo de entrega?',
     themePreset: 'default',
     heroKicker: 'Publicidad que se ve. Marcas que se recuerdan.',
     heroTitle: 'Haz que tu marca ocupe espacio.',
     heroText: 'Diseñamos, producimos e instalamos soluciones visuales para que tu negocio se vea profesional desde el primer vistazo.',
+    businessSchedule: DEFAULT_BUSINESS_SCHEDULE,
   },
   calculatorSettings: {
     taxRate: 15,

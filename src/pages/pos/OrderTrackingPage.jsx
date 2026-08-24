@@ -24,6 +24,7 @@ import {
   Phone,
   QrCode
 } from 'lucide-react';
+import { calculateLiveScheduleStatus } from '../../lib/scheduleEngine';
 import {
   loadPOSStore,
   fetchRemotePOSStore,
@@ -58,6 +59,10 @@ export function OrderTrackingPage() {
     if (!activeSearchToken) return null;
     return getOrderPublicTracking(store, activeSearchToken);
   }, [store, activeSearchToken]);
+
+  const liveSchedule = useMemo(() => {
+    return calculateLiveScheduleStatus();
+  }, []);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -363,9 +368,17 @@ export function OrderTrackingPage() {
                   <span style={{ fontSize: '13px', color: 'var(--muted)', display: 'block', margin: '4px 0' }}>
                     {orderData.pickupLocation || 'Av. de la Prensa N58-120 y Vaca de Castro, Quito'}
                   </span>
-                  <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
-                    Horario de atención: Lunes a Viernes 08:30 - 18:00 | Sábados 09:00 - 14:00
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', fontSize: '12px' }}>
+                    <span style={{
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      background: liveSchedule.badgeColor,
+                      display: 'inline-block'
+                    }} />
+                    <strong style={{ color: liveSchedule.badgeColor }}>{liveSchedule.badgeLabel}</strong>
+                    <span style={{ color: 'var(--muted)' }}>· Hoy: {liveSchedule.todayHoursStr}</span>
+                  </div>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', justifyContent: 'center' }}>

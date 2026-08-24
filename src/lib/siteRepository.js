@@ -58,6 +58,9 @@ const fromSettings = (row) => ({
   email: row.email,
   address: row.address,
   whatsapp: row.whatsapp,
+  quoteWhatsappRoutes: row.quote_whatsapp_routes || [],
+  quoteMessageIntro: row.quote_message_intro,
+  quoteMessageClosing: row.quote_message_closing,
   heroKicker: row.hero_kicker,
   heroTitle: row.hero_title,
   heroText: row.hero_text,
@@ -110,7 +113,9 @@ export async function persistSiteData(data) {
   const operations = [
     supabase.from('site_settings').upsert({
       id: 'main', brand: settings.brand, slogan: settings.slogan, phone: settings.phone, email: settings.email,
-      address: settings.address, whatsapp: settings.whatsapp, hero_kicker: settings.heroKicker, hero_title: settings.heroTitle,
+      address: settings.address, whatsapp: settings.whatsapp, quote_whatsapp_routes: settings.quoteWhatsappRoutes || [],
+      quote_message_intro: settings.quoteMessageIntro, quote_message_closing: settings.quoteMessageClosing,
+      hero_kicker: settings.heroKicker, hero_title: settings.heroTitle,
       hero_text: settings.heroText, theme_preset: settings.themePreset || 'default', theme_presets: settings.themePresets || [], updated_at: new Date().toISOString(),
     }),
     supabase.from('services').upsert((data.services || []).map((row, index) => ({ id: row.id, name: row.name, short: row.short, detail: row.detail, icon: row.icon, image: assetStoragePath(row.image), tag: row.tag, sort_order: index, is_published: row.isPublished !== false })), { onConflict: 'id' }),
@@ -145,12 +150,28 @@ export async function submitInquiry(inquiry) {
 
 export async function submitQuoteRequest(quote) {
   if (!supabase) return null;
-  const { data, error } = await supabase.from('quote_requests').insert({
+  const payload = {
     customer_name: quote.customerName || null, customer_email: quote.customerEmail || null, customer_phone: quote.customerPhone || null,
-    customer_company: quote.customerCompany || null, items: quote.items || [], subtotal: Number(quote.subtotal) || 0,
-    tax_rate: Number(quote.taxRate) || 0, tax_amount: Number(quote.taxAmount) || 0, total: Number(quote.total) || 0,
-    notes: quote.notes || null, source: 'cotizador',
-  }).select('id,quote_number').single();
+    customer_company: quote.customerCompany || null, customer_city: quote.customerCity || null, items: quote.items || [],
+    subtotal: Number(quote.subtotal) || 0, tax_rate: Number(quote.taxRate) || 0, tax_amount: Number(quote.taxAmount) || 0,
+    total: Number(quote.total) || 0, notes: quote.notes || null, source: quote.source || 'cotizador',
+    destination_whatsapp: quote.destinationWhatsapp || null, destination_label: quote.destinationLabel || null,
+  };
+  const { data, error } = await supabase.rpc('create_quote_request', { payload });
+  if (error) throw error;
+  return Array.isArray(data) ? data[0] : data;
+}
+
+export async function fetchQuoteRequests() {
+  if (!supabase) return [];
+  const { data, error } = await supabase.from('quote_requests').select('*').order('created_at', { ascending: false }).limit(300);
+  if (error) throw error;
+  return data || [];
+}
+
+export async function updateQuoteRequestStatus(id, status) {
+  if (!supabase) return null;
+  const { data, error } = await supabase.from('quote_requests').update({ status }).eq('id', id).select().single();
   if (error) throw error;
   return data;
 }

@@ -13,7 +13,11 @@ import { POSAdvisorsManagement } from './pages/pos/POSAdvisorsManagement';
 import { OrderTrackingPage } from './pages/pos/OrderTrackingPage';
 import { POSCustomerDisplayPage } from './pages/pos/POSCustomerDisplayPage';
 import { POSArtProofPublicPage } from './pages/pos/POSArtProofPublicPage';
+import { LiveScheduleWidget } from './components/LiveScheduleWidget';
+import { POSBusinessScheduleEditor } from './pages/pos/components/POSBusinessScheduleEditor';
 import { ToastProvider } from './components/studio/Toast';
+import { QuoteRequestDialog } from './components/QuoteRequestDialog';
+import { fetchQuoteRequests, updateQuoteRequestStatus } from './lib/siteRepository';
 const EditorPage = lazy(() => import('./pages/EditorPage').then((module) => ({ default: module.EditorPage })));
 
 function HomePage() {
@@ -1051,6 +1055,7 @@ function SmartQuotePage() {
   const [customEyelets, setCustomEyelets] = useState(4);
   const [installation, setInstallation] = useState(false);
   const [selection, setSelection] = useState({});
+  const [quoteDialogOpen, setQuoteDialogOpen] = useState(false);
 
   const calcSettings = data.calculatorSettings || {
     taxRate: 15,
@@ -1255,18 +1260,16 @@ function SmartQuotePage() {
     });
   };
 
-  const whatsappMessage = encodeURIComponent(
-    `¡Hola Gigaprint! Deseo solicitar una cotización con los siguientes datos:\n\n` +
-    `• *Producto:* ${selectedProduct?.name} (${selectedProduct?.category})\n` +
-    (selectionText ? `• *Especificaciones:* ${selectionText}\n` : '') +
-    `• *Medidas / Cantidad:* ${readableDimensions}\n` +
-    `• *Diseño:* ${readableDesign}\n` +
-    (isArea && finishing !== 'none' ? `• *Acabado:* ${readableFinishing}\n` : '') +
-    (installation ? `• *Instalación:* Sí (en sitio)\n` : '') +
-    `• *Subtotal estimado:* ${money(quote.subtotal)}\n` +
-    `• *Total con IVA (15%):* ${money(quote.total)}\n\n` +
-    `¿Podrían confirmarme disponibilidad y tiempo de entrega?`
-  );
+  const quoteRequestItems = selectedProduct ? [{
+    productId: selectedProduct.id,
+    name: selectedProduct.name,
+    category: selectedProduct.category,
+    quantity: effectiveQuantity,
+    price: quote.rate,
+    total: quote.total,
+    variant: [selectionText, readableDimensions, readableDesign, isArea ? readableFinishing : '', installation ? 'Instalación incluida' : ''].filter(Boolean).join(' · '),
+    quoteBreakdown: quote,
+  }] : [];
 
   return (
     <PageShell>
@@ -2049,14 +2052,9 @@ function SmartQuotePage() {
               Agregar al carrito de cotizaciones <ArrowRight size={16} />
             </button>
 
-            <a
-              href={`https://wa.me/${data.settings?.whatsapp || '593999999999'}?text=${whatsappMessage}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="whatsapp-action-btn"
-            >
+            <button type="button" className="whatsapp-action-btn" onClick={() => setQuoteDialogOpen(true)}>
               <MessageCircle size={17} /> Cotizar directo por WhatsApp
-            </a>
+            </button>
 
             <Link to="/contacto" className="summary-contact">
               ¿Requieres medidas o acabados especiales? <u>Contáctanos</u>
@@ -2076,17 +2074,18 @@ function SmartQuotePage() {
           <button type="button" className="button button-primary compact-btn" onClick={add} title="Agregar al carrito">
             <Plus size={16} /> Carrito
           </button>
-          <a
-            href={`https://wa.me/${data.settings?.whatsapp || '593999999999'}?text=${whatsappMessage}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="whatsapp-sticky-btn"
-            aria-label="Cotizar por WhatsApp"
-          >
+          <button type="button" className="whatsapp-sticky-btn" onClick={() => setQuoteDialogOpen(true)} aria-label="Cotizar por WhatsApp">
             <MessageCircle size={18} /> WhatsApp
-          </a>
+          </button>
         </div>
       </div>
+      <QuoteRequestDialog
+        open={quoteDialogOpen}
+        onClose={() => setQuoteDialogOpen(false)}
+        items={quoteRequestItems}
+        totals={{ subtotal: quote.subtotal, taxRate: quote.taxRate, taxAmount: quote.tax, total: quote.total }}
+        source="cotizador"
+      />
     </PageShell>
   );
 }
@@ -2167,9 +2166,15 @@ function ContactPage() {
                 <span><b>Taller y Showroom</b><small>{data.settings.address}</small></span>
               </div>
             </div>
-            <div className="contact-mini">
-              <span>Horario de atención</span>
-              <b>Lun — Vie / 09:00 — 18:00</b>
+
+            {/* Dynamic Real-Time Business Schedule Widget */}
+            <div style={{ marginTop: '20px' }}>
+              <LiveScheduleWidget
+                schedule={data.settings.businessSchedule}
+                phone={data.settings.phone}
+                whatsapp={data.settings.whatsapp}
+                address={data.settings.address}
+              />
             </div>
           </div>
 
@@ -2250,7 +2255,137 @@ function AdminGuard({ children }) { const { isAdmin } = useAuth(); return isAdmi
 
 function AdminDashboard() { const { data } = useSite(); const { logout } = useAuth(); return <AdminShell><AdminHeader eyebrow="Resumen" title="Buenos días, equipo." text="Aquí tienes una vista rápida de lo que está pasando en Gigaprint." action={<button className="admin-logout" onClick={logout}>Cerrar sesión</button>} /><div className="metric-grid"><div><span><ShoppingCart size={17} style={{ color: 'var(--orange)' }} /> Punto de Venta</span><strong>POS Activo</strong><small>Cobros, proformas y caja</small></div><div><span><ClipboardList size={17} /> Solicitudes</span><strong>{data.inquiries.length}</strong><small>Guardadas en este dispositivo</small></div><div><span><Package size={17} /> Productos</span><strong>{data.products.length}</strong><small>En tu catálogo actual</small></div><div><span><Sparkles size={17} /> Promociones</span><strong>{data.promotions.filter((p) => p.active).length}</strong><small>Activas ahora</small></div></div><div className="admin-dashboard-grid"><div className="admin-card"><div className="admin-card-heading"><div><span className="eyebrow">Atajos Operativos</span><h2>¿Qué quieres hacer hoy?</h2></div><Settings2 size={20} /></div><div className="quick-grid"><Link to="/admin/pos" style={{ border: '1.5px solid var(--orange)', background: 'var(--orange-soft)' }}><ShoppingCart style={{ color: 'var(--orange-dark)' }} /><span><b>Punto de Venta (POS)</b><small>Cajero rápido & proformas</small></span></Link><Link to="/admin/pos/dashboard"><BarChart3 /><span><b>Cuadre Semanal</b><small>Balance e ingresos netos</small></span></Link><Link to="/admin/pos/asesoras"><Users /><span><b>Equipo Asesoras</b><small>Metas, PINs y comisiones</small></span></Link><Link to="/admin/productos"><Package /><span><b>Productos</b><small>Catálogo y precios</small></span></Link><Link to="/admin/contenido"><Pencil /><span><b>Contenido</b><small>Textos de inicio y datos</small></span></Link><Link to="/admin/solicitudes"><MessageCircle /><span><b>Solicitudes</b><small>Leads del sitio</small></span></Link></div></div><div className="admin-card checklist"><div className="admin-card-heading"><div><span className="eyebrow">Estado del proyecto</span><h2>Todo listo para conectar</h2></div><ShieldCheck size={20} /></div><p><Check size={15} /> Punto de venta & CRM comercial activado</p><p><Check size={15} /> Cuadre de caja diaria y semanal idéntico a Excel</p><p><Check size={15} /> Gestión multi-asesora con metas semanales</p><p><Check size={15} /> Cotizador inteligente y carrito funcionando</p><p className="pending"><Bell size={15} /> Sincronización Supabase lista con RLS</p></div></div><div className="admin-card recent-card"><div className="admin-card-heading"><div><span className="eyebrow">Últimas solicitudes</span><h2>Lo que tus clientes están pidiendo</h2></div><Link to="/admin/solicitudes">Ver todas →</Link></div>{data.inquiries.length ? data.inquiries.slice(-5).reverse().map((item) => <div className="inquiry-row" key={item.id}><span>{item.name?.[0] || 'G'}</span><div><b>{item.name}</b><small>{item.company || item.email}</small></div><small>{item.status}</small></div>) : <div className="admin-empty">Todavía no hay solicitudes. Cuando alguien use el formulario, aparecerán aquí.</div>}</div></AdminShell>; }
 
-function AdminContent() { const { data, setData } = useSite(); const [draft, setDraft] = useState(data.settings); const save = () => setData((current) => ({ ...current, settings: draft })); return <AdminShell><AdminHeader eyebrow="Contenido" title="La voz de Gigaprint" text="Edita los textos principales que ven tus clientes." /><div className="admin-card editor-card"><div className="editor-section"><span className="eyebrow">Inicio / Hero</span><h2>Primera impresión</h2><div className="fields"><label>Frase superior<input value={draft.heroKicker} onChange={(e) => setDraft({ ...draft, heroKicker: e.target.value })} /></label><label>Título principal<input value={draft.heroTitle} onChange={(e) => setDraft({ ...draft, heroTitle: e.target.value })} /></label><label>Descripción<textarea value={draft.heroText} onChange={(e) => setDraft({ ...draft, heroText: e.target.value })} rows="4" /></label></div></div><div className="editor-section"><span className="eyebrow">Contacto</span><h2>Datos que convierten</h2><div className="fields two"><label>Teléfono<input value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} /></label><label>Correo<input value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })} /></label><label>WhatsApp sin símbolos<input value={draft.whatsapp} onChange={(e) => setDraft({ ...draft, whatsapp: e.target.value })} /></label><label>Ubicación<input value={draft.address} onChange={(e) => setDraft({ ...draft, address: e.target.value })} /></label></div></div><button className="button button-primary" onClick={save}>Guardar cambios <Save size={16} /></button></div></AdminShell>; }
+function AdminContent() {
+  const { data, setData } = useSite();
+  const [activeTab, setActiveTab] = useState('texts'); // 'texts' | 'schedule'
+  const [draft, setDraft] = useState(data.settings);
+  const [savedToast, setSavedToast] = useState(false);
+
+  const save = () => {
+    setData((current) => ({ ...current, settings: draft }));
+    setSavedToast(true);
+    setTimeout(() => setSavedToast(false), 3000);
+  };
+
+  const handleSaveSchedule = (updatedSettings) => {
+    setDraft(updatedSettings);
+    setData((current) => ({ ...current, settings: updatedSettings }));
+    setSavedToast(true);
+    setTimeout(() => setSavedToast(false), 3000);
+  };
+
+  return (
+    <AdminShell>
+      <AdminHeader
+        eyebrow="Contenido & Operación"
+        title="La voz y disponibilidad de Gigaprint"
+        text="Edita los textos comerciales, datos de contacto y el horario de atención en vivo."
+        action={
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              type="button"
+              className={`button ${activeTab === 'texts' ? 'button-primary' : 'button-ghost'}`}
+              onClick={() => setActiveTab('texts')}
+              style={{ fontSize: '13px', padding: '8px 14px' }}
+            >
+              <Pencil size={15} /> Textos & Contacto
+            </button>
+            <button
+              type="button"
+              className={`button ${activeTab === 'schedule' ? 'button-primary' : 'button-ghost'}`}
+              onClick={() => setActiveTab('schedule')}
+              style={{ fontSize: '13px', padding: '8px 14px' }}
+            >
+              <Clock size={15} /> Horario en Vivo & Feriados
+            </button>
+          </div>
+        }
+      />
+
+      {activeTab === 'texts' && (
+        <div className="admin-card editor-card">
+          <div className="editor-section">
+            <span className="eyebrow">Inicio / Hero</span>
+            <h2>Primera impresión</h2>
+            <div className="fields">
+              <label>
+                Frase superior
+                <input
+                  value={draft.heroKicker || ''}
+                  onChange={(e) => setDraft({ ...draft, heroKicker: e.target.value })}
+                />
+              </label>
+              <label>
+                Título principal
+                <input
+                  value={draft.heroTitle || ''}
+                  onChange={(e) => setDraft({ ...draft, heroTitle: e.target.value })}
+                />
+              </label>
+              <label>
+                Descripción
+                <textarea
+                  value={draft.heroText || ''}
+                  onChange={(e) => setDraft({ ...draft, heroText: e.target.value })}
+                  rows="4"
+                />
+              </label>
+            </div>
+          </div>
+
+          <div className="editor-section">
+            <span className="eyebrow">Contacto & Ubicación</span>
+            <h2>Datos que convierten</h2>
+            <div className="fields two">
+              <label>
+                Teléfono de atención
+                <input
+                  value={draft.phone || ''}
+                  onChange={(e) => setDraft({ ...draft, phone: e.target.value })}
+                />
+              </label>
+              <label>
+                Correo electrónico
+                <input
+                  value={draft.email || ''}
+                  onChange={(e) => setDraft({ ...draft, email: e.target.value })}
+                />
+              </label>
+              <label>
+                WhatsApp (código país sin + ni espacios)
+                <input
+                  value={draft.whatsapp || ''}
+                  onChange={(e) => setDraft({ ...draft, whatsapp: e.target.value })}
+                />
+              </label>
+              <label>
+                Dirección taller / showroom
+                <input
+                  value={draft.address || ''}
+                  onChange={(e) => setDraft({ ...draft, address: e.target.value })}
+                />
+              </label>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: '12px' }}>
+            <button className="button button-primary" onClick={save}>
+              {savedToast ? <Check size={16} /> : <Save size={16} />}
+              {savedToast ? '¡Cambios guardados con éxito!' : 'Guardar cambios'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'schedule' && (
+        <POSBusinessScheduleEditor
+          settings={draft}
+          onSaveSettings={handleSaveSchedule}
+        />
+      )}
+    </AdminShell>
+  );
+}
 
 function SmartProductEditor({ product, onClose }) {
   const { data, updateCollectionItem, addCollectionItem } = useSite();
@@ -2302,6 +2437,8 @@ function AdminRoutes() {
     '/admin/pos/compras': <POSPage initialTab="purchases" />,
     '/admin/editor': <EditorPage />,
     '/admin/contenido': <AdminContent />,
+    '/admin/horarios': <AdminContent />,
+    '/admin/horario': <AdminContent />,
     '/admin/productos': <SmartAdminProducts />,
     '/admin/temas': <AdminThemes />,
     '/admin/promociones': <AdminPromos />,
