@@ -190,6 +190,28 @@ export const media = {
   letreroAcrilicoStandoff: assetPath('/media/products/letrero-acrilico-standoff.webp'),
   tuboCortinaDoradoMedia: assetPath('/media/products/tubo-cortina-dorado-media.webp'),
 
+  // Master Catalog Tariff & Variant Differentiations
+  lona9OnzasEconomica: assetPath('/media/products/lona-9-onzas-economica.webp'),
+  lona11OnzasEstandar: assetPath('/media/products/lona-11-onzas-estandar.webp'),
+  lona13OnzasPesada: assetPath('/media/products/lona-13-onzas-pesada.webp'),
+  vinil80MicrasBrillante: assetPath('/media/products/vinil-80-micras-brillante.webp'),
+  camisetasTelaKianaSublimada: assetPath('/media/products/camisetas-tela-kiana-sublimada.webp'),
+  camisetasTelaJerseyAlgodon: assetPath('/media/products/camisetas-tela-jersey-algodon.webp'),
+  poloPiqueBordadoPecho: assetPath('/media/products/polo-pique-bordado-pecho.webp'),
+  poloPiqueBordadoDoble: assetPath('/media/products/polo-pique-bordado-doble.webp'),
+  poloPiqueTallaEspecialXXL: assetPath('/media/products/polo-pique-talla-especial-xxl.webp'),
+  almohadaEscarchadaLentejuela: assetPath('/media/products/almohada-escarchada-lentejuela.webp'),
+  jarroMagicoReveladoTermico: assetPath('/media/products/jarro-magico-revelado-termico.webp'),
+  jarroEscarchadoAzulSublimable: assetPath('/media/products/jarro-escarchado-azul-sublimable.webp'),
+  jarroMetalizadoOroEspejo: assetPath('/media/products/jarro-metalizado-oro-espejo.webp'),
+  jarroCerveceroVidrioSatinado: assetPath('/media/products/jarro-cervecero-vidrio-satinado.webp'),
+  fundasBoutique1ColorTinta: assetPath('/media/products/fundas-boutique-1color-tinta.webp'),
+  fundasBoutique2ColoresTinta: assetPath('/media/products/fundas-boutique-2colores-tinta.webp'),
+  fundasRadiografia1TintaMedica: assetPath('/media/products/fundas-radiografia-1tinta-medica.webp'),
+  fundasRadiografia2TintasClinica: assetPath('/media/products/fundas-radiografia-2tintas-clinica.webp'),
+  dtfTextilTallasEspecialesXXL: assetPath('/media/products/dtf-textil-tallas-especiales-xxl.webp'),
+  sublimacionTextilTallasEspeciales: assetPath('/media/products/sublimacion-textil-tallas-especiales.webp'),
+
   // Non-Product / Workshop / Machinery & Services Showcase
   galaxyPrinter: assetPath('/images/gigaprint/galaxy_printer.png'),
   granFormatoTaller: assetPath('/images/gigaprint/impresion_gran_formato.png'),
