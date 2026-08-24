@@ -146,6 +146,28 @@ export const media = {
   tuboDoradoTresCuartos: assetPath('/media/products/tubo-dorado-tres-cuartos.webp'),
   tuboDoradoUnaPulgada: assetPath('/media/products/tubo-dorado-una-pulgada.webp'),
 
+  // Granular Variants & Specific Sizes
+  fundasCamisetaT3_30: assetPath('/media/products/fundas-camiseta-t3-30.webp'),
+  fundasCamisetaT3_40: assetPath('/media/products/fundas-camiseta-t3-40.webp'),
+  fundasCamisetaT6_46: assetPath('/media/products/fundas-camiseta-t6-46.webp'),
+  fundasCamisetaT8_58: assetPath('/media/products/fundas-camiseta-t8-58.webp'),
+  fundasCamisetaT8_60: assetPath('/media/products/fundas-camiseta-t8-60.webp'),
+  fundasJumboBlanca: assetPath('/media/products/fundas-jumbo-blanca.webp'),
+  fundasMegaJumboMayorista: assetPath('/media/products/fundas-megajumbo-comercial.webp'),
+  fundasPastilleraMiniExtra: assetPath('/media/products/fundas-pastillera-farmacia-mini.webp'),
+  calendarioEscritorio21x15: assetPath('/media/products/calendario-escritorio-21x15.webp'),
+  calendarioEscritorio21x18: assetPath('/media/products/calendario-escritorio-21x18.webp'),
+  calendarioParedCouche21x43: assetPath('/media/products/calendario-pared-couche-21x43.webp'),
+  calendarioParedCouche31x43: assetPath('/media/products/calendario-pared-couche-31x43.webp'),
+  pancartaDeportiva60x40: assetPath('/media/products/pancarta-deportiva-60x40.webp'),
+  pancartaDeportiva80x60: assetPath('/media/products/pancarta-deportiva-80x60.webp'),
+  pancartaDeportiva100x80: assetPath('/media/products/pancarta-deportiva-100x80.webp'),
+  disenoLogotipo2Propuestas: assetPath('/media/products/diseno-logotipo-2-propuestas.webp'),
+  disenoLogotipo3Propuestas: assetPath('/media/products/diseno-logotipo-3-propuestas.webp'),
+  ojalesPequenosLona: assetPath('/media/products/ojales-pequenos-lona.webp'),
+  ojalesGrandesLona: assetPath('/media/products/ojales-grandes-lona.webp'),
+  tripticoCuadrado20x21: assetPath('/media/products/triptico-cuadrado-20x21.webp'),
+
   // Non-Product / Workshop / Machinery & Services Showcase
   galaxyPrinter: assetPath('/images/gigaprint/galaxy_printer.png'),
   granFormatoTaller: assetPath('/images/gigaprint/impresion_gran_formato.png'),
