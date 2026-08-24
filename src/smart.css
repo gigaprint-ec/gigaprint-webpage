@@ -282,6 +282,7 @@
   font-weight: 700;
   text-decoration: none;
   transition: all 0.15s ease;
+  border: 0;
 }
 
 .whatsapp-action-btn:hover {
@@ -1570,6 +1571,7 @@
   font-weight: 700;
   text-decoration: none;
   transition: all 0.15s ease;
+  border: 0;
 }
 
 .whatsapp-sticky-btn:hover {
@@ -2428,7 +2430,6 @@
   border-color: rgba(245, 242, 233, 0.16);
   color: #f5f2e9;
 }
-
 
 
 

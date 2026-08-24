@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useMemo, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowRight, ArrowUpRight, BarChart3, Bell, Building2, Calculator, Check, ChevronDown, ChevronRight, ChevronUp, ClipboardList, Clock, Edit3, ExternalLink, FileCheck, FileText, Filter, Grid, Image, LayoutDashboard, List, MessageCircle, Minus, Package, Palette, Pencil, Plus, RefreshCw, Save, Scissors, Search, Settings2, ShieldCheck, ShoppingCart, SlidersHorizontal, Sparkles, Tag, Trash2, Truck, Users, X, Zap } from 'lucide-react';
 import { categories, initialData, media, money, themePresets, assetPath } from './data';
@@ -18,6 +18,7 @@ import { POSBusinessScheduleEditor } from './pages/pos/components/POSBusinessSch
 import { ToastProvider } from './components/studio/Toast';
 import { QuoteRequestDialog } from './components/QuoteRequestDialog';
 import { fetchQuoteRequests, updateQuoteRequestStatus } from './lib/siteRepository';
+import { buildWhatsAppUrl, resolveQuoteWhatsAppRoute } from './lib/whatsapp';
 const EditorPage = lazy(() => import('./pages/EditorPage').then((module) => ({ default: module.EditorPage })));
 
 function HomePage() {
@@ -217,7 +218,6 @@ function AboutPage() {
 
 function PromotionsPage() {
   const { data } = useSite();
-  const whatsappNumber = data.settings?.whatsapp || '593999999999';
 
   return (
     <PageShell>
@@ -232,9 +232,8 @@ function PromotionsPage() {
       <section className="section">
         <div className="container promo-grid">
           {data.promotions.filter((promo) => promo.active).map((promo) => {
-            const promoWhatsappMessage = encodeURIComponent(
-              `¡Hola Gigaprint! Me interesa la promoción *"${promo.title}"* (${money(promo.price)}). ¿Podrían brindarme más información y disponibilidad?`
-            );
+            const promoWhatsappMessage = `¡Hola Gigaprint! Me interesa la promoción *"${promo.title}"* (${money(promo.price)}). ¿Podrían brindarme más información y disponibilidad?`;
+            const promoRoute = resolveQuoteWhatsAppRoute(data.settings, [{ name: promo.title, category: 'Promociones' }]);
 
             return (
               <article className="promo-card" key={promo.id}>
@@ -253,7 +252,7 @@ function PromotionsPage() {
                     Quiero esta promo
                   </Button>
                   <a
-                    href={`https://wa.me/${whatsappNumber}?text=${promoWhatsappMessage}`}
+                    href={buildWhatsAppUrl(promoRoute?.number, promoWhatsappMessage)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="whatsapp-action-btn promo-whatsapp-btn"
@@ -1016,7 +1015,7 @@ function SmartProductDetailPage() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
               <a
-                href={`https://wa.me/${data.settings?.whatsapp || '593999999999'}?text=${encodeURIComponent(`¡Hola Gigaprint! Deseo cotizar *${product.name}*:\n• Detalle: ${readableVariant}\n• Subtotal: ${money(quote.subtotal)}\n• Total con IVA (15%): ${money(quote.total)}\n¿Tienen disponibilidad y entrega en Quito / Ecuador?`)}`}
+                href={buildWhatsAppUrl(resolveQuoteWhatsAppRoute(data.settings, [product])?.number, `¡Hola Gigaprint! Deseo cotizar *${product.name}*:\n• Detalle: ${readableVariant}\n• Subtotal: ${money(quote.subtotal)}\n• Total con IVA (${quote.taxRate}%): ${money(quote.total)}\n¿Tienen disponibilidad y tiempo de entrega?`)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="whatsapp-action-btn"
@@ -2153,7 +2152,7 @@ function ContactPage() {
             <span className="eyebrow">Resolvemos rápido</span>
             <h2>Una conversación puede ahorrar muchos intentos.</h2>
             <div className="contact-list">
-              <a href={`https://wa.me/${data.settings.whatsapp}`} target="_blank" rel="noopener noreferrer">
+              <a href={buildWhatsAppUrl(resolveQuoteWhatsAppRoute(data.settings, [])?.number, '¡Hola Gigaprint! Quiero conversar con un asesor.')} target="_blank" rel="noopener noreferrer">
                 <MessageCircle />
                 <span><b>WhatsApp Directo</b><small>{data.settings.phone}</small></span>
               </a>
@@ -2258,14 +2257,25 @@ function AdminDashboard() { const { data } = useSite(); const { logout } = useAu
 function AdminContent() {
   const { data, setData } = useSite();
   const [activeTab, setActiveTab] = useState('texts'); // 'texts' | 'schedule'
-  const [draft, setDraft] = useState(data.settings);
+  const [draft, setDraft] = useState(() => ({
+    ...data.settings,
+    quoteWhatsappRoutes: data.settings.quoteWhatsappRoutes?.length
+      ? data.settings.quoteWhatsappRoutes
+      : [{ id: 'ventas-principal', label: 'Ventas', number: data.settings.whatsapp || '', categories: [], active: true, priority: 0 }],
+  }));
   const [savedToast, setSavedToast] = useState(false);
 
   const save = () => {
-    setData((current) => ({ ...current, settings: draft }));
+    const principal = draft.quoteWhatsappRoutes?.find((route) => route.active !== false && route.number)?.number || draft.whatsapp;
+    setData((current) => ({ ...current, settings: { ...draft, whatsapp: principal } }));
     setSavedToast(true);
     setTimeout(() => setSavedToast(false), 3000);
   };
+
+  const updateWhatsappRoute = (index, patch) => setDraft((current) => ({
+    ...current,
+    quoteWhatsappRoutes: current.quoteWhatsappRoutes.map((route, routeIndex) => routeIndex === index ? { ...route, ...patch } : route),
+  }));
 
   const handleSaveSchedule = (updatedSettings) => {
     setDraft(updatedSettings);
@@ -2368,6 +2378,32 @@ function AdminContent() {
             </div>
           </div>
 
+          <div className="editor-section">
+            <div className="smart-editor-section-heading">
+              <div>
+                <span className="eyebrow">Cotizaciones por WhatsApp</span>
+                <h2>Números y mensajes de destino</h2>
+                <p>El número sin categorías es el destino general. Puedes enviar Láser, Neón, Rótulos u otras familias a un equipo específico.</p>
+              </div>
+              <button type="button" className="button button-ghost compact" onClick={() => setDraft((current) => ({ ...current, quoteWhatsappRoutes: [...current.quoteWhatsappRoutes, { id: `ventas-${Date.now()}`, label: 'Nueva área', number: '', categories: [], active: true, priority: current.quoteWhatsappRoutes.length }] }))}>+ Añadir número</button>
+            </div>
+            <div className="whatsapp-route-list">
+              {(draft.quoteWhatsappRoutes || []).map((route, index) => (
+                <div className="whatsapp-route-row" key={route.id || index}>
+                  <label>Equipo<input value={route.label || ''} onChange={(event) => updateWhatsappRoute(index, { label: event.target.value })} placeholder="Ventas" /></label>
+                  <label>Número<input value={route.number || ''} onChange={(event) => updateWhatsappRoute(index, { number: event.target.value })} inputMode="tel" placeholder="593…" /></label>
+                  <label>Categorías<input value={(route.categories || []).join(', ')} onChange={(event) => updateWhatsappRoute(index, { categories: event.target.value.split(',').map((value) => value.trim()).filter(Boolean) })} placeholder="Láser, Neón, Rótulos" /></label>
+                  <label className="route-active"><input type="checkbox" checked={route.active !== false} onChange={(event) => updateWhatsappRoute(index, { active: event.target.checked })} /> Activo</label>
+                  <button type="button" className="icon-button danger" onClick={() => setDraft((current) => ({ ...current, quoteWhatsappRoutes: current.quoteWhatsappRoutes.filter((_, routeIndex) => routeIndex !== index) }))} aria-label="Eliminar número"><Trash2 size={16} /></button>
+                </div>
+              ))}
+            </div>
+            <div className="fields">
+              <label>Inicio del mensaje<textarea rows="2" value={draft.quoteMessageIntro || ''} onChange={(event) => setDraft({ ...draft, quoteMessageIntro: event.target.value })} /></label>
+              <label>Cierre del mensaje<textarea rows="2" value={draft.quoteMessageClosing || ''} onChange={(event) => setDraft({ ...draft, quoteMessageClosing: event.target.value })} /></label>
+            </div>
+          </div>
+
           <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: '12px' }}>
             <button className="button button-primary" onClick={save}>
               {savedToast ? <Check size={16} /> : <Save size={16} />}
@@ -2409,6 +2445,64 @@ function AdminPromos() { const { data, updateCollectionItem, removeCollectionIte
 
 function AdminInquiries() { const { data } = useSite(); return <AdminShell><AdminHeader eyebrow="CRM ligero" title="Solicitudes" text="Cada contacto del sitio queda guardado aquí mientras no conectes Supabase." /><div className="admin-card table-card inquiry-table"><div className="data-table-head"><span>Cliente</span><span>Contacto</span><span>Mensaje</span><span>Estado</span></div>{data.inquiries.length ? data.inquiries.map((item) => <div className="data-table-row" key={item.id}><div><b>{item.name}</b><small>{item.company || 'Sin empresa'}</small></div><span>{item.phone}<br />{item.email}</span><span className="message-preview">{item.message}</span><span className="status-pill">{item.status}</span></div>) : <div className="admin-empty">No hay solicitudes todavía.</div>}</div></AdminShell>; }
 
+function AdminQuoteRequests() {
+  const navigate = useNavigate();
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const load = async () => {
+    setLoading(true);
+    try { setRequests(await fetchQuoteRequests()); setError(''); } catch (requestError) { setError(requestError.message || 'No se pudieron cargar las cotizaciones.'); }
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, []);
+  const changeStatus = async (request, status) => {
+    await updateQuoteRequestStatus(request.id, status);
+    setRequests((current) => current.map((item) => item.id === request.id ? { ...item, status } : item));
+  };
+  const openInPOS = async (request) => {
+    const cartItems = (request.items || []).map((item, index) => ({
+      id: `cart-quote-${request.id}-${index}`,
+      productId: item.productId || null,
+      productName: item.name || item.productName || 'Producto cotizado',
+      category: item.category || 'General',
+      calcType: item.calcType || 'unit',
+      quantity: Number(item.quantity || 1),
+      unitPrice: Number(item.price || item.unitPrice || 0),
+      totalPrice: Number(item.total || item.totalPrice || 0),
+      finishing: item.variant || 'Según cotización web',
+      customDetails: { quoteNumber: request.quote_number, variant: item.variant || '' },
+    }));
+    localStorage.setItem('gigaprint-pos-quote-draft-v1', JSON.stringify({
+      quoteRequestId: request.id,
+      quoteNumber: request.quote_number,
+      customerName: request.customer_name,
+      customerPhone: request.customer_phone,
+      jobName: `Cotización ${request.quote_number}`,
+      notes: [request.notes, `Origen web: ${request.quote_number}`].filter(Boolean).join(' · '),
+      applyIVA: Number(request.tax_rate || 0) > 0,
+      cartItems,
+    }));
+    if (request.status === 'nuevo') await changeStatus(request, 'contactado');
+    navigate('/admin/pos');
+  };
+  return <AdminShell>
+    <AdminHeader eyebrow="Ventas web" title="Cotizaciones recibidas" text="La solicitud se guarda antes de abrir WhatsApp. Luego el asesor la revisa y la convierte en venta desde el POS." action={<button className="button button-ghost" onClick={load}><RefreshCw size={16} /> Actualizar</button>} />
+    <div className="admin-card table-card quote-request-admin">
+      <div className="data-table-head"><span>Solicitud / cliente</span><span>Productos</span><span>Total / destino</span><span>Seguimiento</span></div>
+      {loading && <div className="admin-empty">Cargando cotizaciones…</div>}
+      {error && <div className="admin-empty">{error}</div>}
+      {!loading && !error && requests.map((request) => <div className="data-table-row" key={request.id}>
+        <div><b>{request.quote_number}</b><small>{request.customer_name || 'Sin nombre'} · {request.customer_phone || 'Sin teléfono'}<br />{request.customer_city || ''}</small></div>
+        <span>{(request.items || []).slice(0, 2).map((item) => item.name || item.productName).join(', ')}{request.items?.length > 2 ? ` +${request.items.length - 2}` : ''}</span>
+        <div><strong>{money(request.total)}</strong><small>{request.destination_label || 'Ventas'} · {request.destination_whatsapp || ''}</small></div>
+        <div className="quote-request-admin-actions"><select value={request.status} onChange={(event) => changeStatus(request, event.target.value)}><option value="nuevo">Nuevo</option><option value="contactado">Contactado</option><option value="convertido_pos">Convertido a POS</option><option value="descartado">Descartado</option></select><button className="button button-primary compact" onClick={() => openInPOS(request)}>Abrir en POS <ArrowRight size={15} /></button></div>
+      </div>)}
+      {!loading && !error && !requests.length && <div className="admin-empty">Todavía no hay cotizaciones web.</div>}
+    </div>
+  </AdminShell>;
+}
+
 function AdminThemes() { const { siteTheme, setSiteTheme } = useSite(); return <AdminShell><AdminHeader eyebrow="Sistema visual" title="Temas y temporadas" text="Cambia el ambiente de Gigaprint con un botón. El naranja del logo permanece como color de marca." action={<Button to="/admin/editor" variant="ghost">Abrir editor visual <Palette size={16} /></Button>} /><div className="theme-studio-grid">{themePresets.map((preset) => { const active = preset.id === siteTheme; return <article className={`theme-studio-card ${active ? '' : ''}`} key={preset.id} style={{ '--theme-preview': preset.palette.accent, '--theme-preview-secondary': preset.palette.secondary }}><div className="theme-preview"><div className="theme-preview-brand"><span>G</span><b>Gigaprint</b></div><div className="theme-preview-symbols">{preset.decorations.map((symbol, index) => <i key={`${symbol}-${index}`}>{symbol}</i>)}</div><span>{preset.label}</span></div><div className="theme-studio-copy"><div><span className="eyebrow">{preset.eyebrow}</span><h2>{preset.name}</h2></div><p>{preset.description}</p><div className="theme-swatches"><i style={{ background: '#ff5b1f' }} title="Naranja de marca" /><i style={{ background: preset.palette.accent }} title="Color de temporada" /><i style={{ background: preset.palette.secondary }} title="Color secundario" /></div><button className={`button ${active ? 'button-dark' : 'button-primary'}`} onClick={() => setSiteTheme(preset.id)}>{active ? 'Tema activo' : preset.id === 'default' ? 'Quitar temporada' : 'Aplicar tema'} {active ? <Check size={16} /> : <ArrowRight size={16} />}</button></div></article>; })}</div><div className="admin-card theme-studio-note"><div className="theme-note-icon"><Palette /></div><div><h3>Diseño preparado para campañas</h3><p>Los temas solo cambian variables visuales, acentos y decoraciones. El contenido, la tienda, los productos y el cotizador se mantienen intactos.</p></div></div></AdminShell>; }
 
 function AdminRoutes() {
@@ -2442,7 +2536,7 @@ function AdminRoutes() {
     '/admin/productos': <SmartAdminProducts />,
     '/admin/temas': <AdminThemes />,
     '/admin/promociones': <AdminPromos />,
-    '/admin/solicitudes': <AdminInquiries />
+    '/admin/solicitudes': <AdminQuoteRequests />
   };
   return <AdminGuard>{pages[pathname] || <Navigate to="/admin" replace />}</AdminGuard>;
 }

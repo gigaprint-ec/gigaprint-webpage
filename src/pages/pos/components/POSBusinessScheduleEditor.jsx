@@ -57,18 +57,18 @@ export function POSBusinessScheduleEditor({
     setSavedSuccess(false);
   };
 
-  // Copy Monday schedule to Tuesday-Friday
-  const copyMondayToWeekdays = () => {
-    const mon = schedule.days[1] || { open: '08:30', close: '18:00', isOpen: true, note: 'Jornada continua' };
+  // Copy Tuesday schedule to Wednesday-Friday
+  const copyTuesdayToFriday = () => {
+    const tue = schedule.days[2] || { open: '08:30', close: '18:00', isOpen: true, note: 'Jornada continua' };
     setSchedule((prev) => {
       const nextDays = { ...prev.days };
-      [2, 3, 4, 5].forEach((d) => {
+      [3, 4, 5].forEach((d) => {
         nextDays[d] = {
           ...nextDays[d],
-          open: mon.open,
-          close: mon.close,
-          isOpen: mon.isOpen,
-          note: mon.note
+          open: tue.open,
+          close: tue.close,
+          isOpen: tue.isOpen,
+          note: tue.note
         };
       });
       return { ...prev, days: nextDays };
@@ -187,7 +187,7 @@ export function POSBusinessScheduleEditor({
 
               <button
                 type="button"
-                onClick={copyMondayToWeekdays}
+                onClick={copyTuesdayToFriday}
                 style={{
                   background: '#f8fafc',
                   border: '1px solid var(--line)',
@@ -201,9 +201,9 @@ export function POSBusinessScheduleEditor({
                   alignItems: 'center',
                   gap: '4px'
                 }}
-                title="Aplica el horario del Lunes a Martes, Miércoles, Jueves y Viernes"
+                title="Aplica el horario del Martes a Miércoles, Jueves y Viernes"
               >
-                <Copy size={12} /> Copiar Lun a Vie
+                <Copy size={12} /> Copiar Mar a Vie
               </button>
             </div>
 

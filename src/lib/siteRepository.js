@@ -176,6 +176,15 @@ export async function updateQuoteRequestStatus(id, status) {
   return data;
 }
 
+export async function markQuoteRequestConverted(id, orderId) {
+  if (!supabase || !id) return null;
+  const { data, error } = await supabase.from('quote_requests').update({
+    status: 'convertido_pos', converted_order_id: orderId, converted_at: new Date().toISOString(),
+  }).eq('id', id).select().single();
+  if (error) throw error;
+  return data;
+}
+
 export async function uploadMedia(file, folder = 'uploads') {
   if (!supabase) throw new Error('Supabase no está configurado.');
   const safeName = file.name.toLowerCase().replace(/[^a-z0-9.]+/g, '-');

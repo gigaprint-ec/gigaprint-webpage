@@ -93,6 +93,7 @@ import { POSProductionControl } from './POSProductionControl';
 import { SupabaseFileUploader } from '../../components/studio/SupabaseFileUploader';
 import { POSProductQuickMatrix } from './components/POSProductQuickMatrix';
 import { useToast } from '../../components/studio/Toast';
+import { markQuoteRequestConverted } from '../../lib/siteRepository';
 
 export function POSPage({ initialTab = 'cashier' }) {
   const toast = useToast();
@@ -149,6 +150,7 @@ export function POSPage({ initialTab = 'cashier' }) {
   const [discountPercent, setDiscountPercent] = useState(0);
   const [discountReason, setDiscountReason] = useState('');
   const [notes, setNotes] = useState('');
+  const [sourceQuoteRequestId, setSourceQuoteRequestId] = useState(null);
 
   // Product Category & Search in Configurator
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -205,6 +207,26 @@ export function POSPage({ initialTab = 'cashier' }) {
       unsubscribeSync();
       unsubscribeRealtime();
     };
+  }, []);
+
+  useEffect(() => {
+    try {
+      const rawDraft = localStorage.getItem('gigaprint-pos-quote-draft-v1');
+      if (!rawDraft) return;
+      const draft = JSON.parse(rawDraft);
+      setSourceQuoteRequestId(draft.quoteRequestId || null);
+      setCustomerName(draft.customerName || '');
+      setCustomerPhone(draft.customerPhone || '');
+      setJobName(draft.jobName || '');
+      setNotes(draft.notes || '');
+      setApplyIVA(Boolean(draft.applyIVA));
+      setCartItems(Array.isArray(draft.cartItems) ? draft.cartItems : []);
+      setActiveTab('cashier');
+      localStorage.removeItem('gigaprint-pos-quote-draft-v1');
+      toast.success(`Cotización ${draft.quoteNumber || ''} cargada en el POS.`);
+    } catch {
+      localStorage.removeItem('gigaprint-pos-quote-draft-v1');
+    }
   }, []);
 
   // Update session listener
@@ -292,13 +314,18 @@ export function POSPage({ initialTab = 'cashier' }) {
   const computedItem = useMemo(() => {
     if (!selectedProduct) return { areaM2: 0, unitPrice: 0, totalPrice: 0 };
 
-    const isArea = selectedProduct.calcType === 'area';
+    const isArea = selectedProduct.calcType === 'area' || selectedProduct.calcType === 'm2';
     const w = Number(itemWidthCm) || 0;
     const h = Number(itemHeightCm) || 0;
     const qty = Math.max(1, Number(itemQuantity) || 1);
     const area = isArea && w > 0 && h > 0 ? (w / 100) * (h / 100) : 0;
 
-    let baseUnitPrice = customPriceOverride !== '' ? Number(customPriceOverride) : Number(selectedProduct.basePrice || 7.5);
+    const tierBasis = isArea ? area * qty : qty;
+    const tiers = [...(selectedProduct.priceTiers || [])].sort((a, b) => Number(a.qty || a.minQty || 0) - Number(b.qty || b.minQty || 0));
+    const activeTier = tiers.reduce((match, tier) => tierBasis >= Number(tier.qty || tier.minQty || 0) ? tier : match, tiers[0]);
+    let baseUnitPrice = customPriceOverride !== ''
+      ? Number(customPriceOverride)
+      : Number(activeTier?.price ?? activeTier?.pvp ?? activeTier?.unitPrice ?? selectedProduct.basePrice ?? 0);
 
     let finishingCost = 0;
     if (itemFinishing === 'ojales_pequenos') {
@@ -309,7 +336,8 @@ export function POSPage({ initialTab = 'cashier' }) {
       finishingCost += 4.00;
     }
 
-    const itemBaseTotal = isArea ? area * baseUnitPrice * qty : baseUnitPrice * qty;
+    const isTierTotal = selectedProduct.calcType === 'tier-total' || selectedProduct.calcType === 'scale-total';
+    const itemBaseTotal = isArea ? area * baseUnitPrice * qty : isTierTotal ? baseUnitPrice : baseUnitPrice * qty;
     const totalPrice = Number((itemBaseTotal + finishingCost * qty).toFixed(2));
 
     return {
@@ -323,7 +351,7 @@ export function POSPage({ initialTab = 'cashier' }) {
   // Add Item to Cart
   const handleAddToCart = () => {
     if (!selectedProduct) return;
-    if (selectedProduct.calcType === 'area' && (!itemWidthCm || !itemHeightCm)) {
+    if ((selectedProduct.calcType === 'area' || selectedProduct.calcType === 'm2') && (!itemWidthCm || !itemHeightCm)) {
       toast.warning('Ingresa el ancho y alto en centímetros para productos calculados por m²');
       return;
     }
@@ -493,6 +521,7 @@ export function POSPage({ initialTab = 'cashier' }) {
     setDiscountPercent(0);
     setDiscountReason('');
     setNotes('');
+    setSourceQuoteRequestId(null);
     setArtUrl('');
     setAssignedArea('impresion');
     setInvolvedAreas(['impresion']);
@@ -566,6 +595,7 @@ export function POSPage({ initialTab = 'cashier' }) {
       depositAmount: totalDeposited,
       balanceDue,
       notes,
+      sourceQuoteRequestId,
       items: cartItems,
       payments
     };
@@ -577,6 +607,7 @@ export function POSPage({ initialTab = 'cashier' }) {
       setReceiptOrder(res.order);
       handleClearCart();
       toast.success(`Orden #${res.order.orderNumber} registrada con éxito.`);
+      if (sourceQuoteRequestId) markQuoteRequestConverted(sourceQuoteRequestId, res.order.id).catch(() => {});
     } else {
       playWarningSound();
       toast.error('Error al registrar la orden: ' + res.error);

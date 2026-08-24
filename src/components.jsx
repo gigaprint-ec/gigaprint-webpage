@@ -26,6 +26,8 @@ import { media, money, themePresets, assetPath } from './data';
 import { resourceUrls } from './data/resourceManifest';
 import { getProductCalcType } from './catalog';
 import { useSite, useAuth } from './store';
+import { QuoteRequestDialog } from './components/QuoteRequestDialog';
+import { buildWhatsAppUrl, resolveQuoteWhatsAppRoute } from './lib/whatsapp';
 import {
   ContextMenu,
   MotionObserver,
@@ -235,11 +237,8 @@ export function Header() {
   const items = [
     { to: '/', label: 'Inicio' },
     { to: '/tienda', label: 'Tienda' },
-    { to: '/cotizador', label: 'Cotizador', badge: '✨' },
-    { to: '/promociones', label: 'Promos', badge: '%' },
-    { to: '/seguimiento', label: 'Rastrear', badge: '🔍' },
-    { to: '/gigaprint', label: 'Nosotros' },
-    { to: '/contacto', label: 'Contacto' }
+    { to: '/promociones', label: 'Promociones' },
+    { to: '/gigaprint', label: 'Gigaprint' },
   ];
   return (
     <header className="site-header">
@@ -258,6 +257,13 @@ export function Header() {
               {item.badge && <span className="nav-item-badge">{item.badge}</span>}
             </NavLink>
           ))}
+          <details className="nav-more">
+            <summary>Más <ChevronRight size={14} /></summary>
+            <div className="nav-more-menu">
+              <Link to="/seguimiento" onClick={() => setOpen(false)}><Search size={15} /> Rastrear pedido</Link>
+              <Link to="/contacto" onClick={() => setOpen(false)}><Mail size={15} /> Contacto</Link>
+            </div>
+          </details>
           <Link className="cart-link" to="/carrito" onClick={() => setOpen(false)}>
             <ShoppingBag size={17} /> <span>Carrito</span><b>{cart.length}</b>
           </Link>
@@ -280,6 +286,9 @@ export function Header() {
 }
 
 export function Footer() {
+  const { data } = useSite();
+  const route = resolveQuoteWhatsAppRoute(data.settings, []);
+  const whatsappUrl = buildWhatsAppUrl(route?.number, '¡Hola Gigaprint! Quiero información sobre sus servicios.');
   return (
     <footer className="site-footer">
       <div className="container footer-grid">
@@ -288,8 +297,8 @@ export function Footer() {
           <p>Publicidad, impresión gran formato y fabricación visual para marcas que quieren verse en grande.</p>
           <div className="socials">
             <a href="https://instagram.com/gigaprint.ec" target="_blank" rel="noreferrer" aria-label="Instagram"><Camera size={17} /></a>
-            <a href="https://wa.me/593987654321" target="_blank" rel="noreferrer" aria-label="WhatsApp"><MessageCircle size={17} /></a>
-            <a href="mailto:hola@gigaprint.ec" aria-label="Correo"><Mail size={17} /></a>
+            {whatsappUrl && <a href={whatsappUrl} target="_blank" rel="noreferrer" aria-label="WhatsApp"><MessageCircle size={17} /></a>}
+            <a href={`mailto:${data.settings.email}`} aria-label="Correo"><Mail size={17} /></a>
           </div>
         </div>
         <div>
@@ -309,9 +318,9 @@ export function Footer() {
         </div>
         <div className="footer-contact">
           <h4>Taller Matriz</h4>
-          <p><MapPin size={15} /> Av. de la Prensa N58-120 y Vaca de Castro, Quito</p>
-          <p><MessageCircle size={15} /> +593 98 765 4321</p>
-          <p><Mail size={15} /> hola@gigaprint.ec</p>
+          <p><MapPin size={15} /> {data.settings.address}</p>
+          <p><MessageCircle size={15} /> {data.settings.phone}</p>
+          <p><Mail size={15} /> {data.settings.email}</p>
         </div>
       </div>
       <div className="container footer-bottom">
@@ -458,13 +467,14 @@ export function ProductCard({ product, onAdd }) {
 
 export function CartSummary({ compact = false }) {
   const { cart, updateCartItem, removeCartItem, data } = useSite();
+  const [requestOpen, setRequestOpen] = React.useState(false);
   const total = cart.reduce((sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1), 0);
   const subtotalNet = cart.reduce((sum, item) => {
     const itemSub = Number(item.quoteBreakdown?.subtotal) || (Number(item.price) || 0) / 1.15;
     return sum + itemSub * (Number(item.quantity) || 1);
   }, 0);
   const ivaAmount = Math.max(0, total - subtotalNet);
-  const whatsappNumber = data?.settings?.whatsapp || '593999999999';
+  const taxRate = Number(data?.calculatorSettings?.taxRate || 15);
 
   if (!cart.length) return (
     <div className="empty-cart">
@@ -475,17 +485,8 @@ export function CartSummary({ compact = false }) {
     </div>
   );
 
-  const whatsappCartMessage = encodeURIComponent([
-    '¡Hola Gigaprint! Deseo solicitar la cotización de los siguientes productos de mi carrito:\n',
-    ...cart.map((item, idx) => `${idx + 1}. *${item.name}* (x${item.quantity})\n   • Detalle: ${item.variant || 'Estándar'}\n   • Valor estimado: $${((Number(item.price) || 0) * item.quantity).toFixed(2)}`),
-    `\n• *Subtotal estimado:* $${subtotalNet.toFixed(2)}`,
-    `• *IVA (15%):* $${ivaAmount.toFixed(2)}`,
-    `• *Total estimado con IVA:* $${total.toFixed(2)}`,
-    '\n¿Podrían indicarme los tiempos de entrega y disponibilidad para confirmar el pedido?'
-  ].join('\n'));
-
   return (
-    <div className={compact ? 'cart-summary compact' : 'cart-summary'}>
+    <><div className={compact ? 'cart-summary compact' : 'cart-summary'}>
       {cart.map((item) => (
         <div className="cart-row" key={item.cartId}>
           <img src={assetPath(item.image)} alt="" />
@@ -518,20 +519,15 @@ export function CartSummary({ compact = false }) {
       </div>
       {!compact && (
         <div className="cart-action-buttons">
-          <Button to="/contacto" className="cart-primary-action">
-            Enviar solicitud por formulario <ChevronRight size={16} />
-          </Button>
-          <a
-            href={`https://wa.me/${whatsappNumber}?text=${whatsappCartMessage}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="whatsapp-action-btn cart-whatsapp-action"
-          >
+          <button type="button" className="button button-primary cart-primary-action" onClick={() => setRequestOpen(true)}>
+            Enviar solicitud <ChevronRight size={16} />
+          </button>
+          <button type="button" className="whatsapp-action-btn cart-whatsapp-action" onClick={() => setRequestOpen(true)}>
             <MessageCircle size={17} /> Cotizar todo el carrito por WhatsApp
-          </a>
+          </button>
         </div>
       )}
-    </div>
+    </div><QuoteRequestDialog open={requestOpen} onClose={() => setRequestOpen(false)} items={cart} totals={{ subtotal: subtotalNet, taxRate, taxAmount: ivaAmount, total }} source="carrito" /></>
   );
 }
 
@@ -654,4 +650,3 @@ export const imageLibrary = [
   media.workspace,
   ...resourceUrls.filter((item) => item.type === 'image').map((item) => item.url)
 ];
-

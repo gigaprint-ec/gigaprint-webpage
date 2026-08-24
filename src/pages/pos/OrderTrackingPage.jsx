@@ -32,9 +32,13 @@ import {
   approveOrderArtProof
 } from '../../lib/posStore';
 import { useToast } from '../../components/studio/Toast';
+import { useSite } from '../../store';
+import { buildWhatsAppUrl, resolveQuoteWhatsAppRoute } from '../../lib/whatsapp';
 
 export function OrderTrackingPage() {
   const toast = useToast();
+  const { data } = useSite();
+  const supportNumber = resolveQuoteWhatsAppRoute(data.settings, [])?.number;
   const { trackingToken: urlToken } = useParams();
   const navigate = useNavigate();
   const [store, setStore] = useState(loadPOSStore());
@@ -166,7 +170,7 @@ export function OrderTrackingPage() {
 
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
               <a
-                href="https://wa.me/593987654321?text=Hola%20Gigaprint,%20deseo%20consultar%20el%20estado%20de%20mi%20pedido."
+                href={buildWhatsAppUrl(supportNumber, 'Hola Gigaprint, deseo consultar el estado de mi pedido.')}
                 target="_blank"
                 rel="noreferrer"
                 style={{ textDecoration: 'none', padding: '10px 18px', borderRadius: '10px', background: '#25d366', color: '#fff', fontSize: '13px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '8px' }}
@@ -391,7 +395,7 @@ export function OrderTrackingPage() {
                     <MapPin size={15} /> Abrir en Google Maps
                   </a>
                   <a
-                    href={`https://wa.me/593987654321?text=Hola%20${orderData.advisorName},%20tengo%20una%20consulta%20sobre%20mi%20orden%20%23${orderData.orderNumber}`}
+                    href={buildWhatsAppUrl(supportNumber, `Hola ${orderData.advisorName}, tengo una consulta sobre mi orden #${orderData.orderNumber}`)}
                     target="_blank"
                     rel="noreferrer"
                     style={{ textDecoration: 'none', padding: '10px 16px', borderRadius: '10px', background: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0', fontSize: '13px', fontWeight: 800, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}

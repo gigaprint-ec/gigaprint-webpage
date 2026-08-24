@@ -905,6 +905,7 @@ export function createPOSOrder(store, orderData) {
     id: orderId,
     trackingToken,
     orderNumber,
+    sourceQuoteRequestId: orderData.sourceQuoteRequestId || null,
     advisorId: orderData.advisorId,
     customerId: orderData.customerId || null,
     customerName: orderData.customerName || 'Cliente Mostrador',

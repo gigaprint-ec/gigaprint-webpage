@@ -10,12 +10,12 @@ export const DEFAULT_BUSINESS_SCHEDULE = {
   noticeMessage: 'Atención presencial en taller y pedidos online.',
   emergencyWhatsAppText: 'Hola Gigaprint, les escribo fuera de horario para coordinar una cotización urgente.',
   days: {
-    1: { id: 1, name: 'Lunes', short: 'Lun', isOpen: true, open: '08:30', close: '18:00', note: 'Jornada continua' },
+    1: { id: 1, name: 'Lunes', short: 'Lun', isOpen: true, open: '10:00', close: '18:00', note: 'Apertura 10:00 am' },
     2: { id: 2, name: 'Martes', short: 'Mar', isOpen: true, open: '08:30', close: '18:00', note: 'Jornada continua' },
     3: { id: 3, name: 'Miércoles', short: 'Mié', isOpen: true, open: '08:30', close: '18:00', note: 'Jornada continua' },
     4: { id: 4, name: 'Jueves', short: 'Jue', isOpen: true, open: '08:30', close: '18:00', note: 'Jornada continua' },
     5: { id: 5, name: 'Viernes', short: 'Vie', isOpen: true, open: '08:30', close: '18:00', note: 'Jornada continua' },
-    6: { id: 6, name: 'Sábado', short: 'Sáb', isOpen: true, open: '09:00', close: '14:00', note: 'Entregas y mostrador' },
+    6: { id: 6, name: 'Sábado', short: 'Sáb', isOpen: true, open: '08:30', close: '12:30', note: 'Mostrador y entregas' },
     0: { id: 0, name: 'Domingo', short: 'Dom', isOpen: false, open: '09:00', close: '13:00', note: 'Solo citas / WhatsApp' }
   },
   holidays: [
