@@ -318,13 +318,33 @@ export function Footer() {
         </div>
         <div className="footer-contact">
           <h4>Taller Matriz</h4>
-          <p><MapPin size={15} /> {data.settings.address}</p>
-          <p><MessageCircle size={15} /> {data.settings.phone}</p>
-          <p><Mail size={15} /> {data.settings.email}</p>
+          <a
+            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(data.settings.address || 'Av. García Moreno y 9 de Octubre, Milagro, Guayas')}`}
+            target="_blank"
+            rel="noreferrer"
+            className="footer-address-link"
+            title="Abrir ubicación en Google Maps"
+            style={{ color: 'inherit', textDecoration: 'none', display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '8px' }}
+          >
+            <MapPin size={16} style={{ color: 'var(--brand-orange)', flexShrink: 0, marginTop: '2px' }} />
+            <span>{data.settings.address || 'Av. García Moreno y 9 de Octubre, Milagro, Guayas - Ecuador'}</span>
+          </a>
+          <p style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 0' }}>
+            <MessageCircle size={15} style={{ color: 'var(--brand-orange)', flexShrink: 0 }} />
+            <a href={whatsappUrl || `tel:${data.settings.phone}`} target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'none' }}>
+              {data.settings.phone}
+            </a>
+          </p>
+          <p style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 0' }}>
+            <Mail size={15} style={{ color: 'var(--brand-orange)', flexShrink: 0 }} />
+            <a href={`mailto:${data.settings.email}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+              {data.settings.email}
+            </a>
+          </p>
         </div>
       </div>
       <div className="container footer-bottom">
-        <span>© 2026 Gigaprint Publicidad & Impresión S.A.S. RUC 1792345678001. Todos los derechos reservados.</span>
+        <span>© 2026 Gigaprint Publicidad & Impresión S.A.S. RUC 0992345678001. Todos los derechos reservados.</span>
         <div style={{ display: 'flex', gap: '16px' }}>
           <Link to="/seguimiento">🔍 Rastrear Pedido</Link>
           <Link to="/pos">🛒 Terminal POS</Link>

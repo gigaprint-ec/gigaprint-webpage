@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { calculatePrintItemPrice } from '../../../lib/posStore';
 import { playAddSound } from '../../../lib/posAudio';
+import { assetPath } from '../../../data/media';
 
 export function POSProductQuickMatrix({
   products = [],
@@ -342,14 +343,23 @@ export function POSProductQuickMatrix({
               }}
             >
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
                   <span style={{ fontSize: '9px', fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase' }}>
                     {p.category}
                   </span>
                   {isSelected && <Check size={14} color="var(--orange)" />}
                 </div>
-                <div style={{ fontWeight: 800, fontSize: '12px', color: 'var(--ink)', marginTop: '2px', lineHeight: '1.2' }}>
-                  {p.name}
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  {p.image && (
+                    <img
+                      src={assetPath(p.image)}
+                      alt=""
+                      style={{ width: '32px', height: '32px', borderRadius: '6px', objectFit: 'cover', flexShrink: 0, border: '1px solid rgba(0,0,0,0.06)' }}
+                    />
+                  )}
+                  <div style={{ fontWeight: 800, fontSize: '11.5px', color: 'var(--ink)', lineHeight: '1.2' }}>
+                    {p.name}
+                  </div>
                 </div>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', paddingTop: '4px', borderTop: '1px solid var(--line)' }}>
@@ -376,14 +386,25 @@ export function POSProductQuickMatrix({
           gap: '10px'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--line)', paddingBottom: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ background: 'var(--orange)', color: '#fff', padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 900 }}>
-                CONFIGURANDO
-              </span>
-              <strong style={{ fontSize: '14px', color: 'var(--ink)' }}>{currentProduct.name}</strong>
-              <span style={{ fontSize: '11px', color: 'var(--muted)' }}>
-                (Base: {money(currentProduct.basePrice)} / {currentProduct.calcType === 'area' ? 'm²' : 'u'})
-              </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              {currentProduct.image && (
+                <img
+                  src={assetPath(currentProduct.image)}
+                  alt=""
+                  style={{ width: '38px', height: '38px', borderRadius: '8px', objectFit: 'cover', border: '1.5px solid var(--line)' }}
+                />
+              )}
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ background: 'var(--orange)', color: '#fff', padding: '2px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 900 }}>
+                    CONFIGURANDO
+                  </span>
+                  <strong style={{ fontSize: '14px', color: 'var(--ink)' }}>{currentProduct.name}</strong>
+                </div>
+                <span style={{ fontSize: '11px', color: 'var(--muted)' }}>
+                  (Base: {money(currentProduct.basePrice)} / {currentProduct.calcType === 'area' ? 'm²' : 'u'})
+                </span>
+              </div>
             </div>
           </div>
 

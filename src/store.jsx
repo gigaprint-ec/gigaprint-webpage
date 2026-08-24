@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { initialData, themePresets } from './data';
 import { assetPath } from './data/media';
+import { imageFor } from './catalog';
 import { hasSupabase, supabase } from './lib/supabase';
 import { fetchSiteData, persistSiteData, submitInquiry, submitQuoteRequest } from './lib/siteRepository';
 
@@ -43,12 +44,33 @@ function loadSiteData() {
   const stored = load(DATA_KEY, null);
   if (!stored) return normalizeAssets(initialData);
   const catalogIsCurrent = Number(stored.catalogVersion || 0) >= Number(initialData.catalogVersion || 1);
+  const isSchemaCurrent = Number(stored.schemaVersion || 0) >= Number(initialData.schemaVersion || 1);
+
+  // If stored address has legacy obsolete value, update to latest official location
+  const storedAddress = stored.settings?.address || '';
+  const needsAddressUpdate = !isSchemaCurrent || !storedAddress || storedAddress.includes('Quito');
+  const resolvedAddress = needsAddressUpdate ? initialData.settings.address : storedAddress;
+
+  const rawProducts = catalogIsCurrent && stored.products?.length ? stored.products : initialData.products;
+  const enrichedProducts = rawProducts.map((p) => {
+    if (!p.image || p.image.includes('stickers.png') || p.image === '/images/gigaprint/stickers.png') {
+      return { ...p, image: imageFor(p.category, p.name) };
+    }
+    return p;
+  });
+
   const next = {
     ...initialData,
     ...stored,
-    settings: { ...initialData.settings, ...(stored.settings || {}) },
+    schemaVersion: initialData.schemaVersion,
+    settings: {
+      ...initialData.settings,
+      ...(stored.settings || {}),
+      address: resolvedAddress,
+      businessSchedule: stored.settings?.businessSchedule || initialData.settings.businessSchedule,
+    },
     services: stored.services?.length ? stored.services : initialData.services,
-    products: catalogIsCurrent && stored.products?.length ? stored.products : initialData.products,
+    products: enrichedProducts,
     catalogVersion: initialData.catalogVersion,
     promotions: stored.promotions?.length ? stored.promotions : initialData.promotions,
     inquiries: stored.inquiries || [],
@@ -87,11 +109,32 @@ export function SiteProvider({ children }) {
         if (!active) return;
         if (remote) {
           const normalized = normalizeAssets(remote);
-          setData((current) => ({
-            ...current,
-            ...normalized,
-            settings: { ...current.settings, ...(normalized.settings || {}) }
-          }));
+          setData((current) => {
+            const rawRemoteSettings = normalized.settings || {};
+            const isLegacyAddress = !rawRemoteSettings.address || rawRemoteSettings.address.includes('Quito');
+            const mergedSettings = {
+              ...current.settings,
+              ...rawRemoteSettings,
+              address: isLegacyAddress ? initialData.settings.address : rawRemoteSettings.address,
+              phone: rawRemoteSettings.phone && !rawRemoteSettings.phone.includes('99 999 9999') ? rawRemoteSettings.phone : initialData.settings.phone,
+              whatsapp: rawRemoteSettings.whatsapp && rawRemoteSettings.whatsapp !== '593999999999' ? rawRemoteSettings.whatsapp : initialData.settings.whatsapp,
+            };
+
+            const remoteProducts = normalized.products?.length ? normalized.products : current.products;
+            const enrichedRemoteProducts = remoteProducts.map((p) => {
+              if (!p.image || p.image.includes('stickers.png') || p.image === '/images/gigaprint/stickers.png') {
+                return { ...p, image: imageFor(p.category, p.name) };
+              }
+              return p;
+            });
+
+            return {
+              ...current,
+              ...normalized,
+              settings: mergedSettings,
+              products: enrichedRemoteProducts
+            };
+          });
         }
         setRemoteReady(true);
       })
@@ -159,33 +202,119 @@ export function SiteProvider({ children }) {
 export function useSite() { return useContext(SiteContext); }
 
 export function AuthProvider({ children }) {
-  const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem('gigaprint-admin') === 'true');
-  const [authLoading, setAuthLoading] = useState(hasSupabase);
+  const [isAdmin, setIsAdmin] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('gigaprint-admin') === 'true';
+  });
+  const [user, setUser] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
+  const [authLoading, setAuthLoading] = useState(() => {
+    if (typeof window !== 'undefined' && localStorage.getItem('gigaprint-admin') === 'true') {
+      return false;
+    }
+    return Boolean(hasSupabase);
+  });
 
   useEffect(() => {
-    if (!hasSupabase) return;
+    if (!hasSupabase) {
+      setAuthLoading(false);
+      return;
+    }
+
     let active = true;
-    const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) {
-        if (active && localStorage.getItem('gigaprint-admin') !== 'true') setIsAdmin(false);
-        if (active) setAuthLoading(false);
-        return;
+
+    const checkSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error || !session?.user) {
+          if (active) {
+            const isLocal = localStorage.getItem('gigaprint-admin') === 'true';
+            setIsAdmin(isLocal);
+            setUser(null);
+            setUserProfile(null);
+            setAuthLoading(false);
+          }
+          return;
+        }
+
+        if (active) setUser(session.user);
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('id, email, role, full_name')
+          .eq('id', session.user.id)
+          .maybeSingle();
+
+        if (active) {
+          setUserProfile(profile);
+          const hasPrivilegedRole = privilegedRoles.has(profile?.role);
+          const isLocal = localStorage.getItem('gigaprint-admin') === 'true';
+          const effectiveAdmin = hasPrivilegedRole || isLocal;
+
+          setIsAdmin(effectiveAdmin);
+          if (effectiveAdmin) {
+            localStorage.setItem('gigaprint-admin', 'true');
+            if (session.user.email) {
+              localStorage.setItem('gigaprint-admin-email', session.user.email);
+            }
+          }
+          setAuthLoading(false);
+        }
+      } catch {
+        if (active) {
+          const isLocal = localStorage.getItem('gigaprint-admin') === 'true';
+          setIsAdmin(isLocal);
+          setAuthLoading(false);
+        }
       }
-      const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).maybeSingle();
-      if (active) setIsAdmin(privilegedRoles.has(profile?.role) || localStorage.getItem('gigaprint-admin') === 'true');
-      if (active) setAuthLoading(false);
     };
-    checkUser();
-    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+
+    checkSession();
+
+    const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!active) return;
       if (!session?.user) {
-        if (active && localStorage.getItem('gigaprint-admin') !== 'true') setIsAdmin(false);
+        if (event === 'SIGNED_OUT') {
+          localStorage.removeItem('gigaprint-admin');
+          localStorage.removeItem('gigaprint-admin-email');
+          setIsAdmin(false);
+          setUser(null);
+          setUserProfile(null);
+        } else {
+          const isLocal = localStorage.getItem('gigaprint-admin') === 'true';
+          setIsAdmin(isLocal);
+          setUser(null);
+          setUserProfile(null);
+        }
         return;
       }
-      const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).maybeSingle();
-      if (active) setIsAdmin(privilegedRoles.has(profile?.role) || localStorage.getItem('gigaprint-admin') === 'true');
+
+      setUser(session.user);
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, email, role, full_name')
+        .eq('id', session.user.id)
+        .maybeSingle();
+
+      if (!active) return;
+      setUserProfile(profile);
+      const hasPrivilegedRole = privilegedRoles.has(profile?.role);
+      const isLocal = localStorage.getItem('gigaprint-admin') === 'true';
+      const effectiveAdmin = hasPrivilegedRole || isLocal;
+
+      setIsAdmin(effectiveAdmin);
+      if (effectiveAdmin) {
+        localStorage.setItem('gigaprint-admin', 'true');
+        if (session.user.email) {
+          localStorage.setItem('gigaprint-admin-email', session.user.email);
+        }
+      }
     });
-    return () => { active = false; listener.subscription.unsubscribe(); };
+
+    return () => {
+      active = false;
+      listener?.subscription?.unsubscribe();
+    };
   }, []);
 
   const login = async (credentials) => {
@@ -193,21 +322,75 @@ export function AuthProvider({ children }) {
     if (password === 'gigaprint') {
       localStorage.setItem('gigaprint-admin', 'true');
       setIsAdmin(true);
+      setAuthLoading(false);
       return { ok: true };
     }
+
     if (!hasSupabase) {
       return { ok: false, error: 'Contraseña incorrecta.' };
     }
-    const { error } = await supabase.auth.signInWithPassword({ email: credentials.email, password: credentials.password });
-    if (error) return { ok: false, error: 'Correo o contraseña incorrectos.' };
-    const { data: userData } = await supabase.auth.getUser();
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', userData.user?.id).maybeSingle();
-    if (!privilegedRoles.has(profile?.role)) { await supabase.auth.signOut(); return { ok: false, error: 'Tu usuario aún no tiene rol de administrador.' }; }
+
+    const { data: authData, error } = await supabase.auth.signInWithPassword({
+      email: credentials.email,
+      password: credentials.password
+    });
+
+    if (error) {
+      return { ok: false, error: 'Correo o contraseña incorrectos.' };
+    }
+
+    const userObj = authData.user;
+    setUser(userObj);
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id, email, role, full_name')
+      .eq('id', userObj?.id)
+      .maybeSingle();
+
+    setUserProfile(profile);
+
+    if (!privilegedRoles.has(profile?.role)) {
+      await supabase.auth.signOut();
+      localStorage.removeItem('gigaprint-admin');
+      setIsAdmin(false);
+      return { ok: false, error: 'Tu usuario aún no tiene rol de administrador.' };
+    }
+
+    localStorage.setItem('gigaprint-admin', 'true');
+    if (credentials.email) {
+      localStorage.setItem('gigaprint-admin-email', credentials.email);
+    }
     setIsAdmin(true);
+    setAuthLoading(false);
     return { ok: true };
   };
-  const logout = async () => { if (hasSupabase) await supabase.auth.signOut(); localStorage.removeItem('gigaprint-admin'); setIsAdmin(false); };
-  return <AuthContext.Provider value={{ isAdmin, authLoading, login, logout, authMode: hasSupabase ? 'supabase' : 'demo' }}>{children}</AuthContext.Provider>;
+
+  const logout = async () => {
+    if (hasSupabase) {
+      try { await supabase.auth.signOut(); } catch { /* local-first fallback */ }
+    }
+    localStorage.removeItem('gigaprint-admin');
+    localStorage.removeItem('gigaprint-admin-email');
+    localStorage.removeItem('gigaprint-pos-session-v1');
+    setIsAdmin(false);
+    setUser(null);
+    setUserProfile(null);
+  };
+
+  return (
+    <AuthContext.Provider value={{
+      isAdmin,
+      user,
+      userProfile,
+      authLoading,
+      login,
+      logout,
+      authMode: hasSupabase ? 'supabase' : 'demo'
+    }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() { return useContext(AuthContext); }

@@ -2276,9 +2276,103 @@ function ContactPage() {
 
 function CartPage() { const { cart } = useSite(); return <PageShell><section className="inner-hero cart-hero"><div className="container"><span className="eyebrow orange">Carrito de cotizaciones</span><h1>Tus ideas, listas<br /><em>para conversar.</em></h1><p>Aquí guardamos lo que te interesa. Todavía no es una compra: revisamos contigo medidas, materiales y tiempos antes de confirmar.</p></div></section><section className="section"><div className="container cart-page-grid"><div><div className="cart-title-row"><h2>{cart.length ? `${cart.length} solución${cart.length > 1 ? 'es' : ''} guardada${cart.length > 1 ? 's' : ''}` : 'Tu selección'}</h2>{cart.length > 0 && <span>Estimación preliminar</span>}</div><CartSummary /></div><aside className="cart-aside"><div className="cart-aside-icon"><MessageCircle /></div><h3>¿Listo para darle forma?</h3><p>Envíanos tu selección y un asesor te ayudará a convertirla en una cotización final.</p><Button to="/contacto">Solicitar revisión</Button><Link to="/cotizador">Seguir cotizando</Link></aside></div></section></PageShell>; }
 
-function AdminLogin() { const { login, authMode } = useAuth(); const navigate = useNavigate(); const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const submit = async (event) => { event.preventDefault(); setBusy(true); const result = await login({ email, password }); setBusy(false); if (result.ok) navigate('/admin'); else setError(result.error || 'No se pudo iniciar sesión.'); }; return <div className="admin-login"><div className="login-card"><div className="login-mark"><img src={media.logoMark} alt="Gigaprint" /></div><span className="eyebrow orange">Área privada</span><h1>Panel Gigaprint</h1><p>Edita contenidos, productos, promociones y revisa tus solicitudes.</p><form onSubmit={submit}>{authMode === 'supabase' && <label>Correo del administrador<input autoFocus type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@tudominio.com" required /></label>}<label>{authMode === 'supabase' ? 'Contraseña' : 'Contraseña de demostración'}<input autoFocus={authMode !== 'supabase'} type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required /></label>{error && <small className="form-error">{error}</small>}<button className="button button-primary full-button" type="submit" disabled={busy}>{busy ? 'Validando…' : 'Entrar al panel'} {!busy && <ArrowRight size={16} />}</button></form>{authMode === 'supabase' && <small className="login-note">Acceso protegido por Supabase Auth. El usuario debe tener rol admin o super admin.</small>}<Link to="/" className="login-back">← Volver al sitio público</Link></div></div>; }
+function AdminLogin() {
+  const { login, isAdmin, authLoading, authMode } = useAuth();
+  const navigate = useNavigate();
+  const [email, setEmail] = useState(() => (typeof window !== 'undefined' ? localStorage.getItem('gigaprint-admin-email') || '' : ''));
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
 
-function AdminGuard({ children }) { const { isAdmin } = useAuth(); return isAdmin ? children : <Navigate to="/admin/login" replace />; }
+  // Auto-redirect if already authenticated
+  useEffect(() => {
+    if (!authLoading && isAdmin) {
+      navigate('/admin', { replace: true });
+    }
+  }, [isAdmin, authLoading, navigate]);
+
+  const submit = async (event) => {
+    event.preventDefault();
+    setBusy(true);
+    setError('');
+    const result = await login({ email, password });
+    setBusy(false);
+    if (result.ok) navigate('/admin', { replace: true });
+    else setError(result.error || 'No se pudo iniciar sesión.');
+  };
+
+  if (authLoading) {
+    return (
+      <div className="admin-login">
+        <div className="login-card" style={{ textAlign: 'center', padding: '48px 24px' }}>
+          <div className="login-mark"><img src={media.logoMark} alt="Gigaprint" /></div>
+          <p style={{ fontWeight: 800, color: 'var(--muted)', marginTop: '20px', fontSize: '13px' }}>Restaurando sesión segura…</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="admin-login">
+      <div className="login-card">
+        <div className="login-mark"><img src={media.logoMark} alt="Gigaprint" /></div>
+        <span className="eyebrow orange">Área privada</span>
+        <h1>Panel Gigaprint</h1>
+        <p>Edita contenidos, productos, promociones y revisa tus solicitudes.</p>
+        <form onSubmit={submit}>
+          {authMode === 'supabase' && (
+            <label>
+              Correo del administrador
+              <input
+                autoFocus={!email}
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="admin@tudominio.com"
+                required
+              />
+            </label>
+          )}
+          <label>
+            {authMode === 'supabase' ? 'Contraseña' : 'Contraseña de demostración'}
+            <input
+              autoFocus={Boolean(email) || authMode !== 'supabase'}
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+            />
+          </label>
+          {error && <small className="form-error">{error}</small>}
+          <button className="button button-primary full-button" type="submit" disabled={busy}>
+            {busy ? 'Validando…' : 'Entrar al panel'} {!busy && <ArrowRight size={16} />}
+          </button>
+        </form>
+        {authMode === 'supabase' && (
+          <small className="login-note">
+            Acceso protegido por Supabase Auth. El usuario debe tener rol admin o super admin.
+          </small>
+        )}
+        <Link to="/" className="login-back">← Volver al sitio público</Link>
+      </div>
+    </div>
+  );
+}
+
+function AdminGuard({ children }) {
+  const { isAdmin, authLoading } = useAuth();
+  if (authLoading) {
+    return (
+      <div className="page-loading" style={{ minHeight: '80vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
+        <span className="brand-mark" style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'var(--brand-orange)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '24px' }}>G</span>
+        <p style={{ fontWeight: 800, color: 'var(--muted)', fontSize: '13px' }}>Verificando sesión…</p>
+      </div>
+    );
+  }
+  return isAdmin ? children : <Navigate to="/admin/login" replace />;
+}
 
 function AdminDashboard() { const { data } = useSite(); const { logout } = useAuth(); return <AdminShell><AdminHeader eyebrow="Resumen" title="Buenos días, equipo." text="Aquí tienes una vista rápida de lo que está pasando en Gigaprint." action={<button className="admin-logout" onClick={logout}>Cerrar sesión</button>} /><div className="metric-grid"><div><span><ShoppingCart size={17} style={{ color: 'var(--orange)' }} /> Punto de Venta</span><strong>POS Activo</strong><small>Cobros, proformas y caja</small></div><div><span><ClipboardList size={17} /> Solicitudes</span><strong>{data.inquiries.length}</strong><small>Guardadas en este dispositivo</small></div><div><span><Package size={17} /> Productos</span><strong>{data.products.length}</strong><small>En tu catálogo actual</small></div><div><span><Sparkles size={17} /> Promociones</span><strong>{data.promotions.filter((p) => p.active).length}</strong><small>Activas ahora</small></div></div><div className="admin-dashboard-grid"><div className="admin-card"><div className="admin-card-heading"><div><span className="eyebrow">Atajos Operativos</span><h2>¿Qué quieres hacer hoy?</h2></div><Settings2 size={20} /></div><div className="quick-grid"><Link to="/admin/pos" style={{ border: '1.5px solid var(--orange)', background: 'var(--orange-soft)' }}><ShoppingCart style={{ color: 'var(--orange-dark)' }} /><span><b>Punto de Venta (POS)</b><small>Cajero rápido & proformas</small></span></Link><Link to="/admin/pos/dashboard"><BarChart3 /><span><b>Cuadre Semanal</b><small>Balance e ingresos netos</small></span></Link><Link to="/admin/pos/asesoras"><Users /><span><b>Equipo Asesoras</b><small>Metas, PINs y comisiones</small></span></Link><Link to="/admin/productos"><Package /><span><b>Productos</b><small>Catálogo y precios</small></span></Link><Link to="/admin/contenido"><Pencil /><span><b>Contenido</b><small>Textos de inicio y datos</small></span></Link><Link to="/admin/solicitudes"><MessageCircle /><span><b>Solicitudes</b><small>Leads del sitio</small></span></Link></div></div><div className="admin-card checklist"><div className="admin-card-heading"><div><span className="eyebrow">Estado del proyecto</span><h2>Todo listo para conectar</h2></div><ShieldCheck size={20} /></div><p><Check size={15} /> Punto de venta & CRM comercial activado</p><p><Check size={15} /> Cuadre de caja diaria y semanal idéntico a Excel</p><p><Check size={15} /> Gestión multi-asesora con metas semanales</p><p><Check size={15} /> Cotizador inteligente y carrito funcionando</p><p className="pending"><Bell size={15} /> Sincronización Supabase lista con RLS</p></div></div><div className="admin-card recent-card"><div className="admin-card-heading"><div><span className="eyebrow">Últimas solicitudes</span><h2>Lo que tus clientes están pidiendo</h2></div><Link to="/admin/solicitudes">Ver todas →</Link></div>{data.inquiries.length ? data.inquiries.slice(-5).reverse().map((item) => <div className="inquiry-row" key={item.id}><span>{item.name?.[0] || 'G'}</span><div><b>{item.name}</b><small>{item.company || item.email}</small></div><small>{item.status}</small></div>) : <div className="admin-empty">Todavía no hay solicitudes. Cuando alguien use el formulario, aparecerán aquí.</div>}</div></AdminShell>; }
 

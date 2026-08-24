@@ -249,6 +249,7 @@ export const DEFAULT_PRODUCTS = estebanCatalogProducts.map((p, idx) => ({
   unit: p.unit || (p.pricingMode === 'area' || p.pricingMode === 'm2' || p.type === 'm2' ? 'm2' : 'unidad'),
   priceTiers: p.priceScales || [],
   isActive: true,
+  image: p.image || null,
   leadTimeDays: p.leadTimeDays || 2,
   description: p.description || `${p.name} con acabados profesionales Gigaprint.`
 }));
@@ -794,20 +795,38 @@ export function regeneratePOSAdvisorPIN(store, advisorId) {
 export function getPOSSession() {
   if (typeof window === 'undefined') return null;
   const raw = localStorage.getItem(POS_SESSION_KEY);
-  if (!raw) return null;
-  const session = safeJSONParse(raw, null);
-  if (!session || !session.expiresAt) return null;
-
-  if (new Date(session.expiresAt).getTime() < Date.now()) {
-    localStorage.removeItem(POS_SESSION_KEY);
-    return null;
+  if (raw) {
+    const session = safeJSONParse(raw, null);
+    if (session) {
+      if (!session.expiresAt || new Date(session.expiresAt).getTime() >= Date.now()) {
+        return session;
+      }
+      localStorage.removeItem(POS_SESSION_KEY);
+    }
   }
-  return session;
+
+  // Fallback: If logged in as admin in global store, provide immediate admin session
+  if (localStorage.getItem('gigaprint-admin') === 'true') {
+    return {
+      id: 'adv-admin',
+      name: 'Administrador General',
+      email: localStorage.getItem('gigaprint-admin-email') || 'admin@gigaprint.ec',
+      role: 'super_admin',
+      isAdmin: true,
+      canOpenCash: true,
+      hasSalesGoal: false,
+      weeklyGoal: 0,
+      unlockedAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+    };
+  }
+
+  return null;
 }
 
 export function setPOSSession(advisorOrAdmin) {
   if (typeof window === 'undefined') return;
-  const expiresAt = new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(); // 12 hours
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(); // 30 days
   const session = {
     ...advisorOrAdmin,
     unlockedAt: new Date().toISOString(),

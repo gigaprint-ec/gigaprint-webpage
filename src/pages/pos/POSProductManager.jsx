@@ -26,6 +26,7 @@ import {
   toISODate
 } from '../../lib/posStore';
 import { useToast } from '../../components/studio/Toast';
+import { assetPath } from '../../data/media';
 
 export function POSProductManager({ store, onStoreUpdate, session }) {
   const toast = useToast();
@@ -387,7 +388,16 @@ export function POSProductManager({ store, onStoreUpdate, session }) {
                     {p.sku || 'N/A'}
                   </td>
                   <td style={{ padding: '10px 12px', fontSize: '13px', fontWeight: 800, color: 'var(--ink)' }}>
-                    {p.name}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {p.image && (
+                        <img
+                          src={assetPath(p.image)}
+                          alt=""
+                          style={{ width: '28px', height: '28px', borderRadius: '6px', objectFit: 'cover', border: '1px solid var(--line)', flexShrink: 0 }}
+                        />
+                      )}
+                      <span>{p.name}</span>
+                    </div>
                   </td>
                   <td style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--muted)' }}>
                     <span style={{ padding: '3px 8px', background: 'var(--bg)', borderRadius: '6px', border: '1px solid var(--line)', fontSize: '11px', fontWeight: 700 }}>
