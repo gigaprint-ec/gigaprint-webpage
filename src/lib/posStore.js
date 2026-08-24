@@ -1,6 +1,8 @@
 import { supabase, hasSupabase } from './supabase';
 import { estebanCatalogProducts, imageFor } from '../catalog';
 import { buildProductionPlan, recalculateOperationReadiness, PRODUCTION_AREAS } from './productionWorkflow';
+import { findExactPOSCustomer } from './posSearch';
+import { extractGoogleMapsCoordinates } from './maps';
 
 export const POS_STORAGE_KEY = 'gigaprint-pos-v1';
 export const POS_SESSION_KEY = 'gigaprint-pos-session-v1';
@@ -143,6 +145,7 @@ export function getRoleCapabilities(role = 'asesora') {
   const isAdmin = normalizedRole === 'admin' || normalizedRole === 'super_admin';
   const canOpenCash = isAdmin || normalizedRole === 'asesora';
   const hasSalesGoal = normalizedRole === 'asesora';
+  const maxDiscountPercent = isAdmin ? 100 : normalizedRole === 'encargado_local' ? 15 : normalizedRole === 'asesora' ? 5 : 0;
   const roleWorkspaces = {
     asesora: ['cashier', 'crm', 'orders', 'products'],
     encargado_local: ['billboard', 'flow', 'kanban', 'orders', 'inventory', 'purchases', 'products', 'crm'],
@@ -184,6 +187,7 @@ export function getRoleCapabilities(role = 'asesora') {
     isAdvisor: normalizedRole === 'asesora' || isAdmin,
     canOpenCash,
     hasSalesGoal,
+    maxDiscountPercent,
     canManageCash: isAdmin,
     canEditMasterCatalog: ['encargado_local'].includes(normalizedRole) || isAdmin,
     canManageExpenses: isAdmin,
@@ -323,6 +327,7 @@ export const INITIAL_POS_STORE = {
   workstations: DEFAULT_WORKSTATIONS,
   productionOperations: [],
   parkedSales: [],
+  auditEvents: [],
   lastUpdated: new Date().toISOString()
 };
 
@@ -392,6 +397,7 @@ export function loadPOSStore() {
     workstations: (parsed.workstations && parsed.workstations.length > 0) ? parsed.workstations : DEFAULT_WORKSTATIONS,
     productionOperations: parsed.productionOperations || [],
     parkedSales: parsed.parkedSales || [],
+    auditEvents: parsed.auditEvents || [],
     lastUpdated: parsed.lastUpdated || new Date().toISOString()
   };
 
@@ -409,6 +415,20 @@ export function savePOSStoreLocal(store) {
 }
 
 export const savePOSStore = savePOSStoreLocal;
+
+export function appendPOSAuditEvent(store, event) {
+  const auditEvent = {
+    id: event.id || `audit-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    type: event.type || 'unknown',
+    entity: event.entity || null,
+    entityId: event.entityId || null,
+    actorId: event.actorId || getPOSSession()?.id || null,
+    actorName: event.actorName || getPOSSession()?.name || 'Sistema',
+    metadata: event.metadata || {},
+    createdAt: event.createdAt || new Date().toISOString(),
+  };
+  return { ...store, auditEvents: [auditEvent, ...(store.auditEvents || [])].slice(0, 2000) };
+}
 
 // Helper to convert camelCase object keys to snake_case for Supabase
 export function toSnakeCase(obj) {
@@ -448,20 +468,28 @@ export function saveSyncQueue(queue = []) {
 
 export function enqueueSyncAction(actionType, tableName, payload) {
   const queue = getSyncQueue();
-  queue.push({
+  const entityId = typeof payload === 'object' ? payload.id : payload;
+  const nextAction = {
     id: `sync-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
     actionType, // 'upsert' | 'delete'
     tableName,
     payload,
     timestamp: new Date().toISOString(),
     retries: 0
-  });
+  };
+  const duplicateIndex = queue.findIndex((item) => item.actionType === actionType && item.tableName === tableName && (typeof item.payload === 'object' ? item.payload.id : item.payload) === entityId);
+  if (duplicateIndex >= 0) queue[duplicateIndex] = nextAction;
+  else queue.push(nextAction);
   saveSyncQueue(queue);
 }
 
 // Flush pending sync actions when back online
 export async function flushSyncQueue() {
-  if (!hasSupabase || !supabase || !navigator.onLine) return;
+  if (!hasSupabase || !supabase) return;
+  if (!navigator.onLine) {
+    setSyncStatus('offline');
+    return;
+  }
   const queue = getSyncQueue();
   if (queue.length === 0) return;
 
@@ -634,6 +662,7 @@ export async function fetchRemotePOSStore() {
       parkedSales: remoteParked.length ? remoteParked : local.parkedSales,
       productionOperations: remoteOperations.length ? remoteOperations : local.productionOperations,
       workstations: remoteWorkstations.length ? remoteWorkstations : local.workstations,
+      auditEvents: local.auditEvents || [],
       lastUpdated: new Date().toISOString()
     };
 
@@ -897,6 +926,15 @@ export function authenticateAdmin(password) {
   return { ok: false, error: 'Contraseña de Administrador incorrecta.' };
 }
 
+export function getSyncHealth() {
+  const queue = getSyncQueue();
+  return {
+    pending: queue.length,
+    failed: queue.filter((item) => Number(item.retries || 0) >= 5).length,
+    oldestAt: queue.reduce((oldest, item) => !oldest || item.timestamp < oldest ? item.timestamp : oldest, null),
+  };
+}
+
 export function createAdminPOSSession(adminUser = {}) {
   return setPOSSession({
     id: 'adv-admin',
@@ -1001,6 +1039,35 @@ export function createPOSOrder(store, orderData) {
   const today = toISODate();
   const dayOfWeek = getDayNameSpanish(today);
   const weekCode = getISOWeekCode();
+  const now = new Date().toISOString();
+  const matchedCustomer = findExactPOSCustomer(store.customers || [], {
+    id: orderData.customerId,
+    name: orderData.customerName,
+    identification: orderData.customerIdentification,
+    phone: orderData.customerPhone,
+  });
+  const customerId = matchedCustomer?.id || `cust-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const customerRecord = {
+    ...(matchedCustomer || {}),
+    id: customerId,
+    name: orderData.customerName || matchedCustomer?.name || 'Cliente Mostrador',
+    identification: orderData.customerIdentification || matchedCustomer?.identification || '',
+    phone: orderData.customerPhone || matchedCustomer?.phone || '',
+    email: matchedCustomer?.email || '',
+    companyName: matchedCustomer?.companyName || '',
+    city: matchedCustomer?.city || 'Milagro',
+    address: matchedCustomer?.address || orderData.installationAddress || '',
+    isVip: Boolean(matchedCustomer?.isVip),
+    creditLimit: Number(matchedCustomer?.creditLimit || 0),
+    creditDays: Number(matchedCustomer?.creditDays || 0),
+    tags: Array.isArray(matchedCustomer?.tags) ? matchedCustomer.tags : ['POS'],
+    notes: matchedCustomer?.notes || '',
+    totalSpent: Number((Number(matchedCustomer?.totalSpent || 0) + Number(orderData.totalAmount || 0)).toFixed(2)),
+    ordersCount: Number(matchedCustomer?.ordersCount || 0) + 1,
+    createdAt: matchedCustomer?.createdAt || now,
+    updatedAt: now,
+  };
+  const mapCoordinates = extractGoogleMapsCoordinates(orderData.installationMapsUrl);
 
   const stageHistory = [
     { stage: orderData.productionStage || 'preprensa', timestamp: new Date().toISOString(), advisorId: orderData.advisorId, note: 'Creación de orden en POS' }
@@ -1011,8 +1078,9 @@ export function createPOSOrder(store, orderData) {
     trackingToken,
     orderNumber,
     sourceQuoteRequestId: orderData.sourceQuoteRequestId || null,
+    sourceQuoteNumber: orderData.sourceQuoteNumber || null,
     advisorId: orderData.advisorId,
-    customerId: orderData.customerId || null,
+    customerId,
     customerName: orderData.customerName || 'Cliente Mostrador',
     customerIdentification: orderData.customerIdentification || '',
     customerPhone: orderData.customerPhone || '',
@@ -1031,6 +1099,9 @@ export function createPOSOrder(store, orderData) {
     installationDate: orderData.installationDate || null,
     requiresInstallation: Boolean(orderData.requiresInstallation),
     installationAddress: orderData.installationAddress || '',
+    installationMapsUrl: orderData.installationMapsUrl || '',
+    installationLatitude: mapCoordinates?.lat ?? null,
+    installationLongitude: mapCoordinates?.lng ?? null,
     fieldMeasurementsNotes: orderData.fieldMeasurementsNotes || '',
     workflowStatus: 'planned',
     stageHistory,
@@ -1124,20 +1195,31 @@ export function createPOSOrder(store, orderData) {
     }
   });
 
-  const updatedStore = {
+  const updatedStore = appendPOSAuditEvent({
     ...store,
+    customers: matchedCustomer
+      ? (store.customers || []).map((customer) => customer.id === customerId ? customerRecord : customer)
+      : [customerRecord, ...(store.customers || [])],
     orders: [newOrder, ...(store.orders || [])],
     orderItems: [...newItems, ...(store.orderItems || [])],
     payments: [...newPayments, ...(store.payments || [])],
     materials: updatedMaterials,
     materialLogs: [...newMaterialLogs, ...(store.materialLogs || [])],
     productionOperations: [...plan.operations, ...(store.productionOperations || [])]
-  };
+  }, {
+    type: 'order_created',
+    entity: 'order',
+    entityId: orderId,
+    actorId: orderData.advisorId,
+    actorName: orderData.advisorName || null,
+    metadata: { orderNumber, totalAmount: newOrder.totalAmount, itemCount: newItems.length, sourceQuoteNumber: newOrder.sourceQuoteNumber },
+  });
 
   savePOSStoreLocal(updatedStore);
 
   // Asynchronous Cloud Upserts
   syncEntityRemote('pos_orders', newOrder);
+  syncEntityRemote('pos_customers', customerRecord);
   newItems.forEach((itm) => syncEntityRemote('pos_order_items', itm));
   newPayments.forEach((pay) => syncEntityRemote('pos_payments', pay));
   newMaterialLogs.forEach((log) => syncEntityRemote('pos_material_usage_logs', log));
@@ -1505,6 +1587,7 @@ export function assignOrderToWorkstation(store, orderId, {
   installationDate,
   requiresInstallation,
   installationAddress,
+  installationMapsUrl,
   fieldMeasurementsNotes,
   notes,
   advisorId = ''
@@ -1529,6 +1612,7 @@ export function assignOrderToWorkstation(store, orderId, {
     installationDate: installationDate !== undefined ? installationDate : (order.installationDate || order.deliveryDate),
     requiresInstallation: requiresInstallation !== undefined ? Boolean(requiresInstallation) : Boolean(order.requiresInstallation),
     installationAddress: installationAddress !== undefined ? installationAddress : (order.installationAddress || ''),
+    installationMapsUrl: installationMapsUrl !== undefined ? installationMapsUrl : (order.installationMapsUrl || ''),
     fieldMeasurementsNotes: fieldMeasurementsNotes !== undefined ? fieldMeasurementsNotes : (order.fieldMeasurementsNotes || ''),
     stageHistory: history,
     updatedAt: new Date().toISOString()

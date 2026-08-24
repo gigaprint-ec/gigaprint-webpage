@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Printer, Wrench, Download, ExternalLink, Tag, Eye } from 'lucide-react';
 import { POSPackageLabelModal } from './POSPackageLabelModal';
+import { getGoogleMapsEmbedUrl, getGoogleMapsOpenUrl } from '../../lib/maps';
 
 export function POSWorkOrderModal({ order, items = [], advisor, isOpen, onClose }) {
   const [selectedMachine, setSelectedMachine] = useState('plotter_320_solvente');
@@ -11,6 +12,8 @@ export function POSWorkOrderModal({ order, items = [], advisor, isOpen, onClose 
   const trackingToken = order.trackingToken || order.orderNumber;
   const trackingUrl = `https://gigaprint-ec.github.io/gigaprint-webpage/seguimiento/${trackingToken}`;
   const qrCodeUrl = `https://quickchart.io/qr?text=${encodeURIComponent(trackingUrl)}&size=90&margin=1`;
+  const installationMapUrl = getGoogleMapsOpenUrl(order.installationMapsUrl, order.installationAddress);
+  const installationMapEmbedUrl = getGoogleMapsEmbedUrl(order.installationMapsUrl, order.installationAddress);
 
   const machines = [
     { id: 'plotter_320_solvente', name: 'Plotter Gran Formato 3.20m (Solvente)' },
@@ -184,10 +187,24 @@ export function POSWorkOrderModal({ order, items = [], advisor, isOpen, onClose 
                 <div style={{ fontSize: '12.5px', color: '#0e7490' }}>
                   <strong>Dirección:</strong> {order.installationAddress || 'Por confirmar con cliente'}
                 </div>
+                {installationMapUrl && (
+                  <a href={installationMapUrl} target="_blank" rel="noreferrer" style={{ color: '#0369a1', fontSize: '11.5px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <ExternalLink size={12} /> Abrir ruta en Google Maps
+                  </a>
+                )}
                 {order.fieldMeasurementsNotes && (
                   <div style={{ fontSize: '12px', color: '#155e75' }}>
                     <strong>Notas de Medidas / Cuadrilla:</strong> {order.fieldMeasurementsNotes}
                   </div>
+                )}
+                {installationMapEmbedUrl && (
+                  <iframe
+                    title="Mapa de instalación"
+                    src={installationMapEmbedUrl}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    style={{ width: '100%', height: '190px', border: '1px solid #a5f3fc', borderRadius: '7px', marginTop: '6px' }}
+                  />
                 )}
               </div>
             )}

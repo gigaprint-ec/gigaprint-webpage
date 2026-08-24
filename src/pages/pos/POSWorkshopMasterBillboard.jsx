@@ -60,6 +60,7 @@ export function POSWorkshopMasterBillboard({
   const [editInstallationDate, setEditInstallationDate] = useState('');
   const [editRequiresInstallation, setEditRequiresInstallation] = useState(false);
   const [editInstallationAddress, setEditInstallationAddress] = useState('');
+  const [editInstallationMapsUrl, setEditInstallationMapsUrl] = useState('');
   const [editFieldNotes, setEditFieldNotes] = useState('');
 
   const today = toISODate();
@@ -92,6 +93,7 @@ export function POSWorkshopMasterBillboard({
     setEditInstallationDate(order.installationDate || order.deliveryDate || today);
     setEditRequiresInstallation(Boolean(order.requiresInstallation));
     setEditInstallationAddress(order.installationAddress || '');
+    setEditInstallationMapsUrl(order.installationMapsUrl || '');
     setEditFieldNotes(order.fieldMeasurementsNotes || '');
   };
 
@@ -108,6 +110,7 @@ export function POSWorkshopMasterBillboard({
       installationDate: editInstallationDate,
       requiresInstallation: editRequiresInstallation,
       installationAddress: editInstallationAddress,
+      installationMapsUrl: editInstallationMapsUrl,
       fieldMeasurementsNotes: editFieldNotes,
       advisorId: session?.id || ''
     });
@@ -690,6 +693,17 @@ export function POSWorkshopMasterBillboard({
                       value={editInstallationAddress}
                       onChange={(e) => setEditInstallationAddress(e.target.value)}
                       placeholder="Ej. Av. Amazonas N24-102 y Colón, Edificio San Francisco 2do piso"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="pos-label">Enlace de Google Maps</label>
+                    <input
+                      type="url"
+                      className="pos-input"
+                      value={editInstallationMapsUrl}
+                      onChange={(e) => setEditInstallationMapsUrl(e.target.value)}
+                      placeholder="https://maps.app.goo.gl/..."
                     />
                   </div>
 

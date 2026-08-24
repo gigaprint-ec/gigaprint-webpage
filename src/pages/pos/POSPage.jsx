@@ -39,7 +39,9 @@ import {
   VolumeX,
   Keyboard,
   Tv,
-  Tag
+  Tag,
+  MapPin,
+  ExternalLink
 } from 'lucide-react';
 import { inferProductionAreas, PRODUCTION_AREAS } from '../../lib/productionWorkflow';
 import {
@@ -66,7 +68,8 @@ import {
   getMondayOfWeek,
   getISOWeekCode,
   getRoleCapabilities,
-  createAdminPOSSession
+  createAdminPOSSession,
+  getSyncHealth
 } from '../../lib/posStore';
 import { useAuth } from '../../store';
 import {
@@ -97,6 +100,8 @@ import { SupabaseFileUploader } from '../../components/studio/SupabaseFileUpload
 import { POSProductQuickMatrix } from './components/POSProductQuickMatrix';
 import { useToast } from '../../components/studio/Toast';
 import { markQuoteRequestConverted } from '../../lib/siteRepository';
+import { searchPOSCustomers, searchPOSOrders, searchPOSProducts } from '../../lib/posSearch';
+import { getGoogleMapsEmbedUrl, getGoogleMapsOpenUrl, isGoogleMapsUrl } from '../../lib/maps';
 
 export function POSPage({ initialTab = 'cashier' }) {
   const toast = useToast();
@@ -104,6 +109,7 @@ export function POSPage({ initialTab = 'cashier' }) {
   const [store, setStore] = useState(loadPOSStore);
   const [session, setSession] = useState(getPOSSession);
   const [syncStatus, setSyncStatus] = useState('synced');
+  const [syncHealth, setSyncHealth] = useState(getSyncHealth);
 
   const handlePOSAuthenticated = (nextSession) => {
     if (nextSession?.isSupabaseAdmin) {
@@ -163,6 +169,8 @@ export function POSPage({ initialTab = 'cashier' }) {
   const [customerIdentification, setCustomerIdentification] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerId, setCustomerId] = useState(null);
+  const [activeCustomerField, setActiveCustomerField] = useState(null);
+  const [customerSuggestionIndex, setCustomerSuggestionIndex] = useState(0);
   const [jobName, setJobName] = useState('');
   const [deliveryDate, setDeliveryDate] = useState(toISODate());
   const [executionDate, setExecutionDate] = useState(toISODate());
@@ -170,6 +178,7 @@ export function POSPage({ initialTab = 'cashier' }) {
   const [involvedAreas, setInvolvedAreas] = useState(['impresion']);
   const [requiresInstallation, setRequiresInstallation] = useState(false);
   const [installationAddress, setInstallationAddress] = useState('');
+  const [installationMapsUrl, setInstallationMapsUrl] = useState('');
   const [installationDate, setInstallationDate] = useState(toISODate());
   const [fieldMeasurementsNotes, setFieldMeasurementsNotes] = useState('');
   const [pickupLocation, setPickupLocation] = useState('Matriz Gigaprint - Av. García Moreno y 9 de Octubre, Milagro');
@@ -183,10 +192,17 @@ export function POSPage({ initialTab = 'cashier' }) {
   const [discountReason, setDiscountReason] = useState('');
   const [notes, setNotes] = useState('');
   const [sourceQuoteRequestId, setSourceQuoteRequestId] = useState(null);
+  const [sourceQuoteNumber, setSourceQuoteNumber] = useState('');
 
   // Product Category & Search in Configurator
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [productSearch, setProductSearch] = useState('');
+  const [favoriteProductIds, setFavoriteProductIds] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('gigaprint-pos-favorites-v1') || '[]'); } catch { return []; }
+  });
+  const [recentProductIds, setRecentProductIds] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('gigaprint-pos-recents-v1') || '[]'); } catch { return []; }
+  });
 
   // Cart & Line Items
   const [cartItems, setCartItems] = useState([]);
@@ -232,12 +248,14 @@ export function POSPage({ initialTab = 'cashier' }) {
   // Load and Subscribe
   useEffect(() => {
     fetchRemotePOSStore().then((remote) => setStore(remote));
-    const unsubscribeSync = onSyncStatusChange((st) => setSyncStatus(st));
+    const unsubscribeSync = onSyncStatusChange((st) => { setSyncStatus(st); setSyncHealth(getSyncHealth()); });
+    const syncHealthTimer = window.setInterval(() => setSyncHealth(getSyncHealth()), 5000);
     const unsubscribeRealtime = subscribePOSRealtime((remote) => setStore(remote));
 
     return () => {
       unsubscribeSync();
       unsubscribeRealtime();
+      window.clearInterval(syncHealthTimer);
     };
   }, []);
 
@@ -247,6 +265,7 @@ export function POSPage({ initialTab = 'cashier' }) {
       if (!rawDraft) return;
       const draft = JSON.parse(rawDraft);
       setSourceQuoteRequestId(draft.quoteRequestId || null);
+      setSourceQuoteNumber(draft.quoteNumber || '');
       setCustomerName(draft.customerName || '');
       setCustomerPhone(draft.customerPhone || '');
       setJobName(draft.jobName || '');
@@ -280,6 +299,20 @@ export function POSPage({ initialTab = 'cashier' }) {
     return null;
   }, [store.customers, customerId, customerIdentification, customerName]);
 
+  const activeCustomerQuery = activeCustomerField === 'identification'
+    ? customerIdentification
+    : activeCustomerField === 'phone'
+      ? customerPhone
+      : customerName;
+  const customerSuggestions = useMemo(
+    () => activeCustomerField ? searchPOSCustomers(store.customers || [], activeCustomerQuery) : [],
+    [store.customers, activeCustomerField, activeCustomerQuery],
+  );
+  const installationMapEmbedUrl = useMemo(
+    () => getGoogleMapsEmbedUrl(installationMapsUrl, installationAddress),
+    [installationMapsUrl, installationAddress],
+  );
+
   const customerDebt = useMemo(() => {
     if (!customerName && !customerId) return 0;
     return (store.orders || [])
@@ -298,18 +331,11 @@ export function POSPage({ initialTab = 'cashier' }) {
 
   // Filtered Orders for the "Cartera & Pedidos" Tab
   const filteredOrdersList = useMemo(() => {
-    const q = orderSearchTerm.toLowerCase().trim();
-    return (store.orders || []).filter((o) => {
-      const matchSearch =
-        o.orderNumber.includes(q) ||
-        (o.customerName && o.customerName.toLowerCase().includes(q)) ||
-        (o.jobName && o.jobName.toLowerCase().includes(q)) ||
-        (o.customerIdentification && o.customerIdentification.includes(q));
-
+    return searchPOSOrders(store.orders || [], orderSearchTerm).filter((o) => {
       const matchPay = orderPaymentFilter === 'all' || o.paymentStatus === orderPaymentFilter;
       const matchStage = orderStageFilter === 'all' || o.productionStage === orderStageFilter;
 
-      return matchSearch && matchPay && matchStage;
+      return matchPay && matchStage;
     });
   }, [store.orders, orderSearchTerm, orderPaymentFilter, orderStageFilter]);
 
@@ -324,13 +350,7 @@ export function POSPage({ initialTab = 'cashier' }) {
 
   // Filtered products for dropdown
   const filteredProductOptions = useMemo(() => {
-    const q = productSearch.toLowerCase().trim();
-    return (store.products || []).filter((p) => {
-      if (p.isActive === false) return false;
-      const matchCat = selectedCategory === 'all' || p.category === selectedCategory;
-      const matchSearch = !q || p.name.toLowerCase().includes(q) || (p.category && p.category.toLowerCase().includes(q));
-      return matchCat && matchSearch;
-    });
+    return searchPOSProducts(store.products || [], productSearch, selectedCategory);
   }, [store.products, selectedCategory, productSearch]);
 
   // Selected Product Reference
@@ -341,6 +361,29 @@ export function POSPage({ initialTab = 'cashier' }) {
     }
     return filteredProductOptions[0] || (store.products || [])[0] || null;
   }, [store.products, selectedProductId, filteredProductOptions]);
+
+  const quickProducts = useMemo(() => {
+    const byId = new Map((store.products || []).map((product) => [product.id, product]));
+    const ids = [...favoriteProductIds, ...recentProductIds].filter((id, index, all) => all.indexOf(id) === index);
+    return ids.map((id) => byId.get(id)).filter((product) => product && product.isActive !== false).slice(0, 10);
+  }, [store.products, favoriteProductIds, recentProductIds]);
+
+  const selectQuickProduct = (product) => {
+    setSelectedProductId(product.id);
+    setRecentProductIds((current) => {
+      const next = [product.id, ...current.filter((id) => id !== product.id)].slice(0, 8);
+      localStorage.setItem('gigaprint-pos-recents-v1', JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const toggleFavoriteProduct = (productId) => {
+    setFavoriteProductIds((current) => {
+      const next = current.includes(productId) ? current.filter((id) => id !== productId) : [productId, ...current].slice(0, 8);
+      localStorage.setItem('gigaprint-pos-favorites-v1', JSON.stringify(next));
+      return next;
+    });
+  };
 
   // Calculation of Single Line Item
   const computedItem = useMemo(() => {
@@ -456,6 +499,34 @@ export function POSPage({ initialTab = 'cashier' }) {
     setCustomerIdentification(cust.identification || '');
     setCustomerPhone(cust.phone || '');
     setCustomerId(cust.id);
+    if (!installationAddress && cust.address) setInstallationAddress(cust.address);
+    setActiveCustomerField(null);
+    setCustomerSuggestionIndex(0);
+  };
+
+  const handleCustomerFieldChange = (field, value) => {
+    if (field === 'name') setCustomerName(value);
+    if (field === 'identification') setCustomerIdentification(value);
+    if (field === 'phone') setCustomerPhone(value);
+    if (customerId) setCustomerId(null);
+    setActiveCustomerField(field);
+    setCustomerSuggestionIndex(0);
+  };
+
+  const handleCustomerSearchKeyDown = (event) => {
+    if (!customerSuggestions.length) return;
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setCustomerSuggestionIndex((index) => (index + 1) % customerSuggestions.length);
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setCustomerSuggestionIndex((index) => (index - 1 + customerSuggestions.length) % customerSuggestions.length);
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      handleSelectCustomerSuggestion(customerSuggestions[customerSuggestionIndex].customer);
+    } else if (event.key === 'Escape') {
+      setActiveCustomerField(null);
+    }
   };
 
   // Broadcast active cart state to secondary customer display in real time
@@ -504,7 +575,9 @@ export function POSPage({ initialTab = 'cashier' }) {
         applyIVA,
         shippingCost,
         discountPercent,
-        notes
+        notes,
+        installationAddress,
+        installationMapsUrl,
       },
       totalAmount,
       notes: notes || 'Venta pausada'
@@ -531,6 +604,8 @@ export function POSPage({ initialTab = 'cashier' }) {
     setShippingCost(data.shippingCost || 0);
     setDiscountPercent(data.discountPercent || 0);
     setNotes(data.notes || '');
+    setInstallationAddress(data.installationAddress || '');
+    setInstallationMapsUrl(data.installationMapsUrl || '');
 
     const res = deleteParkedSale(store, parked.id);
     if (res.ok) {
@@ -546,6 +621,7 @@ export function POSPage({ initialTab = 'cashier' }) {
     setCustomerIdentification('');
     setCustomerPhone('');
     setCustomerId(null);
+    setActiveCustomerField(null);
     setJobName('');
     setDeliveryDate(toISODate());
     setApplyIVA(false);
@@ -554,6 +630,11 @@ export function POSPage({ initialTab = 'cashier' }) {
     setDiscountReason('');
     setNotes('');
     setSourceQuoteRequestId(null);
+    setSourceQuoteNumber('');
+    setRequiresInstallation(false);
+    setInstallationAddress('');
+    setInstallationMapsUrl('');
+    setFieldMeasurementsNotes('');
     setArtUrl('');
     setAssignedArea('impresion');
     setInvolvedAreas(['impresion']);
@@ -588,8 +669,20 @@ export function POSPage({ initialTab = 'cashier' }) {
       toast.warning('Selecciona al menos un área de producción.');
       return;
     }
+    if (requiresInstallation && !installationAddress.trim()) {
+      toast.warning('Indica la dirección de la instalación para generar la ruta y la orden de trabajo.');
+      return;
+    }
+    if (requiresInstallation && installationMapsUrl && !isGoogleMapsUrl(installationMapsUrl)) {
+      toast.warning('El enlace de instalación debe ser un enlace HTTPS válido de Google Maps.');
+      return;
+    }
     if (Number(discountPercent) > 0 && !discountReason.trim()) {
       toast.warning('Indica el motivo del descuento para mantener la auditoría de caja.');
+      return;
+    }
+    if (Number(discountPercent) > roleCapabilities.maxDiscountPercent) {
+      toast.warning(`Tu rol puede aplicar hasta ${roleCapabilities.maxDiscountPercent}% de descuento. Solicita aprobación de un encargado.`);
       return;
     }
     if (payments.some((payment) => Number(payment.amount) < 0 || (payment.method !== 'cash' && Number(payment.amount) > totalAmount))) {
@@ -612,6 +705,7 @@ export function POSPage({ initialTab = 'cashier' }) {
       involvedAreas,
       requiresInstallation: Boolean(requiresInstallation),
       installationAddress: installationAddress.trim(),
+      installationMapsUrl: installationMapsUrl.trim(),
       installationDate: installationDate || deliveryDate,
       fieldMeasurementsNotes: fieldMeasurementsNotes.trim(),
       pickupLocation,
@@ -633,6 +727,7 @@ export function POSPage({ initialTab = 'cashier' }) {
       balanceDue,
       notes,
       sourceQuoteRequestId,
+      sourceQuoteNumber,
       items: cartItems,
       payments
     };
@@ -853,9 +948,9 @@ export function POSPage({ initialTab = 'cashier' }) {
               <span className="pos-advisor-pill">
                 <Users size={12} /> {session.name} ({session.role})
               </span>
-              <div className={`pos-sync-pill ${syncStatus}`}>
+              <div className={`pos-sync-pill ${syncStatus}`} title={syncHealth.pending ? `${syncHealth.pending} cambios pendientes de sincronizar` : 'Sin cambios pendientes'}>
                 <span className="pos-pulse-dot" />
-                <span>{syncStatus === 'synced' ? 'Nube Sincronizada' : (syncStatus === 'syncing' ? 'Sincronizando...' : 'Modo Local')}</span>
+                <span>{syncStatus === 'synced' && !syncHealth.pending ? 'Nube Sincronizada' : (syncStatus === 'syncing' ? 'Sincronizando...' : syncHealth.pending ? `Pendiente (${syncHealth.pending})` : 'Modo Local')}</span>
               </div>
             </div>
           </div>
@@ -1011,6 +1106,14 @@ export function POSPage({ initialTab = 'cashier' }) {
             </div>
           )}
 
+          {sourceQuoteNumber && (
+            <div className="pos-quote-context-banner">
+              <FileCheck size={17} />
+              <span>Trabajando desde la cotización <strong>{sourceQuoteNumber}</strong>. Al confirmar, se convertirá automáticamente en una orden trazable.</span>
+              <button type="button" onClick={() => { setSourceQuoteRequestId(null); setSourceQuoteNumber(''); }}>Quitar vínculo</button>
+            </div>
+          )}
+
           <div className="pos-cashier-grid">
             {/* ----------------- LEFT COLUMN: Customer & Product Configurator ----------------- */}
             <div style={{ display: 'grid', gap: '16px' }}>
@@ -1060,29 +1163,13 @@ export function POSPage({ initialTab = 'cashier' }) {
                         type="text"
                         className="pos-input pos-input-with-icon"
                         value={customerName}
-                        onChange={(e) => setCustomerName(e.target.value)}
+                        onChange={(e) => handleCustomerFieldChange('name', e.target.value)}
+                        onFocus={() => setActiveCustomerField('name')}
+                        onKeyDown={handleCustomerSearchKeyDown}
                         placeholder="Escribe para buscar cliente o nuevo..."
+                        autoComplete="off"
                       />
                     </div>
-                    {/* Quick CRM Auto-suggestions */}
-                    {customerName.length > 1 && !customerId && (
-                      <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginTop: '6px' }}>
-                        {(store.customers || [])
-                          .filter((c) => c.name.toLowerCase().includes(customerName.toLowerCase()) || (c.identification && c.identification.includes(customerName)))
-                          .slice(0, 4)
-                          .map((c) => (
-                            <button
-                              key={c.id}
-                              type="button"
-                              onClick={() => handleSelectCustomerSuggestion(c)}
-                              className="pos-cat-pill"
-                              style={{ padding: '3px 8px', fontSize: '11px', background: '#fff' }}
-                            >
-                              + {c.name} {c.isVip ? '⭐' : ''}
-                            </button>
-                          ))}
-                      </div>
-                    )}
                   </div>
 
                   <div>
@@ -1093,8 +1180,11 @@ export function POSPage({ initialTab = 'cashier' }) {
                         type="text"
                         className="pos-input pos-input-with-icon"
                         value={customerIdentification}
-                        onChange={(e) => setCustomerIdentification(e.target.value)}
+                        onChange={(e) => handleCustomerFieldChange('identification', e.target.value)}
+                        onFocus={() => setActiveCustomerField('identification')}
+                        onKeyDown={handleCustomerSearchKeyDown}
                         placeholder="1790012345001"
+                        autoComplete="off"
                       />
                     </div>
                   </div>
@@ -1109,8 +1199,11 @@ export function POSPage({ initialTab = 'cashier' }) {
                         type="text"
                         className="pos-input pos-input-with-icon"
                         value={customerPhone}
-                        onChange={(e) => setCustomerPhone(e.target.value)}
+                        onChange={(e) => handleCustomerFieldChange('phone', e.target.value)}
+                        onFocus={() => setActiveCustomerField('phone')}
+                        onKeyDown={handleCustomerSearchKeyDown}
                         placeholder="0991234567"
+                        autoComplete="off"
                       />
                     </div>
                   </div>
@@ -1127,6 +1220,37 @@ export function POSPage({ initialTab = 'cashier' }) {
                     </div>
                   </div>
                 </div>
+
+                {activeCustomerField && customerSuggestions.length > 0 && (
+                  <div className="pos-customer-suggestions" role="listbox" aria-label="Clientes coincidentes">
+                    <div className="pos-customer-suggestions-heading">
+                      <Search size={14} /> Coincidencias del CRM · usa ↑ ↓ y Enter
+                    </div>
+                    {customerSuggestions.map(({ customer, matchField }, index) => (
+                      <button
+                        key={customer.id}
+                        type="button"
+                        role="option"
+                        aria-selected={index === customerSuggestionIndex}
+                        className={index === customerSuggestionIndex ? 'active' : ''}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onMouseEnter={() => setCustomerSuggestionIndex(index)}
+                        onClick={() => handleSelectCustomerSuggestion(customer)}
+                      >
+                        <span className="pos-customer-avatar">{String(customer.name || 'C').slice(0, 2).toUpperCase()}</span>
+                        <span className="pos-customer-suggestion-main">
+                          <strong>{customer.name} {customer.isVip ? '⭐' : ''}</strong>
+                          <small>{customer.identification || 'Sin identificación'} · {customer.phone || 'Sin teléfono'}</small>
+                        </span>
+                        <span className="pos-customer-match">Coincide: {matchField}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {activeCustomerField && activeCustomerQuery && customerSuggestions.length === 0 && (activeCustomerQuery.length >= 2) && (
+                  <div className="pos-new-customer-hint">Cliente nuevo: se creará y vinculará al CRM al confirmar la venta.</div>
+                )}
 
                 <div style={{ marginTop: '10px' }}>
                   <label className="pos-label">Descripción del Trabajo / Proyecto</label>
@@ -1205,7 +1329,8 @@ export function POSPage({ initialTab = 'cashier' }) {
                   </div>
 
                   {requiresInstallation && (
-                    <div className="pos-responsive-fields" style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '10px' }}>
+                    <div className="pos-installation-fields">
+                      <div className="pos-responsive-fields" style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '10px' }}>
                       <div>
                         <label className="pos-label" style={{ fontSize: '11px' }}>Dirección de Instalación</label>
                         <input
@@ -1227,6 +1352,27 @@ export function POSPage({ initialTab = 'cashier' }) {
                           style={{ fontSize: '11.5px', padding: '6px 8px' }}
                         />
                       </div>
+                      </div>
+                      <div>
+                        <label className="pos-label" style={{ fontSize: '11px' }}>Enlace de Google Maps</label>
+                        <div className="pos-input-group">
+                          <div className="pos-input-icon-left"><MapPin size={14} /></div>
+                          <input
+                            type="url"
+                            className={`pos-input pos-input-with-icon ${installationMapsUrl && !isGoogleMapsUrl(installationMapsUrl) ? 'pos-input-error' : ''}`}
+                            placeholder="Pega el enlace compartido desde Google Maps"
+                            value={installationMapsUrl}
+                            onChange={(event) => setInstallationMapsUrl(event.target.value.trim())}
+                          />
+                        </div>
+                        {installationMapsUrl && !isGoogleMapsUrl(installationMapsUrl) && <small className="pos-field-error">Usa un enlace HTTPS de Google Maps.</small>}
+                      </div>
+                      {installationMapEmbedUrl && (
+                        <div className="pos-installation-map-preview">
+                          <iframe title="Vista previa de la ubicación de instalación" src={installationMapEmbedUrl} loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
+                          <a href={getGoogleMapsOpenUrl(installationMapsUrl, installationAddress)} target="_blank" rel="noreferrer"><ExternalLink size={13} /> Abrir ubicación</a>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1292,10 +1438,25 @@ export function POSPage({ initialTab = 'cashier' }) {
                   </span>
                 </div>
 
+                {quickProducts.length > 0 && (
+                  <div className="pos-quick-product-strip" aria-label="Productos frecuentes">
+                    <span className="pos-quick-product-label">Frecuentes</span>
+                    {quickProducts.map((product) => (
+                      <span key={product.id} className="pos-quick-product-wrap">
+                        <button type="button" className={`pos-quick-product ${selectedProductId === product.id ? 'active' : ''}`} onClick={() => selectQuickProduct(product)}>
+                          <span>{favoriteProductIds.includes(product.id) ? '★' : '↺'}</span>
+                          {product.name}
+                        </button>
+                        <button type="button" className="pos-quick-product-favorite" onClick={() => toggleFavoriteProduct(product.id)} title="Marcar como favorito">{favoriteProductIds.includes(product.id) ? '★' : '☆'}</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
                 <POSProductQuickMatrix
                   products={store.products || []}
                   selectedProduct={selectedProduct}
-                  onSelectProduct={(p) => setSelectedProductId(p.id)}
+                  onSelectProduct={selectQuickProduct}
                   onAddToCart={(item) => {
                     setCartItems((prev) => [
                       ...prev,

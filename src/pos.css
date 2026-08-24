@@ -600,6 +600,127 @@
   border-bottom: 1px solid var(--pos-border-subtle);
 }
 
+.pos-quick-product-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 0 0 10px;
+  scrollbar-width: thin;
+}
+
+.pos-quick-product-label {
+  flex: 0 0 auto;
+  color: var(--pos-text-muted);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.pos-quick-product-wrap {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: stretch;
+  overflow: hidden;
+  border: 1px solid var(--pos-border);
+  border-radius: 999px;
+  background: var(--pos-bg);
+}
+
+.pos-quick-product {
+  max-width: 180px;
+  overflow: hidden;
+  padding: 7px 9px;
+  border: 0;
+  background: transparent;
+  color: var(--pos-text-main);
+  font-size: 10px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.pos-quick-product span { margin-right: 4px; color: var(--pos-primary); }
+.pos-quick-product.active { background: var(--pos-primary-soft); color: var(--pos-primary-dark); }
+.pos-quick-product-favorite { padding: 0 8px; border: 0; border-left: 1px solid var(--pos-border); background: transparent; color: #f59e0b; cursor: pointer; }
+
+.pos-quote-context-banner {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 13px;
+  border: 1px solid #93c5fd;
+  border-radius: 11px;
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pos-quote-context-banner svg { flex: 0 0 auto; color: #2563eb; }
+.pos-quote-context-banner span { flex: 1; }
+.pos-quote-context-banner button { border: 0; background: transparent; color: #1d4ed8; font-size: 10px; font-weight: 800; cursor: pointer; }
+
+.pos-customer-suggestions {
+  position: relative;
+  z-index: 30;
+  display: grid;
+  max-height: 300px;
+  margin-top: 8px;
+  overflow-y: auto;
+  border: 1px solid var(--pos-border);
+  border-radius: 12px;
+  background: var(--pos-card-bg);
+  box-shadow: 0 18px 42px rgba(15, 23, 42, .16);
+}
+
+.pos-customer-suggestions-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 11px;
+  border-bottom: 1px solid var(--pos-border-subtle);
+  color: var(--pos-text-muted);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.pos-customer-suggestions > button {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 9px 11px;
+  border: 0;
+  border-bottom: 1px solid var(--pos-border-subtle);
+  background: transparent;
+  color: var(--pos-text-main);
+  text-align: left;
+  cursor: pointer;
+}
+
+.pos-customer-suggestions > button:last-child { border-bottom: 0; }
+.pos-customer-suggestions > button:hover,
+.pos-customer-suggestions > button.active { background: var(--pos-primary-soft); }
+.pos-customer-avatar { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 10px; background: var(--pos-primary); color: #fff; font-size: 11px; font-weight: 900; }
+.pos-customer-suggestion-main { display: grid; min-width: 0; gap: 2px; }
+.pos-customer-suggestion-main strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.pos-customer-suggestion-main small { color: var(--pos-text-muted); font-size: 10.5px; }
+.pos-customer-match { padding: 3px 7px; border-radius: 999px; background: var(--pos-bg); color: var(--pos-text-muted); font-size: 9px; font-weight: 800; }
+.pos-new-customer-hint { margin-top: 7px; color: var(--pos-text-muted); font-size: 10.5px; font-weight: 700; }
+
+.pos-installation-fields { display: grid; gap: 10px; }
+.pos-installation-map-preview { position: relative; overflow: hidden; border: 1px solid var(--pos-border); border-radius: 11px; background: var(--pos-bg); }
+.pos-installation-map-preview iframe { display: block; width: 100%; height: 190px; border: 0; }
+.pos-installation-map-preview a { position: absolute; right: 8px; bottom: 8px; display: inline-flex; align-items: center; gap: 5px; padding: 6px 9px; border-radius: 7px; background: rgba(15, 23, 42, .9); color: #fff; font-size: 10px; font-weight: 800; text-decoration: none; }
+.pos-input-error { border-color: #ef4444 !important; }
+.pos-field-error { display: block; margin-top: 4px; color: #dc2626; font-size: 10px; font-weight: 700; }
+
 .pos-card-title {
   margin: 0;
   font-size: 15.5px;

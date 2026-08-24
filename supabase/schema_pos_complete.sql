@@ -690,6 +690,15 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'pos_orders' AND column_name = 'installation_address') THEN
     ALTER TABLE public.pos_orders ADD COLUMN installation_address TEXT;
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'pos_orders' AND column_name = 'installation_maps_url') THEN
+    ALTER TABLE public.pos_orders ADD COLUMN installation_maps_url TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'pos_orders' AND column_name = 'installation_latitude') THEN
+    ALTER TABLE public.pos_orders ADD COLUMN installation_latitude NUMERIC(9, 6);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'pos_orders' AND column_name = 'installation_longitude') THEN
+    ALTER TABLE public.pos_orders ADD COLUMN installation_longitude NUMERIC(9, 6);
+  END IF;
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'pos_orders' AND column_name = 'field_measurements_notes') THEN
     ALTER TABLE public.pos_orders ADD COLUMN field_measurements_notes TEXT;
   END IF;
