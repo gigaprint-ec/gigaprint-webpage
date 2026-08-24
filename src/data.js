@@ -63,7 +63,7 @@ export const themePresets = [
 
 export const initialData = {
   schemaVersion: 4,
-  catalogVersion: 13,
+  catalogVersion: 14,
   settings: {
     brand: 'Gigaprint',
     slogan: 'Tus ideas en grande',

@@ -168,6 +168,28 @@ export const media = {
   ojalesGrandesLona: assetPath('/media/products/ojales-grandes-lona.webp'),
   tripticoCuadrado20x21: assetPath('/media/products/triptico-cuadrado-20x21.webp'),
 
+  // Subagent Fine-Grained Differentiations
+  boligrafosPromocionalesDTF: assetPath('/media/products/boligrafos-promocionales-dtf.webp'),
+  boligrafosSemiejecutivosMetal: assetPath('/media/products/boligrafos-semiejecutivos-metal.webp'),
+  llaverosAcrilico10cm: assetPath('/media/products/llaveros-acrilico-10cm.webp'),
+  llaverosAcrilicoDobleLado: assetPath('/media/products/llaveros-acrilico-doble-lado.webp'),
+  comboCredencial1LadoClip: assetPath('/media/products/combo-credencial-1lado-clip.webp'),
+  comboCredencial2LadosClip: assetPath('/media/products/combo-credencial-2lados-clip.webp'),
+  portacredencialArenadaHorizontal: assetPath('/media/products/portacredencial-arenada-horizontal.webp'),
+  comboCredencial1LadoPortacredencialCordon: assetPath('/media/products/combo-credencial-1lado-portacredencial-cordon.webp'),
+  comboCredencial2LadosPortacredencialCordon: assetPath('/media/products/combo-credencial-2lados-portacredencial-cordon.webp'),
+  portacredencialBrazoEstandar: assetPath('/media/products/portacredencial-brazo-estandar.webp'),
+  comboCredencialBrazoEstandar: assetPath('/media/products/combo-credencial-brazo-estandar.webp'),
+  portacredencialBrazoReflectivoSeguridad: assetPath('/media/products/portacredencial-brazo-reflectivo-seguridad.webp'),
+  comboCredencialBrazoReflectivo: assetPath('/media/products/combo-credencial-brazo-reflectivo.webp'),
+  volantesA5CoucheSoloTiro: assetPath('/media/products/volantes-a5-couche-solo-tiro.webp'),
+  tarjetasCoucheUVSoloTiro: assetPath('/media/products/tarjetas-couche-uv-solo-tiro.webp'),
+  almohadasBlancoRelleno: assetPath('/media/products/almohadas-blanco-relleno.webp'),
+  tomatodoAluminio500ml: assetPath('/media/products/tomatodo-aluminio-500ml.webp'),
+  rotulosFachadaComercial: assetPath('/media/products/rotulos-fachada-comercial.webp'),
+  letreroAcrilicoStandoff: assetPath('/media/products/letrero-acrilico-standoff.webp'),
+  tuboCortinaDoradoMedia: assetPath('/media/products/tubo-cortina-dorado-media.webp'),
+
   // Non-Product / Workshop / Machinery & Services Showcase
   galaxyPrinter: assetPath('/images/gigaprint/galaxy_printer.png'),
   granFormatoTaller: assetPath('/images/gigaprint/impresion_gran_formato.png'),

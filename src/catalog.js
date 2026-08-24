@@ -27,23 +27,28 @@ export function imageFor(category = '', text = '') {
   // 1. Souvenirs, Jarros & Regalos
   if (haystack.includes('color interior') || haystack.includes('asa de color')) return media.jarroColorInterior || media.taza;
   if (haystack.includes('escarchado')) return media.jarroEscarchado || media.jarroMagico;
-  if (haystack.includes('metalizado') || haystack.includes('dorado') || haystack.includes('plateado')) return media.jarroMetalizado || media.taza;
+  if ((haystack.includes('jarro') || haystack.includes('taza')) && (haystack.includes('metalizado') || haystack.includes('dorado') || haystack.includes('plateado'))) return media.jarroMetalizado || media.taza;
   if (haystack.includes('porta taza') || haystack.includes('caja taza')) return media.portaTazaCaja || media.taza;
   if (haystack.includes('magico') || haystack.includes('mágico')) return media.jarroMagico || media.taza;
   if (haystack.includes('cervecero') || haystack.includes('chopp')) return media.jarroCervecero || media.taza;
   if (haystack.includes('mason')) return media.jarroMason || media.taza;
   if (haystack.includes('taz') || haystack.includes('jarro') || haystack.includes('plato')) return media.taza;
+  if (haystack.includes('almohadas blanco') || (haystack.includes('almohada') && haystack.includes('blanco'))) return media.almohadasBlancoRelleno || media.almohada;
   if (haystack.includes('almohada') || haystack.includes('cojin') || haystack.includes('cojín')) return media.almohada;
-  if (haystack.includes('500 ml') || (haystack.includes('tomatodo') && haystack.includes('aluminio'))) return media.tomatodoBlancoSublimado || media.tomatodo;
+  if (haystack.includes('500 ml') || (haystack.includes('tomatodo') && haystack.includes('aluminio') && haystack.includes('sublimac'))) return media.tomatodoAluminio500ml || media.tomatodoBlancoSublimado;
+  if (haystack.includes('tomatodo') && haystack.includes('aluminio')) return media.tomatodoBlancoSublimado || media.tomatodo;
   if (haystack.includes('tomatodo') && (haystack.includes('plast') || haystack.includes('dtf'))) return media.tomatodoPlastico || media.tomatodo;
   if (haystack.includes('tomatodo') || haystack.includes('termo') || haystack.includes('botella')) return media.tomatodo;
-  if (haystack.includes('10 cm') || haystack.includes('predeterminada') || haystack.includes('silueta')) return media.llaverosSilueta || media.llaveros;
+  if (haystack.includes('10 cm') || (haystack.includes('llavero') && haystack.includes('un lado'))) return media.llaverosAcrilico10cm || media.llaverosSilueta;
+  if (haystack.includes('predeterminada') || (haystack.includes('llavero') && (haystack.includes('ambos lados') || haystack.includes('2 lados')))) return media.llaverosAcrilicoDobleLado || media.llaverosSilueta;
   if (haystack.includes('llavero')) return media.llaveros;
   if (haystack.includes('pin') || haystack.includes('pines') || haystack.includes('boton') || haystack.includes('botón')) return media.pinesMetalicos || media.souvenirsPack;
   if (haystack.includes('sello') && (haystack.includes('grande') || haystack.includes('ruc') || haystack.includes('firma'))) return media.selloAutomaticoGrandeRUC || media.sellosTrodat;
   if (haystack.includes('sello') || haystack.includes('fechador') || haystack.includes('trodat')) return media.sellosTrodat || media.sellosStickers;
   if (haystack.includes('lapiz') || haystack.includes('lápiz') || haystack.includes('ecologico') || haystack.includes('ecológico')) return media.lapicesEcologicos || media.souvenirsPack;
-  if (haystack.includes('boligrafo') || haystack.includes('bolígrafo') || haystack.includes('esfero') || haystack.includes('semiejecutivo')) return media.boligrafosEjecutivos || media.souvenirsPack;
+  if (haystack.includes('semiejecutivo') || (haystack.includes('boligrafo') && haystack.includes('metal'))) return media.boligrafosSemiejecutivosMetal || media.boligrafosEjecutivos;
+  if (haystack.includes('promocional') || (haystack.includes('boligrafo') && haystack.includes('dtf'))) return media.boligrafosPromocionalesDTF || media.boligrafosEjecutivos;
+  if (haystack.includes('boligrafo') || haystack.includes('bolígrafo') || haystack.includes('esfero')) return media.boligrafosEjecutivos || media.souvenirsPack;
   if (haystack.includes('cuaderno') || haystack.includes('agenda') || haystack.includes('pasta dura')) return media.cuadernoPastaDura || media.folletosPack;
 
   // 2. Textil, Gorras & Confección
@@ -63,12 +68,19 @@ export function imageFor(category = '', text = '') {
   if (haystack.includes('sublimacion') && haystack.includes('a3')) return media.sublimacionTextilA3Full || media.camisetasSublimadasTextil;
   if (haystack.includes('sublimacion') && haystack.includes('a4')) return media.sublimacionTextilA4Pecho || media.camisetasSublimadasTextil;
   if (haystack.includes('sublimacion') || haystack.includes('sublimación')) return media.camisetasSublimadasTextil || media.camiseta;
-  if (haystack.includes('camiseta')) return media.camiseta;
+  if (!haystack.includes('funda') && !haystack.includes('bolsa') && haystack.includes('camiseta')) return media.camiseta;
 
   // 3. Credenciales PVC & Accesorios de Identificación
-  if (haystack.includes('brazo') && haystack.includes('reflectivo')) return media.portacredencialBrazoNeon || media.portacredencialBrazoSeguridad;
-  if (haystack.includes('brazo')) return media.portacredencialBrazoSeguridad || media.portacredencialBrazo;
+  if (haystack.includes('combo') && haystack.includes('brazo') && haystack.includes('reflectivo')) return media.comboCredencialBrazoReflectivo || media.portacredencialBrazoNeon;
+  if (haystack.includes('combo') && haystack.includes('brazo')) return media.comboCredencialBrazoEstandar || media.portacredencialBrazo;
+  if (haystack.includes('portacredencial') && haystack.includes('brazo') && haystack.includes('reflectivo')) return media.portacredencialBrazoReflectivoSeguridad || media.portacredencialBrazoNeon;
+  if (haystack.includes('portacredencial') && haystack.includes('brazo')) return media.portacredencialBrazoEstandar || media.portacredencialBrazo;
+  if (haystack.includes('horizontal') && (haystack.includes('arenada') || haystack.includes('portacredencial'))) return media.portacredencialArenadaHorizontal || media.portacredencialArenadaRigida;
   if (haystack.includes('vertical') && haystack.includes('clip')) return media.portacredencialVerticalClip || media.portacredencialArenadaRigida;
+  if (haystack.includes('combo') && (haystack.includes('dos lados') || haystack.includes('2 lados')) && haystack.includes('clip')) return media.comboCredencial2LadosClip || media.comboCredencialEstucheClip;
+  if (haystack.includes('combo') && (haystack.includes('un lado') || haystack.includes('1 lado')) && haystack.includes('clip')) return media.comboCredencial1LadoClip || media.comboCredencialEstucheClip;
+  if (haystack.includes('combo') && (haystack.includes('dos lados') || haystack.includes('2 lados')) && haystack.includes('portacredencial') && haystack.includes('cordon')) return media.comboCredencial2LadosPortacredencialCordon || media.comboCredencialEstucheCordon;
+  if (haystack.includes('combo') && (haystack.includes('un lado') || haystack.includes('1 lado')) && haystack.includes('portacredencial') && haystack.includes('cordon')) return media.comboCredencial1LadoPortacredencialCordon || media.comboCredencialEstucheCordon;
   if (haystack.includes('portacredencial') && haystack.includes('clip')) return media.comboCredencialEstucheClip || media.portacredencialArenadaRigida;
   if (haystack.includes('portacredencial') && (haystack.includes('cordon') || haystack.includes('cordón'))) return media.comboCredencialEstucheCordon || media.portacredencialArenadaRigida;
   if (haystack.includes('arenada') || haystack.includes('portacredencial')) return media.portacredencialArenadaRigida || media.portacredencialAcrilica;
@@ -82,10 +94,12 @@ export function imageFor(category = '', text = '') {
   if (haystack.includes('credencial') || haystack.includes('carnet')) return media.credencialesLanyard;
 
   // 4. Imprenta Comercial & Papelería
+  if (haystack.includes('tarjeta') && (haystack.includes('uv') || haystack.includes('selectivo') || haystack.includes('sectorizado')) && haystack.includes('solo tiro')) return media.tarjetasCoucheUVSoloTiro || media.tarjetasUVSectorizado;
   if (haystack.includes('tarjeta') && (haystack.includes('uv') || haystack.includes('selectivo') || haystack.includes('sectorizado'))) return media.tarjetasUVSectorizado || media.tarjetas;
   if (haystack.includes('tarjeta') && haystack.includes('brillante')) return media.tarjetasCoucheBrillante || media.tarjetas;
   if (haystack.includes('tarjeta') && haystack.includes('mate')) return media.tarjetasCoucheMate || media.tarjetas;
   if (haystack.includes('tarjeta') || haystack.includes('presentacion') || haystack.includes('presentación')) return media.tarjetas;
+  if (haystack.includes('volante') && haystack.includes('a5') && haystack.includes('solo tiro')) return media.volantesA5CoucheSoloTiro || media.volantesA5DobleCara;
   if (haystack.includes('a5') && (haystack.includes('tiro y retiro') || haystack.includes('dos lados') || haystack.includes('2 lados'))) return media.volantesA5DobleCara || media.flyers;
   if (haystack.includes('a6') && (haystack.includes('tiro y retiro') || haystack.includes('dos lados') || haystack.includes('2 lados'))) return media.volantesA6DobleCara || media.volantesA6Compactos;
   if (haystack.includes('a6')) return media.volantesA6Compactos || media.flyers;
@@ -110,10 +124,10 @@ export function imageFor(category = '', text = '') {
   if (haystack.includes('3 propuestas')) return media.disenoLogotipo3Propuestas || media.disenoLogotipoBranding;
   if (haystack.includes('logotipo') || haystack.includes('ilustrator')) return media.disenoLogotipoBranding || media.folletosPack;
   if (haystack.includes('pequeño') || haystack.includes('pequeno')) return media.ojalesPequenosLona || media.ojalesAccesoriosMontaje;
-  if (haystack.includes('grande')) return media.ojalesGrandesLona || media.ojalesAccesoriosMontaje;
+  if (haystack.includes('grande') && haystack.includes('ojal')) return media.ojalesGrandesLona || media.ojalesAccesoriosMontaje;
   if (haystack.includes('ojal') || haystack.includes('ojales')) return media.ojalesAccesoriosMontaje || media.stickers;
   if (haystack.includes('tubo de hierro') || (haystack.includes('tubo') && haystack.includes('hierro'))) return media.tuboHierroGuindola || media.tubosGuindolaDorados;
-  if (haystack.includes('media x') || (haystack.includes('tubo') && haystack.includes('media'))) return media.tuboDoradoMediaPulgada || media.tubosGuindolaDorados;
+  if (haystack.includes('media x') || (haystack.includes('tubo') && haystack.includes('media'))) return media.tuboCortinaDoradoMedia || media.tuboDoradoMediaPulgada;
   if (haystack.includes('3/4') || (haystack.includes('tubo') && haystack.includes('3/4'))) return media.tuboDoradoTresCuartos || media.tubosGuindolaDorados;
   if (haystack.includes('1 pulg') || (haystack.includes('tubo') && haystack.includes('1 pulg'))) return media.tuboDoradoUnaPulgada || media.tubosGuindolaDorados;
   if (haystack.includes('tubo') && (haystack.includes('dorado') || haystack.includes('cortina') || haystack.includes('guindola'))) return media.tubosGuindolaDorados || media.tubosDoradosGuindola;
@@ -121,7 +135,7 @@ export function imageFor(category = '', text = '') {
 
   // 6. Fundas, Bolsos & Empaques
   if (haystack.includes('radiografia') || haystack.includes('radiografía') || haystack.includes('alta densidad')) return media.fundasRadiografiaMedica || media.fundasRadiografiaAlta;
-  if (haystack.includes('pastillera')) return media.fundasPastilleraMini || media.fundasPastilleraFarmacia;
+  if (haystack.includes('pastillera')) return media.fundasPastilleraMiniExtra || media.fundasPastilleraMini;
   if (haystack.includes('mega jumbo')) return media.fundasMegaJumboMayorista || media.fundasCamisetaMegaJumbo;
   if (haystack.includes('jumbo')) return media.fundasJumboBlanca || media.fundasCamisetaJumbo;
   if (haystack.includes('t3 - 30') || haystack.includes('t3-30') || (haystack.includes('t3') && haystack.includes('30'))) return media.fundasCamisetaT3_30 || media.fundasCamisetaT3;
@@ -152,11 +166,13 @@ export function imageFor(category = '', text = '') {
   if (haystack.includes('stand')) return media.stand || media.bannerX;
   if (haystack.includes('corporeo') || haystack.includes('corpóreo') || haystack.includes('3d') || haystack.includes('relieve')) return media.letras3D;
   if (haystack.includes('lightbox') || haystack.includes('caja de luz')) return media.lightboxAluminioLED || media.cajasLuzPack;
+  if (haystack.includes('laser-acrilico') || (haystack.includes('laser') && haystack.includes('acril'))) return media.letreroAcrilicoStandoff || media.letreroAcrilicoLaser;
   if ((haystack.includes('letrero') || haystack.includes('rotulo') || haystack.includes('placa')) && haystack.includes('acril')) return media.letreroAcrilicoLaser || media.placaVidrio;
   if (haystack.includes('placa') || haystack.includes('vidrio') || haystack.includes('acril') || haystack.includes('laser')) return media.placaVidrio || media.laser;
   if (haystack.includes('neon') || haystack.includes('neón')) return media.neon;
   if (haystack.includes('totem') || haystack.includes('tótem') || haystack.includes('parado')) return media.luminosoTotem;
   if (haystack.includes('luminoso')) return media.luminoso;
+  if (haystack.includes('rotulos publicitarios') || (haystack.includes('rotulo') && haystack.includes('publicit'))) return media.rotulosFachadaComercial || media.cajasLuzPack;
   if (haystack.includes('rotulo') || haystack.includes('rótulo') || haystack.includes('letrero') || haystack.includes('fachada')) return media.cajasLuzPack || media.letrero;
   if (haystack.includes('lona') || haystack.includes('panaflex') || haystack.includes('banner')) return media.lona;
   if (haystack.includes('sticker') || haystack.includes('etiqueta') || haystack.includes('troquel')) return media.stickers;
