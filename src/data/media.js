@@ -212,6 +212,28 @@ export const media = {
   dtfTextilTallasEspecialesXXL: assetPath('/media/products/dtf-textil-tallas-especiales-xxl.webp'),
   sublimacionTextilTallasEspeciales: assetPath('/media/products/sublimacion-textil-tallas-especiales.webp'),
 
+  // Scale, Tier & Batch Specific Assets
+  campanaLonasVolumen50m2: assetPath('/media/products/campana-lonas-volumen-pequeno-50m2.webp'),
+  campanaLonasVolumen200m2: assetPath('/media/products/campana-lonas-volumen-medio-200m2.webp'),
+  campanaLonasVolumen1000m2: assetPath('/media/products/campana-lonas-volumen-masivo-1000m2.webp'),
+  campanaCamisetasLote50u: assetPath('/media/products/campana-camisetas-lote-50u.webp'),
+  campanaCamisetasLote100u: assetPath('/media/products/campana-camisetas-lote-100u.webp'),
+  campanaCamisetasLote500u: assetPath('/media/products/campana-camisetas-lote-500u.webp'),
+  campanaCamisetasLote1000u: assetPath('/media/products/campana-camisetas-lote-1000u.webp'),
+  fundasBoutiqueMillar500u: assetPath('/media/products/fundas-boutique-millar-500u.webp'),
+  fundasBoutiqueMillar1000u: assetPath('/media/products/fundas-boutique-millar-1000u.webp'),
+  fundasBoutiqueMillar5000u: assetPath('/media/products/fundas-boutique-millar-5000u.webp'),
+  fundasRadiografia500u: assetPath('/media/products/fundas-radiografia-500u.webp'),
+  fundasRadiografia1000u: assetPath('/media/products/fundas-radiografia-1000u.webp'),
+  dtfTextilA4PechoStandar: assetPath('/media/products/dtf-textil-a4-pecho-standar.webp'),
+  dtfTextilA4TallasEspeciales: assetPath('/media/products/dtf-textil-a4-tallas-especiales.webp'),
+  dtfTextilA4LoteMayorista: assetPath('/media/products/dtf-textil-a4-lote-mayorista.webp'),
+  sublimacionTextilA4Standar: assetPath('/media/products/sublimacion-textil-a4-standar.webp'),
+  sublimacionTextilA4Especiales: assetPath('/media/products/sublimacion-textil-a4-especiales.webp'),
+  sublimacionTextilA4Mayorista: assetPath('/media/products/sublimacion-textil-a4-mayorista.webp'),
+  selloAutomaticoTrodat4911: assetPath('/media/products/sello-automatico-trodat-4911.webp'),
+  selloAutomaticoTrodat4912: assetPath('/media/products/sello-automatico-trodat-4912.webp'),
+
   // Non-Product / Workshop / Machinery & Services Showcase
   galaxyPrinter: assetPath('/images/gigaprint/galaxy_printer.png'),
   granFormatoTaller: assetPath('/images/gigaprint/impresion_gran_formato.png'),

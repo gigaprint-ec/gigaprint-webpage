@@ -49,7 +49,9 @@ export function imageFor(category = '', text = '') {
   if (haystack.includes('llavero')) return media.llaveros;
   if (haystack.includes('pin') || haystack.includes('pines') || haystack.includes('boton') || haystack.includes('botón')) return media.pinesMetalicos || media.souvenirsPack;
   if (haystack.includes('sello') && (haystack.includes('grande') || haystack.includes('ruc') || haystack.includes('firma'))) return media.selloAutomaticoGrandeRUC || media.sellosTrodat;
-  if (haystack.includes('sello') || haystack.includes('fechador') || haystack.includes('trodat')) return media.sellosTrodat || media.sellosStickers;
+  if (haystack.includes('sello') && (haystack.includes('4911') || haystack.includes('38x14') || haystack.includes('compacto'))) return media.selloAutomaticoTrodat4911 || media.sellosTrodat;
+  if (haystack.includes('sello') && (haystack.includes('4912') || haystack.includes('47x18') || haystack.includes('mediano'))) return media.selloAutomaticoTrodat4912 || media.sellosTrodat;
+  if (haystack.includes('sello') || haystack.includes('fechador') || haystack.includes('trodat')) return media.selloAutomaticoTrodat4912 || media.sellosTrodat;
   if (haystack.includes('lapiz') || haystack.includes('lápiz') || haystack.includes('ecologico') || haystack.includes('ecológico')) return media.lapicesEcologicos || media.souvenirsPack;
   if (haystack.includes('semiejecutivo') || (haystack.includes('boligrafo') && haystack.includes('metal'))) return media.boligrafosSemiejecutivosMetal || media.boligrafosEjecutivos;
   if (haystack.includes('promocional') || (haystack.includes('boligrafo') && haystack.includes('dtf'))) return media.boligrafosPromocionalesDTF || media.boligrafosEjecutivos;
@@ -57,6 +59,10 @@ export function imageFor(category = '', text = '') {
   if (haystack.includes('cuaderno') || haystack.includes('agenda') || haystack.includes('pasta dura')) return media.cuadernoPastaDura || media.folletosPack;
 
   // 2. Textil, Gorras & Confección
+  if (haystack.includes('campana camisetas') && (haystack.includes('50.0') || haystack.includes('50 u'))) return media.campanaCamisetasLote50u || media.campanaCamisetasMasivas;
+  if (haystack.includes('campana camisetas') && (haystack.includes('100.0') || haystack.includes('100 u'))) return media.campanaCamisetasLote100u || media.campanaCamisetasMasivas;
+  if (haystack.includes('campana camisetas') && (haystack.includes('500.0') || haystack.includes('500 u'))) return media.campanaCamisetasLote500u || media.campanaCamisetasMasivas;
+  if (haystack.includes('campana camisetas') && (haystack.includes('1000') || haystack.includes('5000') || haystack.includes('10000'))) return media.campanaCamisetasLote1000u || media.campanaCamisetasMasivas;
   if (haystack.includes('kiana')) return media.camisetasTelaKianaSublimada || media.camisetasSublimadasTextil;
   if (haystack.includes('jersey')) return media.camisetasTelaJerseyAlgodon || media.camiseta;
   if (haystack.includes('campana camisetas')) return media.campanaCamisetasMasivas || media.camiseta;
@@ -73,12 +79,16 @@ export function imageFor(category = '', text = '') {
   if (haystack.includes('gorra ecuador') || haystack.includes('patria')) return media.gorraPatria || media.gorraEcuador || media.gorra;
   if (haystack.includes('gorra') || haystack.includes('vicera') || haystack.includes('visera')) return media.gorraPatria || media.gorra;
   if (haystack.includes('dtf') && (haystack.includes('xxl') || haystack.includes('xxxl'))) return media.dtfTextilTallasEspecialesXXL || media.dtfTextilA3Fullcolor;
+  if (haystack.includes('dtf') && (haystack.includes('25') || haystack.includes('mayorista'))) return media.dtfTextilA4LoteMayorista || media.dtfTextilA4Pecho;
   if (haystack.includes('dtf') && haystack.includes('a3')) return media.dtfTextilA3Fullcolor || media.camisetasDTFEstampado;
-  if (haystack.includes('dtf') && haystack.includes('a4')) return media.dtfTextilA4Pecho || media.camisetasDTFEstampado;
+  if (haystack.includes('dtf') && haystack.includes('a4') && (haystack.includes('xxl') || haystack.includes('xxxl'))) return media.dtfTextilA4TallasEspeciales || media.dtfTextilA4Pecho;
+  if (haystack.includes('dtf') && haystack.includes('a4')) return media.dtfTextilA4PechoStandar || media.dtfTextilA4Pecho;
   if (haystack.includes('dtf')) return media.camisetasDTFEstampado || media.camiseta;
   if (haystack.includes('sublimacion') && (haystack.includes('xxl') || haystack.includes('xxxl'))) return media.sublimacionTextilTallasEspeciales || media.sublimacionTextilA3Full;
+  if (haystack.includes('sublimacion') && (haystack.includes('25') || haystack.includes('mayorista'))) return media.sublimacionTextilA4Mayorista || media.sublimacionTextilA4Pecho;
   if (haystack.includes('sublimacion') && haystack.includes('a3')) return media.sublimacionTextilA3Full || media.camisetasSublimadasTextil;
-  if (haystack.includes('sublimacion') && haystack.includes('a4')) return media.sublimacionTextilA4Pecho || media.camisetasSublimadasTextil;
+  if (haystack.includes('sublimacion') && haystack.includes('a4') && (haystack.includes('xxl') || haystack.includes('xxxl'))) return media.sublimacionTextilA4Especiales || media.sublimacionTextilA4Pecho;
+  if (haystack.includes('sublimacion') && haystack.includes('a4')) return media.sublimacionTextilA4Standar || media.sublimacionTextilA4Pecho;
   if (haystack.includes('sublimacion') || haystack.includes('sublimación')) return media.camisetasSublimadasTextil || media.camiseta;
   if (!haystack.includes('funda') && !haystack.includes('bolsa') && haystack.includes('camiseta')) return media.camiseta;
 
@@ -146,6 +156,8 @@ export function imageFor(category = '', text = '') {
   if (haystack.includes('tubo') || haystack.includes('guindola')) return media.tubosDoradosGuindola || media.bannerX;
 
   // 6. Fundas, Bolsos & Empaques
+  if (haystack.includes('radiografia') && (haystack.includes('5000') || haystack.includes('4000') || haystack.includes('3000') || haystack.includes('2000') || haystack.includes('1000'))) return media.fundasRadiografia1000u || media.fundasRadiografia2TintasClinica;
+  if (haystack.includes('radiografia') && haystack.includes('500')) return media.fundasRadiografia500u || media.fundasRadiografia1TintaMedica;
   if (haystack.includes('radiografia') && (haystack.includes('2 color') || haystack.includes('dos color'))) return media.fundasRadiografia2TintasClinica || media.fundasRadiografiaMedica;
   if (haystack.includes('radiografia') || haystack.includes('radiografía') || haystack.includes('alta densidad')) return media.fundasRadiografia1TintaMedica || media.fundasRadiografiaAlta;
   if (haystack.includes('pastillera')) return media.fundasPastilleraMiniExtra || media.fundasPastilleraMini;
@@ -158,6 +170,9 @@ export function imageFor(category = '', text = '') {
   if (haystack.includes('t8 - 58') || haystack.includes('t8-58') || (haystack.includes('t8') && haystack.includes('58'))) return media.fundasCamisetaT8_58 || media.fundasCamisetaT8;
   if (haystack.includes('t8 - 60') || haystack.includes('t8-60') || (haystack.includes('t8') && haystack.includes('60'))) return media.fundasCamisetaT8_60 || media.fundasCamisetaT8;
   if (haystack.includes('t8')) return media.fundasCamisetaT8_58 || media.fundasCamisetaT8;
+  if (haystack.includes('boutique') && (haystack.includes('5000') || haystack.includes('4000') || haystack.includes('3000'))) return media.fundasBoutiqueMillar5000u || media.fundasBoutique2ColoresTinta;
+  if (haystack.includes('boutique') && (haystack.includes('1000') || haystack.includes('2000'))) return media.fundasBoutiqueMillar1000u || media.fundasBoutique1ColorTinta;
+  if (haystack.includes('boutique') && haystack.includes('500')) return media.fundasBoutiqueMillar500u || media.fundasBoutique1ColorTinta;
   if (haystack.includes('boutique') && (haystack.includes('2 color') || haystack.includes('dos color'))) return media.fundasBoutique2ColoresTinta || media.fundasBoutique;
   if (haystack.includes('boutique') || haystack.includes('manija') || haystack.includes('baja densidad') || haystack.includes('troquelada')) return media.fundasBoutique1ColorTinta || media.fundasBoutique;
   if (haystack.includes('funda') || haystack.includes('bolsa') || (haystack.includes('camiseta') && haystack.includes('funda'))) return media.fundasCamiseta || media.fundasPlasticas;
@@ -167,6 +182,9 @@ export function imageFor(category = '', text = '') {
   if (haystack.includes('funda banner') || haystack.includes('funda araña') || haystack.includes('funda arana')) return media.fundaBannerX || media.bolso;
 
   // 7. Rótulos, Gran Formato & Señalética
+  if (haystack.includes('campana lonas') && (haystack.includes('1 a 50') || haystack.includes('50 m2'))) return media.campanaLonasVolumen50m2 || media.campanaLonasIndustrial;
+  if (haystack.includes('campana lonas') && (haystack.includes('51 a 200') || haystack.includes('200 m2'))) return media.campanaLonasVolumen200m2 || media.campanaLonasIndustrial;
+  if (haystack.includes('campana lonas') && (haystack.includes('201 a 500') || haystack.includes('1000 m2') || haystack.includes('500 m2'))) return media.campanaLonasVolumen1000m2 || media.campanaLonasIndustrial;
   if (haystack.includes('9 onzas') || haystack.includes('300x500')) return media.lona9OnzasEconomica || media.lona;
   if (haystack.includes('11 onzas')) return media.lona11OnzasEstandar || media.lona;
   if (haystack.includes('13 onzas')) return media.lona13OnzasPesada || media.lona;
