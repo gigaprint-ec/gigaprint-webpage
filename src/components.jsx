@@ -558,18 +558,30 @@ export function AdminNav() {
   
   const sections = [
     {
-      title: 'OPERACIONES & VENTAS',
+      title: 'RESUMEN & VENTAS',
       items: [
+        ['/admin', '🏠 Resumen ejecutivo', '/admin'],
         ['/admin/pos/dashboard', '📊 Dashboard Ejecutivo', '/admin/pos/dashboard'],
         ['/admin/pos', '🛒 Punto de Venta & Caja', '/admin/pos'],
+        ['/admin/solicitudes', '📬 Cotizaciones web', '/admin/solicitudes'],
       ]
     },
     {
-      title: 'CRM & TALLER',
+      title: 'CLIENTES & PRODUCCIÓN',
       items: [
         ['/admin/whatsapp', '💬 Centro WhatsApp', '/admin/whatsapp'],
         ['/admin/crm', '👥 Clientes & CRM 360°', '/admin/crm'],
-        ['/admin/pos/asesoras', '🔑 Asesoras & PINs Semanales', '/admin/pos/asesoras'],
+        ['/admin/taller', '🗓️ Coordinación de trabajos', '/admin/taller'],
+        ['/admin/estaciones', '🏭 Estaciones de producción', '/admin/estaciones'],
+        ['/admin/operaciones', '✅ Calidad & postventa', '/admin/operaciones'],
+      ]
+    },
+    {
+      title: 'RECURSOS & EQUIPO',
+      items: [
+        ['/admin/pos/inventario', '📦 Inventario de materiales', '/admin/pos/inventario'],
+        ['/admin/pos/compras', '🚚 Compras & proveedores', '/admin/pos/compras'],
+        ['/admin/equipo', '🔐 Equipo, roles y accesos', '/admin/equipo'],
       ]
     },
     {
@@ -579,8 +591,7 @@ export function AdminNav() {
         ['/admin/contenido', '📝 Textos & Contacto', '/admin/contenido'],
         ['/admin/productos', '📦 Catálogo Web', '/admin/productos'],
         ['/admin/promociones', '🏷️ Promociones', '/admin/promociones'],
-        ['/admin/temas', '✨ Temas de Temporada', '/admin/temas'],
-        ['/admin/solicitudes', '📬 Solicitudes Web', '/admin/solicitudes']
+        ['/admin/temas', '✨ Temas de Temporada', '/admin/temas']
       ]
     }
   ];

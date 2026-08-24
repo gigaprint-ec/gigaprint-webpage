@@ -13,6 +13,7 @@ import { POSAdvisorsManagement } from './pages/pos/POSAdvisorsManagement';
 import { OrderTrackingPage } from './pages/pos/OrderTrackingPage';
 import { POSCustomerDisplayPage } from './pages/pos/POSCustomerDisplayPage';
 import { POSArtProofPublicPage } from './pages/pos/POSArtProofPublicPage';
+import { POSBusinessOperations } from './pages/pos/POSBusinessOperations';
 import { LiveScheduleWidget } from './components/LiveScheduleWidget';
 import { POSBusinessScheduleEditor } from './pages/pos/components/POSBusinessScheduleEditor';
 import { ToastProvider } from './components/studio/Toast';
@@ -2666,6 +2667,7 @@ function AdminRoutes() {
     '/admin/pos/pedidos': <POSPage initialTab="orders" />,
     '/admin/pos/kanban': <POSPage initialTab="kanban" />,
     '/admin/pos/compras': <POSPage initialTab="purchases" />,
+    '/admin/operaciones': <POSBusinessOperations />,
     '/admin/editor': <EditorPage />,
     '/admin/contenido': <AdminContent />,
     '/admin/horarios': <AdminContent />,
