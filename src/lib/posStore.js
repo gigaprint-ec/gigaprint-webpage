@@ -1,5 +1,5 @@
 import { supabase, hasSupabase } from './supabase';
-import { estebanCatalogProducts } from '../catalog';
+import { estebanCatalogProducts, imageFor } from '../catalog';
 import { buildProductionPlan, recalculateOperationReadiness, PRODUCTION_AREAS } from './productionWorkflow';
 
 export const POS_STORAGE_KEY = 'gigaprint-pos-v1';
@@ -367,10 +367,18 @@ export function loadPOSStore() {
   const parsed = safeJSONParse(raw, INITIAL_POS_STORE);
   const rotatedAdvisors = rotateAdvisorsCredentials(parsed.advisors || DEFAULT_ADVISORS);
 
+  const parsedProducts = (parsed.products && parsed.products.length > 0) ? parsed.products : DEFAULT_PRODUCTS;
+  const enrichedProducts = parsedProducts.map((p) => {
+    if (!p.image || p.image.includes('stickers.png') || p.image.includes('tazita.webp')) {
+      return { ...p, image: imageFor(p.category, p.name) };
+    }
+    return p;
+  });
+
   const merged = {
     advisors: rotatedAdvisors,
     customers: (parsed.customers && parsed.customers.length > 0) ? parsed.customers : DEFAULT_CUSTOMERS,
-    products: (parsed.products && parsed.products.length > 0) ? parsed.products : DEFAULT_PRODUCTS,
+    products: enrichedProducts,
     orders: parsed.orders || [],
     orderItems: parsed.orderItems || [],
     payments: parsed.payments || [],

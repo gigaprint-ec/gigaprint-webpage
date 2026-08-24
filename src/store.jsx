@@ -53,7 +53,7 @@ function loadSiteData() {
 
   const rawProducts = catalogIsCurrent && stored.products?.length ? stored.products : initialData.products;
   const enrichedProducts = rawProducts.map((p) => {
-    if (!p.image || p.image.includes('stickers.png') || p.image === '/images/gigaprint/stickers.png') {
+    if (p.source === 'esteban' || !p.image || p.image.includes('stickers.png') || p.image.includes('tazita.webp')) {
       return { ...p, image: imageFor(p.category, p.name) };
     }
     return p;
@@ -122,7 +122,7 @@ export function SiteProvider({ children }) {
 
             const remoteProducts = normalized.products?.length ? normalized.products : current.products;
             const enrichedRemoteProducts = remoteProducts.map((p) => {
-              if (!p.image || p.image.includes('stickers.png') || p.image === '/images/gigaprint/stickers.png') {
+              if (p.source === 'esteban' || !p.image || p.image.includes('stickers.png') || p.image.includes('tazita.webp')) {
                 return { ...p, image: imageFor(p.category, p.name) };
               }
               return p;
