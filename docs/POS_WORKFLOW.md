@@ -24,6 +24,7 @@ Una lámpara con vinil impreso, por ejemplo, se propone como `diseño → aproba
 - `src/pages/pos/POSPage.jsx`: mostrador, selección de ruta y centro operativo.
 - `supabase/migrations/20260824000000_pos_production_workflow_engine.sql`: esquema, índices, realtime y dependencias.
 - `supabase/migrations/20260824020000_pos_team_roles_cash_permissions.sql`: capacidades de caja, metas, espacio inicial y validación de apertura por rol.
+- `supabase/migrations/20260824030000_auth_pos_access_realtime.sql`: propietarios superadmin idempotentes y publicación Realtime de todas las tablas escuchadas por el POS.
 
 ## Reglas funcionales
 
@@ -32,6 +33,9 @@ Una lámpara con vinil impreso, por ejemplo, se propone como `diseño → aproba
 - Solo `asesora` tiene meta semanal de ventas. Los demás roles conservan `weekly_goal = 0`.
 - Administradores acceden a todos los espacios; coordinación asigna responsables, fechas y duración; cada operador ve y ejecuta únicamente trabajos compatibles con su área.
 - Los PIN semanales de caja solo se rotan para integrantes con `can_open_cash = true`; el resto usa acceso operativo sin convertirse en cajero.
+- `/admin/login` autentica propietarios con Supabase Auth y lee `role`/`display_name` desde `profiles`; el correo proviene de `auth.users`.
+- En `/pos` y `/caja`, la pestaña Administrador usa las mismas credenciales Supabase. La pestaña Equipo usa el PIN de seis dígitos de cada integrante.
+- Después del PIN, asesoras entran a mostrador; coordinación, diseño y operadores entran automáticamente al espacio permitido por `getRoleCapabilities`.
 - Un descuento exige motivo.
 - Efectivo recibido, valor aplicado y vuelto se guardan por separado.
 - Los números de orden evitan colisiones entre terminales.

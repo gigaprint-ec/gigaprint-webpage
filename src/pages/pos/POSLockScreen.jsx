@@ -20,21 +20,30 @@ import {
   SYSTEM_ROLES
 } from '../../lib/posStore';
 
-export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess }) {
+export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess, onAdminAuthenticate, existingAdmin = null, defaultAdminEmail = '' }) {
   const handleAuthCallback = onAuthenticated || onUnlockSuccess || (() => {});
-  const [selectedAdvisorId, setSelectedAdvisorId] = useState(advisors[0]?.id || 'adv-vicky');
+  const teamMembers = advisors.filter((person) => !['admin', 'super_admin'].includes(person.role));
+  const [selectedAdvisorId, setSelectedAdvisorId] = useState(teamMembers[0]?.id || 'adv-vicky');
   const [pinInput, setPinInput] = useState('');
   const [loginMode, setLoginMode] = useState('advisor'); // 'advisor' | 'admin'
+  const [adminEmail, setAdminEmail] = useState(defaultAdminEmail);
   const [adminPass, setAdminPass] = useState('');
+  const [adminSubmitting, setAdminSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [isShaking, setIsShaking] = useState(false);
 
   const currentMonday = getMondayOfWeek();
   const currentWeekCode = getISOWeekCode();
 
-  const selectedAdvisor = advisors.find((a) => a.id === selectedAdvisorId) || advisors[0] || { name: 'Vicky', id: 'adv-vicky' };
+  const selectedAdvisor = teamMembers.find((a) => a.id === selectedAdvisorId) || teamMembers[0] || { name: 'Vicky', id: 'adv-vicky', role: 'asesora' };
   const selectedCapabilities = getRoleCapabilities(selectedAdvisor.role);
   const selectedRole = SYSTEM_ROLES.find((role) => role.id === selectedAdvisor.role);
+
+  useEffect(() => {
+    if (teamMembers.length && !teamMembers.some((person) => person.id === selectedAdvisorId)) {
+      setSelectedAdvisorId(teamMembers[0].id);
+    }
+  }, [advisors, selectedAdvisorId]);
 
   // Handle Physical Keyboard input
   useEffect(() => {
@@ -124,14 +133,26 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess 
     }
   };
 
-  const handleAdminSubmit = (e) => {
+  const handleAdminSubmit = async (e) => {
     e.preventDefault();
+    if (existingAdmin) {
+      handleAuthCallback(existingAdmin);
+      return;
+    }
+    if (!adminEmail.trim()) {
+      triggerError('Ingresa el correo del administrador.');
+      return;
+    }
     if (!adminPass.trim()) {
-      triggerError('Ingresa la contraseña o PIN maestro.');
+      triggerError('Ingresa la contraseña del administrador.');
       return;
     }
 
-    const res = authenticateAdmin(adminPass);
+    setAdminSubmitting(true);
+    const res = onAdminAuthenticate
+      ? await onAdminAuthenticate({ email: adminEmail.trim(), password: adminPass })
+      : authenticateAdmin(adminPass);
+    setAdminSubmitting(false);
     if (res.ok) {
       handleAuthCallback(res.session);
     } else {
@@ -195,7 +216,7 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess 
           <div style={{ display: 'grid', gap: '14px' }}>
             {/* Team member selector */}
             <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
-              {(advisors.length > 0 ? advisors : [{ id: 'adv-vicky', name: 'Vicky', role: 'asesora' }])
+              {(teamMembers.length > 0 ? teamMembers : [{ id: 'adv-vicky', name: 'Vicky', role: 'asesora' }])
                 .filter((a) => a.isActive !== false)
                 .map((adv) => {
                   const isSelected = adv.id === selectedAdvisorId;
@@ -341,7 +362,7 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess 
                 Modo Administrador General
               </h3>
               <p style={{ margin: 0, fontSize: '12px', color: 'var(--pos-text-muted)' }}>
-                Acceso total a caja, equipo, coordinación, inventario y reportes.
+                {existingAdmin ? `Sesión Supabase activa como ${existingAdmin.email || 'administrador'}.` : 'Usa el mismo correo y contraseña de Supabase del Panel Gigaprint.'}
               </p>
             </div>
 
@@ -352,14 +373,27 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess 
               </div>
             )}
 
-            <div>
-              <label className="pos-label required">PIN Maestro o Contraseña Admin</label>
+            {!existingAdmin && <div>
+              <label className="pos-label required">Correo del administrador</label>
+              <input
+                type="email"
+                autoComplete="username"
+                className="pos-input"
+                placeholder="administrador@gigaprint.ec"
+                value={adminEmail}
+                onChange={(e) => {
+                  setAdminEmail(e.target.value);
+                  setErrorMsg('');
+                }}
+                style={{ fontSize: '15px', padding: '12px 14px', marginBottom: '10px' }}
+              />
+              <label className="pos-label required">Contraseña de Supabase</label>
               <input
                 type="password"
                 autoComplete="current-password"
                 autoFocus
                 className="pos-input"
-                placeholder="Ingresa clave de demostración (gigaprint)"
+                placeholder="Ingresa tu contraseña"
                 value={adminPass}
                 onChange={(e) => {
                   setAdminPass(e.target.value);
@@ -367,14 +401,14 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess 
                 }}
                 style={{ fontSize: '15px', padding: '12px 14px' }}
               />
-            </div>
+            </div>}
 
             <button
               type="submit"
               className="pos-add-cart-btn"
               style={{ padding: '14px', fontSize: '15px' }}
             >
-              <span>Entrar como Administrador</span>
+              <span>{adminSubmitting ? 'Verificando…' : (existingAdmin ? 'Continuar como Administrador' : 'Entrar como Administrador')}</span>
               <ArrowRight size={18} />
             </button>
           </form>

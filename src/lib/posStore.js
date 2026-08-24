@@ -897,6 +897,22 @@ export function authenticateAdmin(password) {
   return { ok: false, error: 'Contraseña de Administrador incorrecta.' };
 }
 
+export function createAdminPOSSession(adminUser = {}) {
+  return setPOSSession({
+    id: 'adv-admin',
+    authUserId: adminUser.id || null,
+    name: adminUser.name || adminUser.user_metadata?.display_name || 'Administrador General',
+    email: adminUser.email || 'admin@gigaprint.ec',
+    role: 'super_admin',
+    isAdmin: true,
+    canOpenCash: true,
+    hasSalesGoal: false,
+    assignedArea: 'gerencia',
+    defaultTab: 'cashier',
+    weeklyGoal: 0
+  });
+}
+
 export function logoutPOSSession() {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(POS_SESSION_KEY);

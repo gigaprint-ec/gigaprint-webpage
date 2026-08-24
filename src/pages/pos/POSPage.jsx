@@ -65,8 +65,10 @@ import {
   getDayNameSpanish,
   getMondayOfWeek,
   getISOWeekCode,
-  getRoleCapabilities
+  getRoleCapabilities,
+  createAdminPOSSession
 } from '../../lib/posStore';
+import { useAuth } from '../../store';
 import {
   playSuccessSound,
   playParkSound,
@@ -98,9 +100,27 @@ import { markQuoteRequestConverted } from '../../lib/siteRepository';
 
 export function POSPage({ initialTab = 'cashier' }) {
   const toast = useToast();
+  const { login: loginAdmin, isAdmin: hasAdminSession, user: authUser, userProfile, authMode } = useAuth();
   const [store, setStore] = useState(loadPOSStore);
   const [session, setSession] = useState(getPOSSession);
   const [syncStatus, setSyncStatus] = useState('synced');
+
+  const handlePOSAuthenticated = (nextSession) => {
+    if (nextSession?.isSupabaseAdmin) {
+      setSession(createAdminPOSSession(nextSession));
+      return;
+    }
+    setSession(nextSession);
+  };
+
+  const handleSupabaseAdminLogin = async (credentials) => {
+    const result = await loginAdmin(credentials);
+    if (!result.ok) return result;
+    return {
+      ok: true,
+      session: createAdminPOSSession({ email: credentials.email, name: userProfile?.display_name || 'Administrador General' })
+    };
+  };
   
   // Resolve initial tab based on role if default
   const getDefaultTabForRole = (userSession, requestedTab) => {
@@ -797,8 +817,22 @@ export function POSPage({ initialTab = 'cashier' }) {
     return (
       <POSLockScreen
         advisors={store.advisors}
-        onAuthenticated={(sess) => setSession(sess)}
-        onUnlockSuccess={(sess) => setSession(sess)}
+        onAuthenticated={handlePOSAuthenticated}
+        onUnlockSuccess={handlePOSAuthenticated}
+        onAdminAuthenticate={authMode === 'supabase' ? handleSupabaseAdminLogin : null}
+        defaultAdminEmail={authUser?.email || localStorage.getItem('gigaprint-admin-email') || ''}
+        existingAdmin={hasAdminSession ? {
+          id: authUser?.id,
+          email: authUser?.email,
+          name: userProfile?.display_name || 'Administrador General',
+          role: 'super_admin',
+          isAdmin: true,
+          isSupabaseAdmin: true,
+          canOpenCash: true,
+          hasSalesGoal: false,
+          assignedArea: 'gerencia',
+          defaultTab: 'cashier'
+        } : null}
       />
     );
   }

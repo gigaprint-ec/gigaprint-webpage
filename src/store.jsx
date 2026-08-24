@@ -11,6 +11,19 @@ const SiteContext = createContext(null);
 const AuthContext = createContext(null);
 const privilegedRoles = new Set(['admin', 'super_admin']);
 
+async function fetchAuthProfile(user) {
+  if (!user?.id || !supabase) return { profile: null, error: null };
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, role, display_name')
+    .eq('id', user.id)
+    .maybeSingle();
+  return {
+    profile: data ? { ...data, email: user.email || '', full_name: data.display_name || '' } : null,
+    error
+  };
+}
+
 const uid = () => globalThis.crypto?.randomUUID?.() || `gigaprint-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 function load(key, fallback) {
@@ -148,7 +161,7 @@ export function SiteProvider({ children }) {
     const timer = window.setTimeout(async () => {
       const { data: userData } = await supabase.auth.getUser();
       if (cancelled || !userData.user) return;
-      const { data: profile } = await supabase.from('profiles').select('role').eq('id', userData.user.id).maybeSingle();
+      const { profile } = await fetchAuthProfile(userData.user);
       if (cancelled || !privilegedRoles.has(profile?.role)) return;
       try { await persistSiteData(data); } catch { /* local state remains the safe fallback */ }
     }, 850);
@@ -204,12 +217,12 @@ export function useSite() { return useContext(SiteContext); }
 export function AuthProvider({ children }) {
   const [isAdmin, setIsAdmin] = useState(() => {
     if (typeof window === 'undefined') return false;
-    return localStorage.getItem('gigaprint-admin') === 'true';
+    return !hasSupabase && localStorage.getItem('gigaprint-admin') === 'true';
   });
   const [user, setUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [authLoading, setAuthLoading] = useState(() => {
-    if (typeof window !== 'undefined' && localStorage.getItem('gigaprint-admin') === 'true') {
+    if (!hasSupabase && typeof window !== 'undefined' && localStorage.getItem('gigaprint-admin') === 'true') {
       return false;
     }
     return Boolean(hasSupabase);
@@ -228,8 +241,7 @@ export function AuthProvider({ children }) {
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error || !session?.user) {
           if (active) {
-            const isLocal = localStorage.getItem('gigaprint-admin') === 'true';
-            setIsAdmin(isLocal);
+            setIsAdmin(false);
             setUser(null);
             setUserProfile(null);
             setAuthLoading(false);
@@ -239,17 +251,12 @@ export function AuthProvider({ children }) {
 
         if (active) setUser(session.user);
 
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('id, email, role, full_name')
-          .eq('id', session.user.id)
-          .maybeSingle();
+        const { profile, error: profileError } = await fetchAuthProfile(session.user);
 
         if (active) {
           setUserProfile(profile);
           const hasPrivilegedRole = privilegedRoles.has(profile?.role);
-          const isLocal = localStorage.getItem('gigaprint-admin') === 'true';
-          const effectiveAdmin = hasPrivilegedRole || isLocal;
+          const effectiveAdmin = hasPrivilegedRole;
 
           setIsAdmin(effectiveAdmin);
           if (effectiveAdmin) {
@@ -259,11 +266,11 @@ export function AuthProvider({ children }) {
             }
           }
           setAuthLoading(false);
+          if (profileError) console.warn('[Gigaprint Auth] No se pudo leer el perfil:', profileError.message);
         }
       } catch {
         if (active) {
-          const isLocal = localStorage.getItem('gigaprint-admin') === 'true';
-          setIsAdmin(isLocal);
+          setIsAdmin(false);
           setAuthLoading(false);
         }
       }
@@ -281,8 +288,7 @@ export function AuthProvider({ children }) {
           setUser(null);
           setUserProfile(null);
         } else {
-          const isLocal = localStorage.getItem('gigaprint-admin') === 'true';
-          setIsAdmin(isLocal);
+          setIsAdmin(false);
           setUser(null);
           setUserProfile(null);
         }
@@ -290,17 +296,17 @@ export function AuthProvider({ children }) {
       }
 
       setUser(session.user);
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('id, email, role, full_name')
-        .eq('id', session.user.id)
-        .maybeSingle();
+      const { profile, error: profileError } = await fetchAuthProfile(session.user);
 
       if (!active) return;
+      if (profileError) {
+        console.warn('[Gigaprint Auth] No se pudo leer el perfil:', profileError.message);
+        setAuthLoading(false);
+        return;
+      }
       setUserProfile(profile);
       const hasPrivilegedRole = privilegedRoles.has(profile?.role);
-      const isLocal = localStorage.getItem('gigaprint-admin') === 'true';
-      const effectiveAdmin = hasPrivilegedRole || isLocal;
+      const effectiveAdmin = hasPrivilegedRole;
 
       setIsAdmin(effectiveAdmin);
       if (effectiveAdmin) {
@@ -319,7 +325,7 @@ export function AuthProvider({ children }) {
 
   const login = async (credentials) => {
     const password = typeof credentials === 'string' ? credentials : credentials.password;
-    if (password === 'gigaprint') {
+    if (!hasSupabase && password === 'gigaprint') {
       localStorage.setItem('gigaprint-admin', 'true');
       setIsAdmin(true);
       setAuthLoading(false);
@@ -342,11 +348,13 @@ export function AuthProvider({ children }) {
     const userObj = authData.user;
     setUser(userObj);
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('id, email, role, full_name')
-      .eq('id', userObj?.id)
-      .maybeSingle();
+    const { profile, error: profileError } = await fetchAuthProfile(userObj);
+
+    if (profileError) {
+      await supabase.auth.signOut();
+      setIsAdmin(false);
+      return { ok: false, error: `No se pudo comprobar tu rol: ${profileError.message}` };
+    }
 
     setUserProfile(profile);
 
