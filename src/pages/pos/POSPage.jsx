@@ -12,6 +12,7 @@ import {
   RotateCcw,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
   Plus,
   Trash2,
   Printer,
@@ -40,6 +41,7 @@ import {
   Tv,
   Tag
 } from 'lucide-react';
+import { inferProductionAreas, PRODUCTION_AREAS } from '../../lib/productionWorkflow';
 import {
   loadPOSStore,
   savePOSStoreLocal,
@@ -87,6 +89,7 @@ import { POSKeyboardShortcutsModal } from './POSKeyboardShortcutsModal';
 import { POSPackageLabelModal } from './POSPackageLabelModal';
 import { POSWorkshopMasterBillboard } from './POSWorkshopMasterBillboard';
 import { POSStationWorkspaces } from './POSStationWorkspaces';
+import { POSProductionControl } from './POSProductionControl';
 import { SupabaseFileUploader } from '../../components/studio/SupabaseFileUploader';
 import { POSProductQuickMatrix } from './components/POSProductQuickMatrix';
 import { useToast } from '../../components/studio/Toast';
@@ -102,6 +105,8 @@ export function POSPage({ initialTab = 'cashier' }) {
     if (requestedTab && requestedTab !== 'cashier') return requestedTab;
     const r = userSession?.role;
     if (r === 'coordinador_taller') return 'billboard';
+    if (r === 'disenador') return 'flow';
+    if (r === 'operador_taller' || r === 'instalador') return 'flow';
     if (r === 'operador_impresion' || r === 'operador_sublimacion' || r === 'operador_corte_laser') return 'stations';
     return requestedTab || 'cashier';
   };
@@ -129,6 +134,7 @@ export function POSPage({ initialTab = 'cashier' }) {
   const [deliveryDate, setDeliveryDate] = useState(toISODate());
   const [executionDate, setExecutionDate] = useState(toISODate());
   const [assignedArea, setAssignedArea] = useState('impresion');
+  const [involvedAreas, setInvolvedAreas] = useState(['impresion']);
   const [requiresInstallation, setRequiresInstallation] = useState(false);
   const [installationAddress, setInstallationAddress] = useState('');
   const [installationDate, setInstallationDate] = useState(toISODate());
@@ -160,7 +166,7 @@ export function POSPage({ initialTab = 'cashier' }) {
   const [customPriceOverride, setCustomPriceOverride] = useState('');
 
   // Payment Methods Split
-  const [payments, setPayments] = useState([{ method: 'cash', amount: '', bankName: 'Banco Pichincha', referenceNumber: '' }]);
+  const [payments, setPayments] = useState([{ method: 'cash', amount: '', tenderedAmount: '', changeGiven: 0, bankName: 'Banco Pichincha', referenceNumber: '' }]);
 
   // Modals & Popups
   const [receiptOrder, setReceiptOrder] = useState(null);
@@ -174,6 +180,7 @@ export function POSPage({ initialTab = 'cashier' }) {
   const [shiftNotes, setShiftNotes] = useState('');
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
   const [isMuted, setIsMuted] = useState(isAudioMuted);
+  const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
 
   // Miscellaneous / Freeform Custom Item Modal State
   const [isFreeItemModalOpen, setIsFreeItemModalOpen] = useState(false);
@@ -225,6 +232,10 @@ export function POSPage({ initialTab = 'cashier' }) {
       .filter((o) => (o.customerId === customerId || (o.customerName && o.customerName.toLowerCase() === customerName.toLowerCase())) && Number(o.balanceDue) > 0.05 && o.status !== 'cancelled')
       .reduce((sum, o) => sum + Number(o.balanceDue || 0), 0);
   }, [store.orders, customerId, customerName]);
+
+  useEffect(() => {
+    setInvolvedAreas(inferProductionAreas(cartItems, { assignedArea, requiresInstallation }));
+  }, [cartItems, assignedArea, requiresInstallation]);
 
   // Due date alerts
   const dueAlerts = useMemo(() => {
@@ -367,13 +378,15 @@ export function POSPage({ initialTab = 'cashier' }) {
   }, [payments]);
 
   const balanceDue = Number(Math.max(0, totalAmount - totalDeposited).toFixed(2));
-  const changeDue = Number(Math.max(0, totalDeposited - totalAmount).toFixed(2));
+  const changeDue = Number(payments.reduce((sum, payment) => sum + Number(payment.changeGiven || 0), 0).toFixed(2));
 
   // Quick cash amount helper
   const handleQuickCash = (amount) => {
     const updated = [...payments];
     updated[0].method = 'cash';
-    updated[0].amount = String(amount);
+    updated[0].amount = String(Math.min(Number(amount), totalAmount));
+    updated[0].tenderedAmount = String(amount);
+    updated[0].changeGiven = Number(Math.max(0, Number(amount) - totalAmount).toFixed(2));
     setPayments(updated);
   };
 
@@ -481,11 +494,18 @@ export function POSPage({ initialTab = 'cashier' }) {
     setDiscountReason('');
     setNotes('');
     setArtUrl('');
-    setPayments([{ method: 'cash', amount: '', bankName: 'Banco Pichincha', referenceNumber: '' }]);
+    setAssignedArea('impresion');
+    setInvolvedAreas(['impresion']);
+    setPayments([{ method: 'cash', amount: '', tenderedAmount: '', changeGiven: 0, bankName: 'Banco Pichincha', referenceNumber: '' }]);
   };
 
   // Submit and Create Final POS Order
   const handleSubmitOrder = () => {
+    if (isSubmittingOrder) return;
+    if (!activeShift) {
+      toast.warning('Abre un turno de caja antes de registrar una venta.');
+      return;
+    }
     if (cartItems.length === 0) {
       toast.warning('Agrega al menos un producto al carrito antes de registrar.');
       return;
@@ -494,6 +514,24 @@ export function POSPage({ initialTab = 'cashier' }) {
       toast.warning('Ingresa el nombre del cliente o empresa.');
       return;
     }
+    if (!customerPhone.trim()) {
+      toast.warning('Ingresa un teléfono de contacto para notificaciones y seguimiento.');
+      return;
+    }
+    if (!involvedAreas.length) {
+      toast.warning('Selecciona al menos un área de producción.');
+      return;
+    }
+    if (Number(discountPercent) > 0 && !discountReason.trim()) {
+      toast.warning('Indica el motivo del descuento para mantener la auditoría de caja.');
+      return;
+    }
+    if (payments.some((payment) => Number(payment.amount) < 0 || (payment.method !== 'cash' && Number(payment.amount) > totalAmount))) {
+      toast.warning('Revisa los montos de pago; hay un valor inválido o superior al total.');
+      return;
+    }
+
+    setIsSubmittingOrder(true);
 
     const orderData = {
       advisorId: currentAdvisorId,
@@ -505,6 +543,7 @@ export function POSPage({ initialTab = 'cashier' }) {
       deliveryDate,
       executionDate: executionDate || deliveryDate,
       assignedArea: assignedArea || 'impresion',
+      involvedAreas,
       requiresInstallation: Boolean(requiresInstallation),
       installationAddress: installationAddress.trim(),
       installationDate: installationDate || deliveryDate,
@@ -542,6 +581,7 @@ export function POSPage({ initialTab = 'cashier' }) {
       playWarningSound();
       toast.error('Error al registrar la orden: ' + res.error);
     }
+    window.setTimeout(() => setIsSubmittingOrder(false), 600);
   };
 
   // Handler for adding Miscellaneous / Freeform Custom Item
@@ -854,6 +894,14 @@ export function POSPage({ initialTab = 'cashier' }) {
           </button>
           <button
             type="button"
+            className={`pos-nav-tab ${activeTab === 'flow' ? 'active' : ''}`}
+            onClick={() => setActiveTab('flow')}
+          >
+            <Sparkles size={16} /> Flujo & Agenda
+            <span className="pos-nav-badge">{(store.productionOperations || []).filter((operation) => !['done', 'cancelled'].includes(operation.status)).length}</span>
+          </button>
+          <button
+            type="button"
             className={`pos-nav-tab ${activeTab === 'billboard' ? 'active' : ''}`}
             onClick={() => setActiveTab('billboard')}
           >
@@ -998,7 +1046,7 @@ export function POSPage({ initialTab = 'cashier' }) {
                   </div>
                 )}
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: '12px' }}>
+                <div className="pos-responsive-fields" style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: '12px' }}>
                   <div>
                     <label className="pos-label required">Nombre / Razón Social (F1)</label>
                     <div className="pos-input-group">
@@ -1048,7 +1096,7 @@ export function POSPage({ initialTab = 'cashier' }) {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '10px' }}>
+                <div className="pos-responsive-fields" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '10px' }}>
                   <div>
                     <label className="pos-label required">WhatsApp de Contacto</label>
                     <div className="pos-input-group">
@@ -1091,8 +1139,8 @@ export function POSPage({ initialTab = 'cashier' }) {
                 </div>
 
                 {/* Workshop Area & On-Site Installation Coordination */}
-                <div style={{ marginTop: '12px', padding: '12px', background: '#f8fafc', borderRadius: '10px', border: '1px solid var(--line)', display: 'grid', gap: '10px' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div className="pos-workshop-coordination" style={{ marginTop: '12px', padding: '12px', background: '#f8fafc', borderRadius: '10px', border: '1px solid var(--line)', display: 'grid', gap: '10px' }}>
+                  <div className="pos-responsive-fields" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                     <div>
                       <label className="pos-label" style={{ fontSize: '11px' }}>Área de Producción Principal</label>
                       <select
@@ -1120,6 +1168,25 @@ export function POSPage({ initialTab = 'cashier' }) {
                     </div>
                   </div>
 
+                  <div className="pos-route-selector">
+                    <div>
+                      <strong>Ruta de producción sugerida</strong>
+                      <span>Marca todas las áreas que participarán. Diseño, aprobación, calidad y entrega se agregan automáticamente.</span>
+                    </div>
+                    <div className="pos-route-options">
+                      {PRODUCTION_AREAS.filter((area) => ['impresion', 'corte_laser', 'sublimacion', 'taller'].includes(area.id)).map((area) => (
+                        <label key={area.id} className={involvedAreas.includes(area.id) ? 'selected' : ''} style={{ '--area-color': area.color }}>
+                          <input
+                            type="checkbox"
+                            checked={involvedAreas.includes(area.id)}
+                            onChange={(event) => setInvolvedAreas((current) => event.target.checked ? [...new Set([...current, area.id])] : current.filter((id) => id !== area.id))}
+                          />
+                          <span>{area.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <input
                       type="checkbox"
@@ -1134,7 +1201,7 @@ export function POSPage({ initialTab = 'cashier' }) {
                   </div>
 
                   {requiresInstallation && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '10px' }}>
+                    <div className="pos-responsive-fields" style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '10px' }}>
                       <div>
                         <label className="pos-label" style={{ fontSize: '11px' }}>Dirección de Instalación</label>
                         <input
@@ -1432,6 +1499,8 @@ export function POSPage({ initialTab = 'cashier' }) {
                           onChange={(e) => {
                             const updated = [...payments];
                             updated[idx].amount = e.target.value;
+                            updated[idx].tenderedAmount = e.target.value;
+                            updated[idx].changeGiven = 0;
                             setPayments(updated);
                           }}
                         />
@@ -1465,9 +1534,9 @@ export function POSPage({ initialTab = 'cashier' }) {
                   type="button"
                   className="pos-checkout-btn"
                   onClick={handleSubmitOrder}
-                  disabled={cartItems.length === 0}
+                  disabled={cartItems.length === 0 || isSubmittingOrder || !activeShift}
                 >
-                  <CheckCircle2 size={19} /> Registrar Venta & Generar Comprobante
+                  <CheckCircle2 size={19} /> {isSubmittingOrder ? 'Registrando…' : (!activeShift ? 'Abre turno para vender' : 'Registrar Venta & Generar Comprobante')}
                 </button>
               </div>
             </div>
@@ -1490,6 +1559,10 @@ export function POSPage({ initialTab = 'cashier' }) {
           }}
           onOpenArtProof={(order) => setArtProofOrder(order)}
         />
+      )}
+
+      {activeTab === 'flow' && (
+        <POSProductionControl store={store} setStore={setStore} session={session} />
       )}
 
       {/* ----------------------------------------------------------------------

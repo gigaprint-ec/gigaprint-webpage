@@ -47,12 +47,14 @@ El build de GitHub Pages se ejecuta automáticamente con `.github/workflows/depl
 
 ### 2. ERP, Punto de Venta (POS) & Taller Multi-Rol
 - `src/lib/posStore.js`: Motor de datos Local-First, sincronización Supabase, cálculo de turnos, envejecimiento de cartera, actualización de etapas y checklist por ítem.
+- `src/lib/productionWorkflow.js`: Rutas multiárea, dependencias, tiempos estimados, asignación por carga y capacidad.
 - `src/pos.css`: Estilos dedicados para punto de venta, tarjetas táctiles, vista de 3 columnas de producción y tickets térmicos `@media print`.
 - `src/pages/pos/POSPage.jsx`: Terminal de cobranza rápida en mostrador, cálculo por $m^2$, acabados, diseño, instalación y ventas en espera.
 - `src/pages/pos/components/POSProductQuickMatrix.jsx`: Selector táctil de sustratos, desglose de tarifas y sobreescritura de precio comercial por ítem.
 - `src/pages/pos/components/POSVisualScaleComparator.jsx`: Comparador visual a escala real (Persona 1.75m, Fachada 3m, Vehículo 4.5m, Escritorio).
 - `src/pages/pos/POSStationWorkspaces.jsx`: Tablero táctil de 3 columnas (`Por Fabricar ➔ En Máquina ➔ Terminado`) con checklist por ítem para **Impresión**, **Sublimación & DTF** y **Corte Láser & CNC**.
 - `src/pages/pos/POSWorkshopMasterBillboard.jsx`: Cartelera semanal para el **Coordinador de Taller** (ejecución vs montaje en sitio, WhatsApp y OTs).
+- `src/pages/pos/POSProductionControl.jsx`: Centro operativo con flujo por área y calendario semanal de capacidad.
 - `src/pages/pos/POSCustomerCRM.jsx`: CRM de clientes, cartera vencida (15d/30d/+60d), WhatsApp directo y bitácora.
 - `src/pages/pos/POSAdminDashboard.jsx`: Cuadre semanal ejecutivo, arqueo de caja ciego/declarado y auditoría de turnos.
 - `src/pages/pos/POSInventoryMaterials.jsx`: Inventario de bobinas en $m^2$, tintas y registro de mermas.
@@ -62,6 +64,8 @@ El build de GitHub Pages se ejecuta automáticamente con `.github/workflows/depl
 
 ### 3. Base de Datos & Migraciones
 - `supabase/schema_pos_complete.sql`: Esquema SQL maestro con todas las tablas, índices, RLS y triggers listo para ejecutar en Supabase.
+- `supabase/migrations/20260824000000_pos_production_workflow_engine.sql`: Motor operativo vigente.
+- `docs/POS_WORKFLOW.md`: Lógica completa, pruebas y deuda de seguridad del POS.
 
 ---
 

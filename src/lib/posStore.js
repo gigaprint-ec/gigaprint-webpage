@@ -236,11 +236,11 @@ export const DEFAULT_SUPPLIERS = [
 
 // Helper to generate Next Order Number (e.g., 61930)
 export function generateOrderNumber(existingOrders = []) {
-  const maxNum = existingOrders.reduce((max, order) => {
-    const num = parseInt(order.orderNumber, 10);
-    return !isNaN(num) && num > max ? num : max;
-  }, 61920);
-  return String(maxNum + 1);
+  const now = new Date();
+  const date = now.toISOString().slice(2, 10).replaceAll('-', '');
+  const time = now.toTimeString().slice(0, 8).replaceAll(':', '');
+  const suffix = Math.floor(Math.random() * 100).toString().padStart(2, '0');
+  return `GP-${date}-${time}-${suffix}`;
 }
 
 // Global Sync Status State & Listeners
@@ -290,6 +290,22 @@ export function safeJSONParse(str, fallback) {
   }
 }
 
+function withBackfilledProductionPlans(store) {
+  let operations = [...(store.productionOperations || [])];
+  (store.orders || []).filter((order) => order.status !== 'cancelled').forEach((order) => {
+    if (operations.some((operation) => operation.orderId === order.id)) return;
+    const items = (store.orderItems || []).filter((item) => item.orderId === order.id);
+    const plan = buildProductionPlan(order, items, {
+      involvedAreas: order.involvedAreas,
+      advisors: store.advisors || [],
+      existingOperations: operations,
+      startAt: order.executionDate ? `${order.executionDate}T08:00:00` : undefined
+    });
+    operations = [...operations, ...plan.operations];
+  });
+  return { ...store, productionOperations: operations };
+}
+
 // Load Store from LocalStorage with auto-rotation
 export function loadPOSStore() {
   if (typeof window === 'undefined') return INITIAL_POS_STORE;
@@ -326,7 +342,7 @@ export function loadPOSStore() {
     lastUpdated: parsed.lastUpdated || new Date().toISOString()
   };
 
-  return merged;
+  return withBackfilledProductionPlans(merged);
 }
 
 // Save Store directly to LocalStorage
@@ -512,7 +528,7 @@ export async function fetchRemotePOSStore() {
   try {
     setSyncStatus('syncing');
     const [
-      advRes, custRes, ordRes, itmRes, payRes, expRes, shfRes, matRes, logRes, cLogRes, supRes, prkRes, prdRes
+      advRes, custRes, ordRes, itmRes, payRes, expRes, shfRes, matRes, logRes, cLogRes, supRes, prkRes, prdRes, opsRes, wsRes
     ] = await Promise.all([
       safeQuery(() => supabase.from('pos_advisors').select('*')),
       safeQuery(() => supabase.from('pos_customers').select('*')),
@@ -526,7 +542,9 @@ export async function fetchRemotePOSStore() {
       safeQuery(() => supabase.from('pos_customer_activity_logs').select('*').order('created_at', { ascending: false }).limit(200)),
       safeQuery(() => supabase.from('pos_suppliers').select('*')),
       safeQuery(() => supabase.from('pos_parked_sales').select('*')),
-      safeQuery(() => supabase.from('pos_products').select('*'))
+      safeQuery(() => supabase.from('pos_products').select('*')),
+      safeQuery(() => supabase.from('pos_production_operations').select('*').order('scheduled_start', { ascending: true }).limit(1000)),
+      safeQuery(() => supabase.from('pos_workstations').select('*'))
     ]);
 
     const local = loadPOSStore();
@@ -544,6 +562,8 @@ export async function fetchRemotePOSStore() {
     const remoteSuppliers = (supRes?.data || []).map(toCamelCase);
     const remoteParked = (prkRes?.data || []).map(toCamelCase);
     const remoteProducts = (prdRes?.data || []).map(toCamelCase);
+    const remoteOperations = (opsRes?.data || []).map(toCamelCase);
+    const remoteWorkstations = (wsRes?.data || []).map(toCamelCase);
 
     const merged = {
       advisors: remoteAdvisors.length ? rotateAdvisorsCredentials(remoteAdvisors) : local.advisors,
@@ -559,12 +579,19 @@ export async function fetchRemotePOSStore() {
       customerLogs: remoteCustLogs.length ? remoteCustLogs : local.customerLogs,
       suppliers: remoteSuppliers.length ? remoteSuppliers : local.suppliers,
       parkedSales: remoteParked.length ? remoteParked : local.parkedSales,
+      productionOperations: remoteOperations.length ? remoteOperations : local.productionOperations,
+      workstations: remoteWorkstations.length ? remoteWorkstations : local.workstations,
       lastUpdated: new Date().toISOString()
     };
 
-    savePOSStoreLocal(merged);
+    const hydrated = withBackfilledProductionPlans(merged);
+    const remoteOperationIds = new Set(remoteOperations.map((operation) => operation.id));
+    hydrated.productionOperations
+      .filter((operation) => !remoteOperationIds.has(operation.id))
+      .forEach((operation) => syncEntityRemote('pos_production_operations', operation));
+    savePOSStoreLocal(hydrated);
     setSyncStatus('synced');
-    return merged;
+    return hydrated;
   } catch (e) {
     setSyncStatus('offline');
     return loadPOSStore();
@@ -600,6 +627,9 @@ export function subscribePOSRealtime(onUpdate) {
       fetchRemotePOSStore().then(onUpdate);
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'pos_advisors' }, () => {
+      fetchRemotePOSStore().then(onUpdate);
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'pos_production_operations' }, () => {
       fetchRemotePOSStore().then(onUpdate);
     })
     .subscribe();
@@ -889,6 +919,14 @@ export function createPOSOrder(store, orderData) {
     productionStage: orderData.productionStage || 'preprensa',
     productionPriority: orderData.productionPriority || 'normal',
     productionNotes: orderData.productionNotes || '',
+    assignedArea: orderData.assignedArea || 'impresion',
+    involvedAreas: orderData.involvedAreas || [],
+    executionDate: orderData.executionDate || orderData.deliveryDate || today,
+    installationDate: orderData.installationDate || null,
+    requiresInstallation: Boolean(orderData.requiresInstallation),
+    installationAddress: orderData.installationAddress || '',
+    fieldMeasurementsNotes: orderData.fieldMeasurementsNotes || '',
+    workflowStatus: 'planned',
     stageHistory,
     artUrl: orderData.artUrl || '',
     artApproved: Boolean(orderData.artApproved),
@@ -939,9 +977,19 @@ export function createPOSOrder(store, orderData) {
     amount: Number(p.amount) || 0,
     bankName: p.bankName || '',
     referenceNumber: p.referenceNumber || '',
+    tenderedAmount: Number(p.tenderedAmount || p.amount) || 0,
+    changeGiven: Number(p.changeGiven || 0) || 0,
     notes: p.notes || '',
     createdAt: new Date().toISOString()
   }));
+
+  const plan = buildProductionPlan(newOrder, newItems, {
+    involvedAreas: orderData.involvedAreas,
+    advisors: store.advisors || [],
+    existingOperations: store.productionOperations || [],
+    startAt: orderData.executionDate ? `${orderData.executionDate}T08:00:00` : undefined
+  });
+  newOrder.involvedAreas = plan.involvedAreas;
 
   // Auto-deduct inventory materials if matched
   let updatedMaterials = [...(store.materials || [])];
@@ -976,7 +1024,8 @@ export function createPOSOrder(store, orderData) {
     orderItems: [...newItems, ...(store.orderItems || [])],
     payments: [...newPayments, ...(store.payments || [])],
     materials: updatedMaterials,
-    materialLogs: [...newMaterialLogs, ...(store.materialLogs || [])]
+    materialLogs: [...newMaterialLogs, ...(store.materialLogs || [])],
+    productionOperations: [...plan.operations, ...(store.productionOperations || [])]
   };
 
   savePOSStoreLocal(updatedStore);
@@ -986,8 +1035,60 @@ export function createPOSOrder(store, orderData) {
   newItems.forEach((itm) => syncEntityRemote('pos_order_items', itm));
   newPayments.forEach((pay) => syncEntityRemote('pos_payments', pay));
   newMaterialLogs.forEach((log) => syncEntityRemote('pos_material_usage_logs', log));
+  plan.operations.forEach((operation) => syncEntityRemote('pos_production_operations', operation));
 
-  return { ok: true, updatedStore, order: newOrder, items: newItems, payments: newPayments };
+  return { ok: true, updatedStore, order: newOrder, items: newItems, payments: newPayments, operations: plan.operations };
+}
+
+export function updateProductionOperation(store, operationId, updates = {}, advisorId = '') {
+  const operation = (store.productionOperations || []).find((item) => item.id === operationId);
+  if (!operation) return { ok: false, error: 'Operación no encontrada.' };
+
+  const now = new Date().toISOString();
+  const nextStatus = updates.status || operation.status;
+  const normalizedUpdates = { ...updates };
+  if (updates.estimatedMinutes && !updates.scheduledEnd && operation.scheduledStart) {
+    normalizedUpdates.scheduledEnd = new Date(new Date(operation.scheduledStart).getTime() + Number(updates.estimatedMinutes) * 60000).toISOString();
+  }
+  const updatedOperation = {
+    ...operation,
+    ...normalizedUpdates,
+    startedAt: nextStatus === 'in_progress' && !operation.startedAt ? now : operation.startedAt,
+    completedAt: nextStatus === 'done' ? now : (nextStatus !== 'done' ? null : operation.completedAt),
+    updatedAt: now,
+    metadata: { ...(operation.metadata || {}), ...(normalizedUpdates.metadata || {}), lastUpdatedBy: advisorId || null }
+  };
+
+  let operations = (store.productionOperations || []).map((item) => item.id === operationId ? updatedOperation : item);
+  operations = recalculateOperationReadiness(operations);
+  const changed = operations.filter((item) => {
+    const previous = (store.productionOperations || []).find((old) => old.id === item.id);
+    return !previous || previous.status !== item.status || item.id === operationId;
+  });
+  const orderOperations = operations.filter((item) => item.orderId === operation.orderId);
+  const workflowStatus = orderOperations.every((item) => item.status === 'done')
+    ? 'completed'
+    : orderOperations.some((item) => item.status === 'in_progress') ? 'in_progress' : 'planned';
+  const nextOperation = [...orderOperations]
+    .sort((a, b) => Number(a.sequence || 0) - Number(b.sequence || 0))
+    .find((item) => !['done', 'cancelled'].includes(item.status));
+  const stageByArea = {
+    asesoria: 'preprensa', diseno: 'preprensa', aprobacion: 'aprobacion_arte',
+    impresion: 'impresion', corte_laser: 'acabados', sublimacion: 'impresion',
+    taller: 'acabados', calidad: 'control_calidad', entrega: 'listo'
+  };
+  const productionStage = workflowStatus === 'completed' ? 'entregado' : (stageByArea[nextOperation?.area] || 'preprensa');
+  const order = (store.orders || []).find((item) => item.id === operation.orderId);
+  const updatedOrder = order ? { ...order, workflowStatus, productionStage, updatedAt: now } : null;
+  const updatedStore = {
+    ...store,
+    productionOperations: operations,
+    orders: updatedOrder ? (store.orders || []).map((item) => item.id === updatedOrder.id ? updatedOrder : item) : store.orders
+  };
+  savePOSStoreLocal(updatedStore);
+  changed.forEach((item) => syncEntityRemote('pos_production_operations', item));
+  if (updatedOrder) syncEntityRemote('pos_orders', updatedOrder);
+  return { ok: true, updatedStore, operation: updatedOperation };
 }
 
 // Function to update production stage on Kanban board
@@ -1179,10 +1280,19 @@ export function approveOrderArtProof(store, orderId, approvedBy = 'Cliente', art
   };
 
   const updatedOrders = (store.orders || []).map((o) => (o.id === orderId ? updatedOrder : o));
-  const updatedStore = { ...store, orders: updatedOrders };
+  const approvalTime = new Date().toISOString();
+  let updatedOperations = (store.productionOperations || []).map((operation) => {
+    if (operation.orderId !== orderId || !['diseno', 'aprobacion'].includes(operation.area)) return operation;
+    return { ...operation, status: 'done', completedAt: approvalTime, updatedAt: approvalTime };
+  });
+  updatedOperations = recalculateOperationReadiness(updatedOperations);
+  const updatedStore = { ...store, orders: updatedOrders, productionOperations: updatedOperations };
 
   savePOSStoreLocal(updatedStore);
   syncEntityRemote('pos_orders', updatedOrder);
+  updatedOperations
+    .filter((operation) => operation.orderId === orderId)
+    .forEach((operation) => syncEntityRemote('pos_production_operations', operation));
 
   return { ok: true, updatedStore, order: updatedOrder };
 }

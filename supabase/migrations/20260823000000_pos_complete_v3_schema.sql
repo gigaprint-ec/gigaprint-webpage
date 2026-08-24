@@ -263,6 +263,7 @@ CREATE TABLE IF NOT EXISTS public.pos_cash_audits (
 -- ============================================================================
 -- INDEXES FOR MAXIMUM QUERY PERFORMANCE
 -- ============================================================================
+ALTER TABLE public.pos_materials_inventory ADD COLUMN IF NOT EXISTS sku TEXT;
 CREATE INDEX IF NOT EXISTS idx_pos_orders_customer_id ON public.pos_orders(customer_id);
 CREATE INDEX IF NOT EXISTS idx_pos_orders_advisor_id ON public.pos_orders(advisor_id);
 CREATE INDEX IF NOT EXISTS idx_pos_orders_order_number ON public.pos_orders(order_number);
@@ -299,76 +300,42 @@ ALTER TABLE public.pos_parked_sales ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pos_customer_activity_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pos_cash_audits ENABLE ROW LEVEL SECURITY;
 
--- Allow public read of products and tracking tokens
-DO  BEGIN
-  CREATE POLICY "Public Read Products" ON public.pos_products FOR SELECT USING (true);
-EXCEPTION WHEN duplicate_object THEN NULL; END ;
+-- Políticas idempotentes. La compatibilidad anónima se conserva mientras las
+-- terminales POS migran de PIN local a Supabase Auth individual.
+DROP POLICY IF EXISTS "Public Read Products" ON public.pos_products;
+CREATE POLICY "Public Read Products" ON public.pos_products FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Public Read Order Tracking" ON public.pos_orders;
+CREATE POLICY "Public Read Order Tracking" ON public.pos_orders FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Public Read Order Tracking Items" ON public.pos_order_items;
+CREATE POLICY "Public Read Order Tracking Items" ON public.pos_order_items FOR SELECT USING (true);
 
-DO  BEGIN
-  CREATE POLICY "Public Read Order Tracking" ON public.pos_orders FOR SELECT USING (true);
-EXCEPTION WHEN duplicate_object THEN NULL; END ;
-
-DO  BEGIN
-  CREATE POLICY "Public Read Order Tracking Items" ON public.pos_order_items FOR SELECT USING (true);
-EXCEPTION WHEN duplicate_object THEN NULL; END ;
-
--- Full access for authenticated staff and anon POS operations
-DO  BEGIN
-  CREATE POLICY "POS Full Access Advisors" ON public.pos_advisors FOR ALL USING (true);
-EXCEPTION WHEN duplicate_object THEN NULL; END ;
-
-DO  BEGIN
-  CREATE POLICY "POS Full Access Customers" ON public.pos_customers FOR ALL USING (true);
-EXCEPTION WHEN duplicate_object THEN NULL; END ;
-
-DO  BEGIN
-  CREATE POLICY "POS Full Access Products" ON public.pos_products FOR ALL USING (true);
-EXCEPTION WHEN duplicate_object THEN NULL; END ;
-
-DO  BEGIN
-  CREATE POLICY "POS Full Access Orders" ON public.pos_orders FOR ALL USING (true);
-EXCEPTION WHEN duplicate_object THEN NULL; END ;
-
-DO  BEGIN
-  CREATE POLICY "POS Full Access Items" ON public.pos_order_items FOR ALL USING (true);
-EXCEPTION WHEN duplicate_object THEN NULL; END ;
-
-DO  BEGIN
-  CREATE POLICY "POS Full Access Payments" ON public.pos_payments FOR ALL USING (true);
-EXCEPTION WHEN duplicate_object THEN NULL; END ;
-
-DO  BEGIN
-  CREATE POLICY "POS Full Access Shifts" ON public.pos_cash_shifts FOR ALL USING (true);
-EXCEPTION WHEN duplicate_object THEN NULL; END ;
-
-DO  BEGIN
-  CREATE POLICY "POS Full Access Expenses" ON public.pos_expenses FOR ALL USING (true);
-EXCEPTION WHEN duplicate_object THEN NULL; END ;
-
-DO  BEGIN
-  CREATE POLICY "POS Full Access Materials" ON public.pos_materials_inventory FOR ALL USING (true);
-EXCEPTION WHEN duplicate_object THEN NULL; END ;
-
-DO  BEGIN
-  CREATE POLICY "POS Full Access Material Logs" ON public.pos_material_usage_logs FOR ALL USING (true);
-EXCEPTION WHEN duplicate_object THEN NULL; END ;
-
-DO  BEGIN
-  CREATE POLICY "POS Full Access Suppliers" ON public.pos_suppliers FOR ALL USING (true);
-EXCEPTION WHEN duplicate_object THEN NULL; END ;
-
-DO  BEGIN
-  CREATE POLICY "POS Full Access Purchase Orders" ON public.pos_purchase_orders FOR ALL USING (true);
-EXCEPTION WHEN duplicate_object THEN NULL; END ;
-
-DO  BEGIN
-  CREATE POLICY "POS Full Access Parked Sales" ON public.pos_parked_sales FOR ALL USING (true);
-EXCEPTION WHEN duplicate_object THEN NULL; END ;
-
-DO  BEGIN
-  CREATE POLICY "POS Full Access Customer Logs" ON public.pos_customer_activity_logs FOR ALL USING (true);
-EXCEPTION WHEN duplicate_object THEN NULL; END ;
-
-DO  BEGIN
-  CREATE POLICY "POS Full Access Cash Audits" ON public.pos_cash_audits FOR ALL USING (true);
-EXCEPTION WHEN duplicate_object THEN NULL; END ;
+DROP POLICY IF EXISTS "POS Full Access Advisors" ON public.pos_advisors;
+CREATE POLICY "POS Full Access Advisors" ON public.pos_advisors FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "POS Full Access Customers" ON public.pos_customers;
+CREATE POLICY "POS Full Access Customers" ON public.pos_customers FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "POS Full Access Products" ON public.pos_products;
+CREATE POLICY "POS Full Access Products" ON public.pos_products FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "POS Full Access Orders" ON public.pos_orders;
+CREATE POLICY "POS Full Access Orders" ON public.pos_orders FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "POS Full Access Items" ON public.pos_order_items;
+CREATE POLICY "POS Full Access Items" ON public.pos_order_items FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "POS Full Access Payments" ON public.pos_payments;
+CREATE POLICY "POS Full Access Payments" ON public.pos_payments FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "POS Full Access Shifts" ON public.pos_cash_shifts;
+CREATE POLICY "POS Full Access Shifts" ON public.pos_cash_shifts FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "POS Full Access Expenses" ON public.pos_expenses;
+CREATE POLICY "POS Full Access Expenses" ON public.pos_expenses FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "POS Full Access Materials" ON public.pos_materials_inventory;
+CREATE POLICY "POS Full Access Materials" ON public.pos_materials_inventory FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "POS Full Access Material Logs" ON public.pos_material_usage_logs;
+CREATE POLICY "POS Full Access Material Logs" ON public.pos_material_usage_logs FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "POS Full Access Suppliers" ON public.pos_suppliers;
+CREATE POLICY "POS Full Access Suppliers" ON public.pos_suppliers FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "POS Full Access Purchase Orders" ON public.pos_purchase_orders;
+CREATE POLICY "POS Full Access Purchase Orders" ON public.pos_purchase_orders FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "POS Full Access Parked Sales" ON public.pos_parked_sales;
+CREATE POLICY "POS Full Access Parked Sales" ON public.pos_parked_sales FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "POS Full Access Customer Logs" ON public.pos_customer_activity_logs;
+CREATE POLICY "POS Full Access Customer Logs" ON public.pos_customer_activity_logs FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "POS Full Access Cash Audits" ON public.pos_cash_audits;
+CREATE POLICY "POS Full Access Cash Audits" ON public.pos_cash_audits FOR ALL USING (true) WITH CHECK (true);

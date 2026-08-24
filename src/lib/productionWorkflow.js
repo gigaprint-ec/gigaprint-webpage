@@ -14,7 +14,7 @@ export const AREA_BY_ID = Object.fromEntries(PRODUCTION_AREAS.map((area) => [are
 
 const AREA_KEYWORDS = {
   impresion: ['lona', 'vinil', 'banner', 'afiche', 'flyer', 'volante', 'tarjeta', 'adhesiv', 'microperfor', 'impresi', 'gigantograf', 'backlit'],
-  corte_laser: ['laser', 'láser', 'acril', 'mdf', 'sintra', 'pvc', 'cnc', 'grabado', 'corte', 'corpóre', 'corpore'],
+  corte_laser: ['laser', 'láser', 'acril', 'mdf', 'sintra', 'pvc', 'cnc', 'grabado', 'corte', 'corpóre', 'corpore', 'lámpara', 'lampara'],
   sublimacion: ['sublima', 'dtf', 'camiseta', 'textil', 'taza', 'gorra', 'almohada', 'cojín', 'cojin', 'jarro', 'prenda'],
   taller: ['rótulo', 'rotulo', 'letrero', 'luminos', 'neón', 'neon', 'estructura', 'caja de luz', 'lámpara', 'lampara', 'armado', 'instalación', 'instalacion']
 };
@@ -140,9 +140,11 @@ export function buildProductionPlan(order, items = [], options = {}) {
       .map((id) => operations.find((operation) => operation.id === id)?.scheduledEnd)
       .filter(Boolean)
       .map((date) => new Date(date));
-    const start = nextWorkingStart(dependencyEnds.length
-      ? new Date(Math.max(...dependencyEnds.map((date) => date.getTime())))
-      : now);
+    const areaEnds = [...existing, ...operations]
+      .filter((operation) => operation.area === area && !['done', 'cancelled'].includes(operation.status) && operation.scheduledEnd)
+      .map((operation) => new Date(operation.scheduledEnd));
+    const candidates = [now, ...dependencyEnds, ...areaEnds];
+    const start = nextWorkingStart(new Date(Math.max(...candidates.map((date) => date.getTime()))));
     const end = addWorkingMinutes(start, estimatedMinutes);
     const assignee = selectLeastLoadedStaff(advisors, [...existing, ...operations], area);
     const operation = {
@@ -152,7 +154,7 @@ export function buildProductionPlan(order, items = [], options = {}) {
       title,
       sequence: operations.length + 1,
       dependsOn: dependencies,
-      status: extra.status || (dependencies.length ? 'blocked' : 'ready'),
+      status: extra.status || (dependencies.every((id) => operations.find((operation) => operation.id === id)?.status === 'done') ? 'ready' : 'blocked'),
       assignedTo: extra.assignedTo || assignee?.id || null,
       estimatedMinutes,
       actualMinutes: 0,

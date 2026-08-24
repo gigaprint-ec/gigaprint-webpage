@@ -5,7 +5,7 @@
 
 -- 1. TABLA DE CATALOGO DE PRODUCTOS UNIFICADO (pos_products)
 CREATE TABLE IF NOT EXISTS public.pos_products (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id TEXT PRIMARY KEY,
   sku TEXT,
   name TEXT NOT NULL,
   category TEXT NOT NULL DEFAULT 'Gran Formato',
@@ -27,9 +27,9 @@ CREATE TABLE IF NOT EXISTS public.pos_products (
 
 -- 2. TABLA DE BITACORA DE ACTIVIDADES CRM (pos_customer_activity_logs)
 CREATE TABLE IF NOT EXISTS public.pos_customer_activity_logs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  customer_id UUID NOT NULL REFERENCES public.pos_customers(id) ON DELETE CASCADE,
-  advisor_id UUID REFERENCES public.pos_advisors(id) ON DELETE SET NULL,
+  id TEXT PRIMARY KEY,
+  customer_id TEXT NOT NULL REFERENCES public.pos_customers(id) ON DELETE CASCADE,
+  advisor_id TEXT REFERENCES public.pos_advisors(id) ON DELETE SET NULL,
   activity_type TEXT NOT NULL, -- 'call', 'whatsapp', 'visit', 'email', 'note', 'proof_sent', 'proof_approved', 'payment_reminder'
   title TEXT,
   description TEXT NOT NULL,
@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS public.pos_customer_activity_logs (
 
 -- 3. TABLA DE PROVEEDORES (pos_suppliers)
 CREATE TABLE IF NOT EXISTS public.pos_suppliers (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   identification TEXT,
   contact_name TEXT,
@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS public.pos_suppliers (
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'pos_orders' AND column_name = 'tracking_token') THEN
-    ALTER TABLE public.pos_orders ADD COLUMN tracking_token UUID NOT NULL DEFAULT gen_random_uuid();
+    ALTER TABLE public.pos_orders ADD COLUMN tracking_token TEXT NOT NULL DEFAULT gen_random_uuid()::text;
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'pos_orders' AND column_name = 'stage_history') THEN
@@ -89,8 +89,8 @@ END $$;
 
 -- 5. TABLA DE VENTAS EN ESPERA / BORRADORES (pos_parked_sales)
 CREATE TABLE IF NOT EXISTS public.pos_parked_sales (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  advisor_id UUID REFERENCES public.pos_advisors(id) ON DELETE CASCADE,
+  id TEXT PRIMARY KEY,
+  advisor_id TEXT REFERENCES public.pos_advisors(id) ON DELETE CASCADE,
   customer_name TEXT,
   customer_phone TEXT,
   cart_data JSONB NOT NULL,
