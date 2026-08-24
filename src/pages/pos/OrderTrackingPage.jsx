@@ -370,7 +370,7 @@ export function OrderTrackingPage() {
                 <div>
                   <strong style={{ fontSize: '14px', display: 'block', color: 'var(--ink)' }}>Gigaprint Publicidad & Impresión</strong>
                   <span style={{ fontSize: '13px', color: 'var(--muted)', display: 'block', margin: '4px 0' }}>
-                    {orderData.pickupLocation || 'Av. de la Prensa N58-120 y Vaca de Castro, Quito'}
+                    {orderData.pickupLocation || 'Av. García Moreno y 9 de Octubre, Milagro, Guayas'}
                   </span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', fontSize: '12px' }}>
                     <span style={{

@@ -64,7 +64,8 @@ import {
   toISODate,
   getDayNameSpanish,
   getMondayOfWeek,
-  getISOWeekCode
+  getISOWeekCode,
+  getRoleCapabilities
 } from '../../lib/posStore';
 import {
   playSuccessSound,
@@ -103,16 +104,14 @@ export function POSPage({ initialTab = 'cashier' }) {
   
   // Resolve initial tab based on role if default
   const getDefaultTabForRole = (userSession, requestedTab) => {
-    if (requestedTab && requestedTab !== 'cashier') return requestedTab;
-    const r = userSession?.role;
-    if (r === 'coordinador_taller') return 'billboard';
-    if (r === 'disenador') return 'flow';
-    if (r === 'operador_taller' || r === 'instalador') return 'flow';
-    if (r === 'operador_impresion' || r === 'operador_sublimacion' || r === 'operador_corte_laser') return 'stations';
-    return requestedTab || 'cashier';
+    const capabilities = getRoleCapabilities(userSession?.role);
+    if (requestedTab && capabilities.allowedTabs.includes(requestedTab)) return requestedTab;
+    return capabilities.defaultTab;
   };
 
   const [activeTab, setActiveTab] = useState(() => getDefaultTabForRole(getPOSSession(), initialTab));
+  const roleCapabilities = useMemo(() => getRoleCapabilities(session?.role), [session?.role]);
+  const canViewTab = (tab) => roleCapabilities.allowedTabs.includes(tab);
   const [activeStationArea, setActiveStationArea] = useState(() => {
     const r = getPOSSession()?.role;
     if (r === 'operador_sublimacion') return 'sublimacion';
@@ -125,6 +124,19 @@ export function POSPage({ initialTab = 'cashier' }) {
       setActiveTab(getDefaultTabForRole(session, initialTab));
     }
   }, [initialTab, session?.role]);
+
+  useEffect(() => {
+    if (session && !canViewTab(activeTab)) setActiveTab(roleCapabilities.defaultTab);
+  }, [session?.role, activeTab]);
+
+  useEffect(() => {
+    const preferredStation = {
+      operador_impresion: 'impresion',
+      operador_sublimacion: 'sublimacion',
+      operador_corte_laser: 'corte_laser'
+    }[session?.role];
+    if (preferredStation) setActiveStationArea(preferredStation);
+  }, [session?.role]);
 
   // Cashier Form State
   const [customerName, setCustomerName] = useState('');
@@ -140,7 +152,7 @@ export function POSPage({ initialTab = 'cashier' }) {
   const [installationAddress, setInstallationAddress] = useState('');
   const [installationDate, setInstallationDate] = useState(toISODate());
   const [fieldMeasurementsNotes, setFieldMeasurementsNotes] = useState('');
-  const [pickupLocation, setPickupLocation] = useState('Matriz Gigaprint - Av. de la Prensa y Vaca de Castro, Quito');
+  const [pickupLocation, setPickupLocation] = useState('Matriz Gigaprint - Av. García Moreno y 9 de Octubre, Milagro');
   const [productionPriority, setProductionPriority] = useState('normal');
   const [productionNotes, setProductionNotes] = useState('');
   const [artUrl, setArtUrl] = useState('');
@@ -237,8 +249,8 @@ export function POSPage({ initialTab = 'cashier' }) {
   // Active Cash Shift for current advisor
   const currentAdvisorId = session?.id || 'adv-vicky';
   const activeShift = useMemo(() => {
-    return getActiveCashShift(store.shifts || [], currentAdvisorId);
-  }, [store.shifts, currentAdvisorId]);
+    return roleCapabilities.canOpenCash ? getActiveCashShift(store.shifts || [], currentAdvisorId) : null;
+  }, [store.shifts, currentAdvisorId, roleCapabilities.canOpenCash]);
 
   // Selected Customer Resolution & Debt Calculation
   const selectedCustomerObj = useMemo(() => {
@@ -531,6 +543,11 @@ export function POSPage({ initialTab = 'cashier' }) {
   // Submit and Create Final POS Order
   const handleSubmitOrder = () => {
     if (isSubmittingOrder) return;
+    if (!roleCapabilities.canOpenCash) {
+      toast.error('Tu rol pertenece a coordinación o producción y no puede registrar ventas ni abrir caja.');
+      setActiveTab(roleCapabilities.defaultTab);
+      return;
+    }
     if (!activeShift) {
       toast.warning('Abre un turno de caja antes de registrar una venta.');
       return;
@@ -796,7 +813,7 @@ export function POSPage({ initialTab = 'cashier' }) {
           <div className="pos-brand-logo-mark">G</div>
           <div>
             <h1 className="pos-brand-title">
-              Gigaprint POS <span style={{ color: 'var(--pos-primary)', fontWeight: 400 }}>&</span> CRM
+              {roleCapabilities.canOpenCash ? 'Gigaprint POS & CRM' : 'Gigaprint Coordinación de Trabajos'}
             </h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span className="pos-advisor-pill">
@@ -847,7 +864,7 @@ export function POSPage({ initialTab = 'cashier' }) {
           </Link>
 
           {/* Customer-Facing Display Launcher */}
-          <a
+          {roleCapabilities.canOpenCash && <a
             href="#/pos/display"
             target="_blank"
             rel="noreferrer"
@@ -856,9 +873,9 @@ export function POSPage({ initialTab = 'cashier' }) {
             title="Abrir pantalla secundaria para el cliente"
           >
             <Tv size={14} color="#3b82f6" /> <span style={{ fontSize: '11px', fontWeight: 800 }}>2da Pantalla</span>
-          </a>
+          </a>}
 
-          {activeShift ? (
+          {roleCapabilities.canOpenCash && (activeShift ? (
             <button
               type="button"
               className="pos-shift-btn open"
@@ -876,7 +893,7 @@ export function POSPage({ initialTab = 'cashier' }) {
             >
               <DollarSign size={15} /> Abrir Turno de Caja
             </button>
-          )}
+          ))}
 
           <button
             type="button"
@@ -904,7 +921,7 @@ export function POSPage({ initialTab = 'cashier' }) {
           <button
             type="button"
             className="pos-alert-btn"
-            onClick={() => setActiveTab('kanban')}
+            onClick={() => setActiveTab(canViewTab('kanban') ? 'kanban' : roleCapabilities.defaultTab)}
           >
             Ver en Tablero Kanban ➔
           </button>
@@ -916,99 +933,21 @@ export function POSPage({ initialTab = 'cashier' }) {
           ---------------------------------------------------------------------- */}
       <div className="pos-nav-tabs-wrapper">
         <nav className="pos-nav-tabs">
-          <button
-            type="button"
-            className={`pos-nav-tab ${activeTab === 'cashier' ? 'active' : ''}`}
-            onClick={() => setActiveTab('cashier')}
-          >
-            <ShoppingBag size={16} /> Mostrador POS
-          </button>
-          <button
-            type="button"
-            className={`pos-nav-tab ${activeTab === 'flow' ? 'active' : ''}`}
-            onClick={() => setActiveTab('flow')}
-          >
-            <Sparkles size={16} /> Flujo & Agenda
-            <span className="pos-nav-badge">{(store.productionOperations || []).filter((operation) => !['done', 'cancelled'].includes(operation.status)).length}</span>
-          </button>
-          <button
-            type="button"
-            className={`pos-nav-tab ${activeTab === 'billboard' ? 'active' : ''}`}
-            onClick={() => setActiveTab('billboard')}
-          >
-            <Calendar size={16} /> Cartelera Semanal (Dispatcher)
-          </button>
-          <button
-            type="button"
-            className={`pos-nav-tab ${activeTab === 'stations' ? 'active' : ''}`}
-            onClick={() => setActiveTab('stations')}
-          >
-            <Printer size={16} /> Estaciones de Taller
-          </button>
-          <button
-            type="button"
-            className={`pos-nav-tab ${activeTab === 'kanban' ? 'active' : ''}`}
-            onClick={() => setActiveTab('kanban')}
-          >
-            <Layers size={16} /> Tablero Kanban
-          </button>
-          <button
-            type="button"
-            className={`pos-nav-tab ${activeTab === 'crm' ? 'active' : ''}`}
-            onClick={() => setActiveTab('crm')}
-          >
-            <Users size={16} /> Clientes & CRM 360°
-          </button>
-          <button
-            type="button"
-            className={`pos-nav-tab ${activeTab === 'products' ? 'active' : ''}`}
-            onClick={() => setActiveTab('products')}
-          >
-            <Package size={16} /> Productos & Tarifas
-          </button>
-          <button
-            type="button"
-            className={`pos-nav-tab ${activeTab === 'orders' ? 'active' : ''}`}
-            onClick={() => setActiveTab('orders')}
-          >
-            <FileText size={16} /> Cartera & Pedidos
-            <span className="pos-nav-badge">{store.orders?.length || 0}</span>
-          </button>
-          <button
-            type="button"
-            className={`pos-nav-tab ${activeTab === 'inventory' ? 'active' : ''}`}
-            onClick={() => setActiveTab('inventory')}
-          >
-            <Layers size={16} /> Inventario Sustratos
-          </button>
-          <button
-            type="button"
-            className={`pos-nav-tab ${activeTab === 'purchases' ? 'active' : ''}`}
-            onClick={() => setActiveTab('purchases')}
-          >
-            <Truck size={16} /> Órdenes de Compra (PO)
-          </button>
-          <button
-            type="button"
-            className={`pos-nav-tab ${activeTab === 'weekly' ? 'active' : ''}`}
-            onClick={() => setActiveTab('weekly')}
-          >
-            <Calendar size={16} /> Cuadre Semanal (Excel)
-          </button>
-          <button
-            type="button"
-            className={`pos-nav-tab ${activeTab === 'expenses' ? 'active' : ''}`}
-            onClick={() => setActiveTab('expenses')}
-          >
-            <DollarSign size={16} /> Caja Chica
-          </button>
-          <button
-            type="button"
-            className={`pos-nav-tab ${activeTab === 'advisors' ? 'active' : ''}`}
-            onClick={() => setActiveTab('advisors')}
-          >
-            <Users size={16} /> Equipo & Roles
-          </button>
+          {[
+            { id: 'cashier', label: 'Mostrador POS', icon: <ShoppingBag size={16} /> },
+            { id: 'flow', label: 'Mis trabajos & Agenda', icon: <Sparkles size={16} />, badge: (store.productionOperations || []).filter((operation) => !['done', 'cancelled'].includes(operation.status)).length },
+            { id: 'billboard', label: 'Coordinación semanal', icon: <Calendar size={16} /> },
+            { id: 'stations', label: 'Estaciones de producción', icon: <Printer size={16} /> },
+            { id: 'kanban', label: 'Tablero de órdenes', icon: <Layers size={16} /> },
+            { id: 'crm', label: 'Clientes & CRM', icon: <Users size={16} /> },
+            { id: 'products', label: 'Productos & Tarifas', icon: <Package size={16} /> },
+            { id: 'orders', label: 'Cartera & Pedidos', icon: <FileText size={16} />, badge: store.orders?.length || 0 },
+            { id: 'inventory', label: 'Inventario', icon: <Layers size={16} /> },
+            { id: 'purchases', label: 'Órdenes de Compra', icon: <Truck size={16} /> },
+            { id: 'weekly', label: 'Cuadre Semanal', icon: <Calendar size={16} /> },
+            { id: 'expenses', label: 'Caja Chica', icon: <DollarSign size={16} /> },
+            { id: 'advisors', label: 'Equipo & Roles', icon: <Users size={16} /> },
+          ].filter((item) => canViewTab(item.id)).map((item) => <button key={item.id} type="button" className={`pos-nav-tab ${activeTab === item.id ? 'active' : ''}`} onClick={() => setActiveTab(item.id)}>{item.icon} {item.label}{item.badge !== undefined && <span className="pos-nav-badge">{item.badge}</span>}</button>)}
         </nav>
       </div>
 
@@ -2054,7 +1993,7 @@ export function POSPage({ initialTab = 'cashier' }) {
       )}
 
       {/* SHIFT OPEN/CLOSE MODAL */}
-      {isShiftModalOpen && (
+      {roleCapabilities.canOpenCash && isShiftModalOpen && (
         <div className="pos-modal-overlay">
           <div className="pos-modal-card" style={{ maxWidth: '440px' }}>
             <h2 style={{ margin: '0 0 14px', fontSize: '18px', fontWeight: 900 }}>
@@ -2065,7 +2004,8 @@ export function POSPage({ initialTab = 'cashier' }) {
                 e.preventDefault();
                 if (shiftAction === 'open') {
                   const res = openCashShift(store, currentAdvisorId, shiftCashAmount, shiftNotes);
-                  setStore(res.updatedStore);
+                  if (res.ok) setStore(res.updatedStore);
+                  else toast.error(res.error);
                 } else {
                   if (!activeShift) return;
                   const res = closeCashShift(store, activeShift.id, shiftCashAmount, shiftNotes);

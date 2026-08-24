@@ -174,7 +174,7 @@ export function POSSRIInvoiceModal({ order, items = [], customer, advisor, isOpe
             <div><b>Identificación:</b> {order.customerIdentification || '9999999999999'}</div>
             <div><b>Fecha de Emisión:</b> {order.orderDate}</div>
             <div><b>Guía de Remisión:</b> S/N</div>
-            <div><b>Dirección:</b> {customer?.address || 'Quito, Ecuador'}</div>
+            <div><b>Dirección:</b> {customer?.address || 'Milagro, Ecuador'}</div>
             <div><b>Teléfono:</b> {order.customerPhone || 'N/A'}</div>
           </div>
 

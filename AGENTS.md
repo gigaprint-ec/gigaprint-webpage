@@ -58,7 +58,7 @@ El build de GitHub Pages se ejecuta automáticamente con `.github/workflows/depl
 - `src/pages/pos/POSAdminDashboard.jsx`: Cuadre semanal ejecutivo, arqueo de caja ciego/declarado y auditoría de turnos.
 - `src/pages/pos/POSInventoryMaterials.jsx`: Inventario de bobinas en $m^2$, tintas y registro de mermas.
 - `src/pages/pos/POSPurchaseOrdersManager.jsx`: Órdenes de compra a proveedores con recepción automática a stock.
-- `src/pages/pos/POSAdvisorsManagement.jsx`: Gestión de colaboradoras, PINs semanales, roles RBAC y metas.
+- `src/pages/pos/POSAdvisorsManagement.jsx`: Gestión del equipo y RBAC. Solo asesoras/admin abren caja; solo asesoras tienen meta; coordinación y operadores ingresan a trabajos por área.
 - `src/pages/pos/POSSRIInvoiceModal.jsx`: Facturación electrónica SRI con clave de acceso Módulo 11 e IVA 15%/0%.
 
 ### 3. Base de Datos & Migraciones

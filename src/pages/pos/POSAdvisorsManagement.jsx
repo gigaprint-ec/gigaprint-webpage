@@ -37,7 +37,9 @@ import {
   deletePOSAdvisor,
   regeneratePOSAdvisorPIN,
   fetchRemotePOSStore,
-  subscribePOSRealtime
+  subscribePOSRealtime,
+  getRoleCapabilities,
+  SYSTEM_ROLES
 } from '../../lib/posStore';
 
 export function POSAdvisorsManagement({ store: parentStore, setStore: parentSetStore }) {
@@ -87,6 +89,7 @@ export function POSAdvisorsManagement({ store: parentStore, setStore: parentSetS
     weeklyPassword: '',
     phone: '',
     role: 'asesora',
+    assignedArea: 'ventas',
     weeklyGoal: 3200,
     isActive: true
   });
@@ -108,6 +111,7 @@ export function POSAdvisorsManagement({ store: parentStore, setStore: parentSetS
       weeklyPassword: `asesora-${tempPin}`,
       phone: '',
       role: 'asesora',
+      assignedArea: 'ventas',
       weeklyGoal: 3200,
       isActive: true
     });
@@ -125,7 +129,8 @@ export function POSAdvisorsManagement({ store: parentStore, setStore: parentSetS
       weeklyPassword: advisor.weeklyPassword || `${(advisor.name || 'asesora').split(' ')[0].toLowerCase()}-${pin}`,
       phone: advisor.phone || '',
       role: advisor.role || 'asesora',
-      weeklyGoal: advisor.weeklyGoal || 3200,
+      assignedArea: advisor.assignedArea || SYSTEM_ROLES.find((role) => role.id === advisor.role)?.area || '',
+      weeklyGoal: Number(advisor.weeklyGoal ?? 0),
       isActive: advisor.isActive !== false
     });
     setIsModalOpen(true);
@@ -140,22 +145,25 @@ export function POSAdvisorsManagement({ store: parentStore, setStore: parentSetS
       pin = generateRandom6DigitPIN();
     }
 
+    const capabilities = getRoleCapabilities(formData.role);
     const payload = {
       ...formData,
       pin,
       weeklyPin: pin,
       weeklyPassword: formData.weeklyPassword || `${formData.name.split(' ')[0].toLowerCase() || 'asesora'}-${pin}`,
-      weeklyGoal: Number(formData.weeklyGoal) || 3200
+      weeklyGoal: capabilities.hasSalesGoal ? Number(formData.weeklyGoal || 0) : 0,
+      canOpenCash: capabilities.canOpenCash,
+      hasSalesGoal: capabilities.hasSalesGoal
     };
 
     if (editingAdvisor) {
       const { nextStore } = updatePOSAdvisor(store, editingAdvisor.id, payload);
       setStore(nextStore);
-      showToast(`✅ Asesor(a) "${formData.name}" actualizado y sincronizado en la base de datos.`);
+      showToast(`✅ Integrante "${formData.name}" actualizado y sincronizado.`);
     } else {
       const { nextStore } = createPOSAdvisor(store, payload);
       setStore(nextStore);
-      showToast(`🎉 Nuevo asesor(a) "${formData.name}" creado con PIN de 6 dígitos.`);
+      showToast(`🎉 Integrante "${formData.name}" creado con su rol y espacio de trabajo.`);
     }
 
     setIsModalOpen(false);
@@ -174,7 +182,7 @@ export function POSAdvisorsManagement({ store: parentStore, setStore: parentSetS
     const nextState = !advisor.isActive;
     const { nextStore } = updatePOSAdvisor(store, advisor.id, { isActive: nextState });
     setStore(nextStore);
-    showToast(nextState ? `🟢 "${advisor.name}" ahora está activa para ventas.` : `⏸️ "${advisor.name}" ha sido pausada.`);
+    showToast(nextState ? `🟢 "${advisor.name}" está activo en el equipo.` : `⏸️ "${advisor.name}" ha sido pausado.`);
   };
 
   const handleRegeneratePIN = (advisor) => {
@@ -188,7 +196,7 @@ export function POSAdvisorsManagement({ store: parentStore, setStore: parentSetS
     showToast(`🎲 Nuevo PIN de 6 dígitos (${newPin}) asignado a "${advisor.name}".`);
   };
 
-  // Force Rotate Credentials for all advisors
+  // Rotate credentials only for staff authorized to use cash registers.
   const handleForceRotate = () => {
     if (window.confirm('¿Deseas generar y rotar nuevas contraseñas y PINs de 6 dígitos para todas las asesoras ahora mismo?')) {
       const rotated = rotateAdvisorsCredentials(store.advisors, true);
@@ -197,7 +205,7 @@ export function POSAdvisorsManagement({ store: parentStore, setStore: parentSetS
       savePOSStore(nextState);
       // Remote sync all rotated
       rotated.forEach((adv) => updatePOSAdvisor(nextState, adv.id, adv));
-      showToast('🔄 ¡PINs de 6 dígitos rotados con éxito para todo el equipo!');
+      showToast('🔄 PINs de caja rotados para asesoras y administradores.');
     }
   };
 
@@ -207,7 +215,7 @@ export function POSAdvisorsManagement({ store: parentStore, setStore: parentSetS
     navigator.clipboard.writeText(text);
     setCopiedAll(true);
     setTimeout(() => setCopiedAll(false), 3000);
-    showToast('📋 Credenciales de todo el equipo copiadas al portapapeles.');
+    showToast('📋 Credenciales del equipo de caja copiadas.');
   };
 
   // Share to WhatsApp Web (All)
@@ -219,7 +227,10 @@ export function POSAdvisorsManagement({ store: parentStore, setStore: parentSetS
 
   // Copy Single Advisor Credential
   const handleCopySingle = (advisor) => {
-    const text = `🔐 *GIGAPRINT — CREDENCIAL DE ACCESO POS*\n👤 *Asesora:* ${advisor.name}\n🔢 *PIN de Caja (6 dígitos):* ${advisor.weeklyPin || advisor.pin}\n🔑 *Clave Semanal:* ${advisor.weeklyPassword}\n🎯 *Meta Semanal:* $${advisor.weeklyGoal || 3200}\n\n🌐 *Terminal de Caja:* https://gigaprint-ec.github.io/gigaprint-webpage/caja`;
+    const capabilities = getRoleCapabilities(advisor.role);
+    const destination = capabilities.canOpenCash ? 'caja' : 'pos';
+    const goal = capabilities.hasSalesGoal ? `\n🎯 *Meta Semanal:* $${Number(advisor.weeklyGoal || 0).toFixed(2)}` : '';
+    const text = `🔐 *GIGAPRINT — CREDENCIAL DE EQUIPO*\n👤 *Integrante:* ${advisor.name}\n🧩 *Rol:* ${SYSTEM_ROLES.find((role) => role.id === advisor.role)?.label || advisor.role}\n🔢 *PIN de acceso:* ${advisor.weeklyPin || advisor.pin}\n🔑 *Clave:* ${advisor.weeklyPassword}${goal}\n\n🌐 *Acceso:* https://gigaprint-ec.github.io/gigaprint-webpage/${destination}`;
     navigator.clipboard.writeText(text);
     setCopiedSingleId(advisor.id);
     setTimeout(() => setCopiedSingleId(null), 2500);
@@ -230,7 +241,11 @@ export function POSAdvisorsManagement({ store: parentStore, setStore: parentSetS
   const handleSendAdvisorWhatsApp = (advisor) => {
     const phone = (advisor.phone || '').replace(/[^0-9]/g, '');
     const cleanPhone = phone.startsWith('0') ? `593${phone.substring(1)}` : (phone.startsWith('593') ? phone : `593${phone}`);
-    const text = `Hola ${advisor.name} 👋,\n\nTe comparto tu PIN de acceso de 6 dígitos al POS de Gigaprint para esta semana (${currentWeekCode}):\n\n🔢 *PIN de Caja:* ${advisor.weeklyPin || advisor.pin}\n🔑 *Clave:* ${advisor.weeklyPassword}\n🎯 *Meta Semanal:* $${advisor.weeklyGoal || 3200}\n\nIngresa directamente aquí: https://gigaprint-ec.github.io/gigaprint-webpage/caja`;
+    const capabilities = getRoleCapabilities(advisor.role);
+    const destination = capabilities.canOpenCash ? 'caja' : 'pos';
+    const workspace = capabilities.canOpenCash ? 'caja y ventas' : 'coordinación de trabajos';
+    const goal = capabilities.hasSalesGoal ? `\n🎯 *Meta Semanal:* $${Number(advisor.weeklyGoal || 0).toFixed(2)}` : '';
+    const text = `Hola ${advisor.name} 👋,\n\nTu acceso a Gigaprint para esta semana (${currentWeekCode}) está listo. Tu espacio es *${workspace}*.\n\n🔢 *PIN de acceso:* ${advisor.weeklyPin || advisor.pin}\n🔑 *Clave:* ${advisor.weeklyPassword}${goal}\n\nIngresa aquí: https://gigaprint-ec.github.io/gigaprint-webpage/${destination}`;
     const url = phone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}` : `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   };
@@ -254,8 +269,9 @@ export function POSAdvisorsManagement({ store: parentStore, setStore: parentSetS
   });
 
   const activeCount = (store.advisors || []).filter((a) => a.isActive !== false).length;
+  const cashCount = (store.advisors || []).filter((a) => a.isActive !== false && getRoleCapabilities(a.role).canOpenCash).length;
   const totalWeeklyGoal = (store.advisors || [])
-    .filter((a) => a.isActive !== false)
+    .filter((a) => a.isActive !== false && getRoleCapabilities(a.role).hasSalesGoal)
     .reduce((sum, a) => sum + Number(a.weeklyGoal || 0), 0);
 
   return (
@@ -290,7 +306,7 @@ export function POSAdvisorsManagement({ store: parentStore, setStore: parentSetS
         <div className="pos-brand-badge">
           <h1>
             <Users size={22} style={{ color: 'var(--orange)' }} />
-            Gestión de Asesores & Equipo
+            Gestión de Equipo & Roles
           </h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span>{store.advisors.length} Registrados</span>
@@ -303,7 +319,8 @@ export function POSAdvisorsManagement({ store: parentStore, setStore: parentSetS
         <div className="pos-top-actions" style={{ flexWrap: 'wrap', gap: '12px' }}>
           <div style={{ display: 'flex', gap: '14px', alignItems: 'center', fontSize: '13px' }}>
             <span>Activos: <b style={{ color: '#16a34a' }}>{activeCount}</b></span>
-            <span>Meta Semanal: <b style={{ color: 'var(--orange-dark)' }}>{money(totalWeeklyGoal)}</b></span>
+            <span>Con caja: <b style={{ color: 'var(--orange-dark)' }}>{cashCount}</b></span>
+            <span>Meta de asesoras: <b style={{ color: 'var(--orange-dark)' }}>{money(totalWeeklyGoal)}</b></span>
           </div>
           <button
             type="button"
@@ -311,7 +328,7 @@ export function POSAdvisorsManagement({ store: parentStore, setStore: parentSetS
             style={{ padding: '10px 18px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
             onClick={openCreateModal}
           >
-            <Plus size={17} /> Añadir Asesor(a)
+            <Plus size={17} /> Añadir integrante
           </button>
         </div>
       </div>
@@ -333,10 +350,10 @@ export function POSAdvisorsManagement({ store: parentStore, setStore: parentSetS
               </span>
             </div>
             <h2 style={{ margin: '0 0 6px', fontSize: '17px', fontWeight: 900, color: 'var(--ink)' }}>
-              🔑 Credenciales y PINs Semanales de Caja (6 Dígitos)
+              🔑 Credenciales semanales del equipo de caja
             </h2>
             <p style={{ margin: 0, fontSize: '13px', color: 'var(--muted)', maxWidth: '640px' }}>
-              Cualquier asesor que añadas, edites o elimines se actualiza automáticamente en Supabase y en la pantalla de bloqueo de todas las cajas del taller.
+              Solo asesoras y administradores reciben acceso de caja. El resto del equipo usa su PIN para abrir coordinación y ver los trabajos de su área.
             </p>
           </div>
 
@@ -381,7 +398,7 @@ export function POSAdvisorsManagement({ store: parentStore, setStore: parentSetS
                 cursor: 'pointer'
               }}
             >
-              <MessageCircle size={16} /> WhatsApp Equipo
+              <MessageCircle size={16} /> WhatsApp Caja
             </button>
 
             <button
@@ -402,7 +419,7 @@ export function POSAdvisorsManagement({ store: parentStore, setStore: parentSetS
                 cursor: 'pointer'
               }}
             >
-              <RefreshCw size={14} /> Rotar PINs Lunes
+              <RefreshCw size={14} /> Rotar PINs de caja
             </button>
           </div>
         </div>
@@ -436,8 +453,10 @@ export function POSAdvisorsManagement({ store: parentStore, setStore: parentSetS
           <span style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 700 }}>Rol:</span>
           {[
             { id: 'all', label: 'Todos' },
+            { id: 'admin', label: '👑 Admin' },
             { id: 'encargado_local', label: '🏬 Encargado' },
             { id: 'coordinador_taller', label: '📋 Coordinador' },
+            { id: 'disenador', label: '🎨 Diseño' },
             { id: 'operador_impresion', label: '🖨️ Impresión' },
             { id: 'operador_sublimacion', label: '👕 Sublimación' },
             { id: 'operador_corte_laser', label: '⚡ Corte Láser' },
@@ -480,9 +499,11 @@ export function POSAdvisorsManagement({ store: parentStore, setStore: parentSetS
         gap: '16px'
       }}>
         {filteredAdvisors.map((advisor, idx) => {
+          const capabilities = getRoleCapabilities(advisor.role);
           const initials = advisor.name.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase();
           const advisorOrders = (store.orders || []).filter((o) => o.advisorId === advisor.id);
           const totalSales = advisorOrders.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
+          const pendingOperations = (store.productionOperations || []).filter((operation) => operation.assignedTo === advisor.id && !['done', 'cancelled'].includes(operation.status));
 
           return (
             <div
@@ -591,7 +612,7 @@ export function POSAdvisorsManagement({ store: parentStore, setStore: parentSetS
               }}>
                 <div>
                   <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', display: 'block' }}>
-                    PIN DE CAJA ({currentWeekCode})
+                    {capabilities.canOpenCash ? `PIN DE CAJA (${currentWeekCode})` : 'PIN DE ACCESO OPERATIVO'}
                   </span>
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '3px' }}>
                     <span style={{ fontSize: '13px', fontWeight: 900, color: 'var(--ink)' }}>
@@ -671,15 +692,15 @@ export function POSAdvisorsManagement({ store: parentStore, setStore: parentSetS
                 </div>
               </div>
 
-              {/* Specs & Performance */}
+              {/* Role-specific performance and coordination */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '12px' }}>
                 <div>
-                  <span style={{ color: 'var(--muted)', display: 'block' }}>Meta Semanal:</span>
-                  <strong style={{ color: 'var(--orange-dark)' }}>{money(advisor.weeklyGoal || 3200)}</strong>
+                  <span style={{ color: 'var(--muted)', display: 'block' }}>{capabilities.hasSalesGoal ? 'Meta Semanal:' : 'Espacio de trabajo:'}</span>
+                  <strong style={{ color: 'var(--orange-dark)' }}>{capabilities.hasSalesGoal ? money(advisor.weeklyGoal ?? 0) : (SYSTEM_ROLES.find((role) => role.id === advisor.role)?.area || advisor.assignedArea || 'Coordinación')}</strong>
                 </div>
                 <div>
-                  <span style={{ color: 'var(--muted)', display: 'block' }}>Ventas del Turno:</span>
-                  <strong>{money(totalSales)} ({advisorOrders.length})</strong>
+                  <span style={{ color: 'var(--muted)', display: 'block' }}>{capabilities.canOpenCash ? 'Ventas del Turno:' : 'Trabajos pendientes:'}</span>
+                  <strong>{capabilities.canOpenCash ? `${money(totalSales)} (${advisorOrders.length})` : pendingOperations.length}</strong>
                 </div>
               </div>
 
@@ -707,7 +728,7 @@ export function POSAdvisorsManagement({ store: parentStore, setStore: parentSetS
                   }}
                 >
                   {advisor.isActive !== false ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
-                  {advisor.isActive !== false ? 'Activo en Caja' : 'Pausado / Inactivo'}
+                  {advisor.isActive !== false ? (capabilities.canOpenCash ? 'Activo en Caja' : 'Activo en Coordinación') : 'Pausado / Inactivo'}
                 </button>
                 <span style={{ color: 'var(--muted)', fontSize: '11px' }}>
                   {advisor.phone || advisor.email || 'Sin contacto'}
@@ -721,9 +742,9 @@ export function POSAdvisorsManagement({ store: parentStore, setStore: parentSetS
       {filteredAdvisors.length === 0 && (
         <div className="pos-card" style={{ textAlign: 'center', padding: '40px 20px', marginTop: '20px' }}>
           <Users size={36} style={{ color: 'var(--muted)', margin: '0 auto 12px' }} />
-          <h3 style={{ margin: '0 0 6px', fontSize: '16px', color: 'var(--ink)' }}>No se encontraron asesores</h3>
+          <h3 style={{ margin: '0 0 6px', fontSize: '16px', color: 'var(--ink)' }}>No se encontraron integrantes</h3>
           <p style={{ margin: 0, fontSize: '13px', color: 'var(--muted)' }}>
-            Prueba ajustando el término de búsqueda o añade un nuevo asesor con el botón superior.
+            Prueba ajustando el término de búsqueda o añade un integrante con el botón superior.
           </p>
         </div>
       )}
@@ -755,7 +776,7 @@ export function POSAdvisorsManagement({ store: parentStore, setStore: parentSetS
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <div className="pos-brand-logo-mark" style={{ width: '32px', height: '32px', fontSize: '14px' }}>G</div>
                 <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 800, color: 'var(--ink)' }}>
-                  {editingAdvisor ? 'Editar Asesor(a)' : 'Registrar Nuevo Asesor(a)'}
+                  {editingAdvisor ? 'Editar integrante' : 'Registrar integrante'}
                 </h3>
               </div>
               <button type="button" onClick={() => setIsModalOpen(false)} style={{ border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--muted)' }}>
@@ -782,7 +803,7 @@ export function POSAdvisorsManagement({ store: parentStore, setStore: parentSetS
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div className="pos-form-group">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                    <label style={{ margin: 0 }}>PIN Caja (6d) *</label>
+                    <label style={{ margin: 0 }}>PIN de acceso (6d) *</label>
                     <button
                       type="button"
                       onClick={() => {
@@ -828,7 +849,10 @@ export function POSAdvisorsManagement({ store: parentStore, setStore: parentSetS
                   <label>Rol y Responsabilidad</label>
                   <select
                     value={formData.role}
-                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                    onChange={(e) => {
+                      const role = SYSTEM_ROLES.find((item) => item.id === e.target.value);
+                      setFormData({ ...formData, role: e.target.value, assignedArea: role?.area || '', weeklyGoal: getRoleCapabilities(e.target.value).hasSalesGoal ? (formData.weeklyGoal || 3200) : 0 });
+                    }}
                     style={{
                       width: '100%',
                       padding: '10px 12px',
@@ -840,13 +864,7 @@ export function POSAdvisorsManagement({ store: parentStore, setStore: parentSetS
                       fontWeight: 700
                     }}
                   >
-                    <option value="encargado_local">🏬 Encargado de Local (Ventas, Precios & Compras)</option>
-                    <option value="coordinador_taller">📋 Coordinador/a de Taller (Cartelera & Despacho)</option>
-                    <option value="operador_impresion">🖨️ Operador Impresión (Gran Formato & Digital)</option>
-                    <option value="operador_sublimacion">👕 Operador Sublimación & DTF Textil</option>
-                    <option value="operador_corte_laser">⚡ Operador Corte Láser & CNC Rígidos</option>
-                    <option value="asesora">💼 Asesora Comercial & Caja POS</option>
-                    <option value="cajera">💵 Cajero / Cobranzas</option>
+                    {SYSTEM_ROLES.map((role) => <option key={role.id} value={role.id}>{role.label}</option>)}
                   </select>
                 </div>
               </div>
@@ -861,15 +879,15 @@ export function POSAdvisorsManagement({ store: parentStore, setStore: parentSetS
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   />
                 </div>
-                <div className="pos-form-group">
+                {getRoleCapabilities(formData.role).hasSalesGoal && <div className="pos-form-group">
                   <label>Meta Semanal ($)</label>
                   <input
                     type="number"
                     step="50"
                     value={formData.weeklyGoal}
-                    onChange={(e) => setFormData({ ...formData, weeklyGoal: Number(e.target.value) || 3200 })}
+                    onChange={(e) => setFormData({ ...formData, weeklyGoal: Number(e.target.value) || 0 })}
                   />
-                </div>
+                </div>}
               </div>
 
               <div className="pos-form-group">
@@ -905,7 +923,7 @@ export function POSAdvisorsManagement({ store: parentStore, setStore: parentSetS
                   className="pos-submit-order-btn"
                   style={{ flex: 1, padding: '12px', fontSize: '13px' }}
                 >
-                  {editingAdvisor ? 'Guardar Cambios' : 'Crear Asesor(a)'}
+                  {editingAdvisor ? 'Guardar Cambios' : 'Crear integrante'}
                 </button>
               </div>
             </form>

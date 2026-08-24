@@ -146,7 +146,7 @@ function AboutPage() {
           <div>
             <span className="eyebrow orange">Gigaprint / quiénes somos</span>
             <h1>Tu marca no necesita gritar.<br /><em>Necesita presencia.</em></h1>
-            <p>Somos un taller creativo y de producción visual en Quito que convierte ideas en piezas que la gente puede ver, tocar y recordar.</p>
+            <p>Somos un taller creativo y de producción visual en Milagro (Guayas) que convierte ideas en piezas que la gente puede ver, tocar y recordar.</p>
           </div>
           <div className="inner-hero-mark">
             <span>G</span>
@@ -179,7 +179,7 @@ function AboutPage() {
           <div className="trust-pillar-grid">
             <div className="trust-pillar-card">
               <div className="pillar-icon"><Building2 /></div>
-              <h3>Taller Propio en Quito</h3>
+              <h3>Taller Propio en Milagro</h3>
               <p>Equipos industriales de gran formato, mesa láser y área de confección sin intermediarios.</p>
             </div>
             <div className="trust-pillar-card">
@@ -907,10 +907,24 @@ function SmartProductDetailPage() {
                           onChange={() => setFinishing('none')}
                         />
                         <div className="design-option-copy">
-                          <b>Corte al ras</b>
-                          <small>Sin ojales ni bolsillos.</small>
+                          <b>Estándar / Con margen blanco</b>
+                          <small>Demasía perimetral para bastidor o tensar.</small>
                         </div>
                         <span className="design-option-price">$0</span>
+                      </label>
+
+                      <label className={`design-option-card ${finishing === 'corte_al_ras' ? 'active' : ''}`}>
+                        <input
+                          type="radio"
+                          name="detail-finishing"
+                          checked={finishing === 'corte_al_ras'}
+                          onChange={() => setFinishing('corte_al_ras')}
+                        />
+                        <div className="design-option-copy">
+                          <b>Corte al ras (Adicional)</b>
+                          <small>Refilado de precisión exacto a la medida.</small>
+                        </div>
+                        <span className="design-option-price">+$1.00</span>
                       </label>
 
                       <label className={`design-option-card ${finishing === 'small' ? 'active' : ''}`}>
@@ -1600,10 +1614,24 @@ function SmartQuotePage() {
                             onChange={() => setFinishing('none')}
                           />
                           <div className="design-option-copy">
-                            <b>Corte al ras / Sin ojales</b>
-                            <small>Listo para enmarcar, montar o tensar.</small>
+                            <b>Estándar / Con margen blanco</b>
+                            <small>Demasía para tensar o montar en bastidor.</small>
                           </div>
                           <span className="design-option-price">$0</span>
+                        </label>
+
+                        <label className={`design-option-card ${finishing === 'corte_al_ras' ? 'active' : ''}`}>
+                          <input
+                            type="radio"
+                            name="finishing"
+                            checked={finishing === 'corte_al_ras'}
+                            onChange={() => setFinishing('corte_al_ras')}
+                          />
+                          <div className="design-option-copy">
+                            <b>Corte al ras (Adicional)</b>
+                            <small>Refilado de precisión exacto a la medida.</small>
+                          </div>
+                          <span className="design-option-price">+$1.00</span>
                         </label>
 
                         <label className={`design-option-card ${finishing === 'small' ? 'active' : ''}`}>
@@ -1760,7 +1788,7 @@ function SmartQuotePage() {
                         onChange={(event) => setInstallation(event.target.checked)}
                       />
                       <span>
-                        <b>Incluir instalación en sitio (Quito y alrededores)</b>
+                        <b>Incluir instalación en sitio (Milagro, Guayas y alrededores)</b>
                         <small>Personal técnico realiza el montaje en tu local o estructura.</small>
                       </span>
                     </label>

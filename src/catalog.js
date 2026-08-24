@@ -23,19 +23,28 @@ const unique = (items) => Array.from(new Set(items.filter(Boolean)));
 
 export function imageFor(category = '', text = '') {
   const haystack = `${category} ${text}`.toLowerCase();
-  if (haystack.includes('taz') || haystack.includes('souvenir') || haystack.includes('almohada') || haystack.includes('plato') || haystack.includes('llavero') || haystack.includes('tomatodo')) return media.taza;
-  if (haystack.includes('gorra') || haystack.includes('vicera') || haystack.includes('visera') || haystack.includes('abanico')) return media.gorra;
+  if (haystack.includes('almohada') || haystack.includes('cojin') || haystack.includes('cojín')) return media.almohada;
+  if (haystack.includes('tomatodo') || haystack.includes('termo') || haystack.includes('botella')) return media.tomatodo;
+  if (haystack.includes('llavero')) return media.llaveros;
+  if (haystack.includes('tarjeta') || haystack.includes('credencial') || haystack.includes('presentacion')) return media.tarjetas;
+  if (haystack.includes('volante') || haystack.includes('flyer') || haystack.includes('triptico') || haystack.includes('afiche')) return media.flyers;
+  if (haystack.includes('microperforado')) return media.vinilMicro;
+  if (haystack.includes('esmerilado') || haystack.includes('frosted')) return media.vinilEsmerilado;
+  if (haystack.includes('banner x') || haystack.includes('aranita') || haystack.includes('araña')) return media.bannerX;
+  if (haystack.includes('corporeo') || haystack.includes('corpóreo') || haystack.includes('3d') || haystack.includes('relieve')) return media.letras3D;
+  if (haystack.includes('trucker') || haystack.includes('gorra')) return media.gorraTrucker || media.gorra;
+  if (haystack.includes('taz') || haystack.includes('plato') || haystack.includes('souvenir')) return media.taza;
   if (haystack.includes('camiseta') || haystack.includes('polo') || haystack.includes('body') || haystack.includes('sublimacion') || haystack.includes('dtf')) return media.camiseta;
   if (haystack.includes('roll up') || haystack.includes('rollup') || haystack.includes('dummy')) return media.rollupProduct;
-  if (haystack.includes('stand') || haystack.includes('banner x') || haystack.includes('aranita')) return media.stand || media.bannerX;
+  if (haystack.includes('stand')) return media.stand || media.bannerX;
   if (haystack.includes('bolso') || haystack.includes('mochila') || haystack.includes('funda') || haystack.includes('cambrella') || haystack.includes('rodeo')) return media.bolso;
   if (haystack.includes('placa') || haystack.includes('vidrio') || haystack.includes('acril') || haystack.includes('laser')) return media.placa || media.laser;
   if (haystack.includes('neon') || haystack.includes('neón')) return media.neon;
   if (haystack.includes('luminoso') || haystack.includes('caja de luz')) return media.luminoso;
-  if (haystack.includes('corporeo') || haystack.includes('corpóreo') || haystack.includes('rotulo') || haystack.includes('letrero') || haystack.includes('fachada')) return media.letrero;
+  if (haystack.includes('rotulo') || haystack.includes('letrero') || haystack.includes('fachada')) return media.letrero;
   if (haystack.includes('lona') || haystack.includes('campana lonas') || haystack.includes('panaflex') || haystack.includes('banner')) return media.lona;
-  if (haystack.includes('vinil') || haystack.includes('microperforado') || haystack.includes('esmerilado') || haystack.includes('adhesivo')) return media.vinil;
-  if (haystack.includes('credencial') || haystack.includes('imprenta') || haystack.includes('tarjeta') || haystack.includes('volante') || haystack.includes('factura') || haystack.includes('sticker')) return media.stickers;
+  if (haystack.includes('vinil') || haystack.includes('adhesivo')) return media.vinil;
+  if (haystack.includes('imprenta') || haystack.includes('factura') || haystack.includes('sticker')) return media.stickers;
   return media.stickers;
 }
 

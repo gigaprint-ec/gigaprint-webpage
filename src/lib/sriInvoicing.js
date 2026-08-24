@@ -5,11 +5,11 @@
 
 // SRI Environment: 1 = Pruebas / Sandbox, 2 = Producción
 export const SRI_CONFIG = {
-  ruc: '1792345678001',
+  ruc: '0992345678001',
   razonSocial: 'GIGAPRINT PUBLICIDAD & IMPRESIÓN S.A.S.',
   nombreComercial: 'GIGAPRINT',
-  dirMatriz: 'Av. de la Prensa N58-120 y Vaca de Castro, Quito - Ecuador',
-  dirEstablecimiento: 'Av. de la Prensa N58-120 y Vaca de Castro, Quito - Ecuador',
+  dirMatriz: 'Av. García Moreno y 9 de Octubre, Milagro, Guayas - Ecuador',
+  dirEstablecimiento: 'Av. García Moreno y 9 de Octubre, Milagro, Guayas - Ecuador',
   codEstablecimiento: '001',
   codPuntoEmision: '001',
   contribuyenteEspecial: '',
@@ -244,7 +244,7 @@ export function buildSRIFacturaXML({
   xml += `  <infoAdicional>\n`;
   xml += `    <campoAdicional nombre="Email">${customer?.email || 'facturacion@gigaprint.ec'}</campoAdicional>\n`;
   xml += `    <campoAdicional nombre="Telefono">${order.customerPhone || '0990000000'}</campoAdicional>\n`;
-  xml += `    <campoAdicional nombre="Direccion">${customer?.address || 'Quito, Ecuador'}</campoAdicional>\n`;
+  xml += `    <campoAdicional nombre="Direccion">${customer?.address || 'Milagro, Ecuador'}</campoAdicional>\n`;
   xml += `    <campoAdicional nombre="Trabajo">${order.jobName || 'Publicidad y Gran Formato'}</campoAdicional>\n`;
   xml += `  </infoAdicional>\n`;
 

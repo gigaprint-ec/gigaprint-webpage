@@ -34,7 +34,8 @@ import {
   calculateOrderMargin,
   calculateDebtAgingMatrix,
   calculateWeeklyBalance,
-  exportFullFinancialReportToCSV
+  exportFullFinancialReportToCSV,
+  getRoleCapabilities
 } from '../../lib/posStore';
 import { POSLiveTerminalCards } from './components/POSLiveTerminalCards';
 import { POSBlindCashCountModal } from './components/POSBlindCashCountModal';
@@ -206,13 +207,13 @@ export function POSAdminDashboard() {
 
   // Advisor Leaderboard
   const advisorStats = useMemo(() => {
-    return (store.advisors || []).map((adv) => {
+    return (store.advisors || []).filter((adv) => getRoleCapabilities(adv.role).hasSalesGoal).map((adv) => {
       const advOrders = (store.orders || []).filter(
         (o) => o.advisorId === adv.id && (!dateRange.from || o.orderDate >= dateRange.from) && (!dateRange.to || o.orderDate <= dateRange.to) && o.status !== 'cancelled'
       );
       const sales = advOrders.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
       const deposits = advOrders.reduce((sum, o) => sum + (Number(o.depositAmount) || 0), 0);
-      const goal = adv.weeklyGoal || 3200;
+      const goal = Number(adv.weeklyGoal || 0);
       const progress = goal > 0 ? (sales / goal) * 100 : 0;
 
       return {
@@ -482,7 +483,7 @@ export function POSAdminDashboard() {
                   <Award size={18} style={{ color: 'var(--orange)' }} />
                   Rendimiento por Asesora Comercial
                 </h4>
-                <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 800 }}>Meta Semanal: $3,200</span>
+                <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 800 }}>Metas individuales</span>
               </div>
 
               <div style={{ display: 'grid', gap: '10px' }}>

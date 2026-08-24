@@ -69,7 +69,7 @@ export const initialData = {
     slogan: 'Tus ideas en grande',
     phone: '+593 98 765 4321',
     email: 'hola@gigaprint.ec',
-    address: 'Av. de la Prensa N58-120 y Vaca de Castro, Quito - Ecuador',
+    address: 'Av. García Moreno y 9 de Octubre, Milagro, Guayas - Ecuador',
     whatsapp: '593987654321',
     quoteWhatsappRoutes: [
       { id: 'ventas-principal', label: 'Ventas', number: '593987654321', categories: [], active: true, priority: 0 },
@@ -90,6 +90,7 @@ export const initialData = {
     designFromScratchPrice: 15,
     eyeletSmallPrice: 0.3,
     eyeletLargePrice: 0.5,
+    flushCutPrice: 1.0, // Corte al ras opcional
     disclaimer: 'Los valores son referenciales y pueden variar según acabados, instalación y condiciones del proyecto.',
   },
   services: [
@@ -99,7 +100,7 @@ export const initialData = {
     { id: 'laser', name: 'Corte y grabado láser', short: 'Precisión para ideas con carácter.', detail: 'Cortamos y grabamos MDF, acrílico, madera y otros materiales para proyectos especiales.', icon: 'ScanLine', image: media.laser, tag: 'Precisión' },
   ],
   products: [
-    { id: 'lona', name: 'Lona publicitaria premium', category: 'Gran formato', type: 'm2', calcType: 'm2', pricingMode: 'area', price: 7.0, price_inst: 10.0, price_corp: 6.25, unit: 'm²', image: media.lona, description: 'Lona resistente para fachadas, eventos y campañas. Alta resolución full color.', featured: true, specs: ['13 oz / 510 g', 'Full color CMYK', 'Acabado mate o brillante', 'Cálculo exacto por m²'] },
+    { id: 'lona', name: 'Lona publicitaria económica / estándar (13 oz)', category: 'Gran formato', type: 'm2', calcType: 'm2', pricingMode: 'area', price: 5.0, price_inst: 8.5, price_corp: 4.50, unit: 'm²', image: media.lona, description: 'Lona resistente para fachadas, eventos y campañas. Alta resolución full color.', featured: true, specs: ['13 oz / 510 g', 'Full color CMYK', 'Acabado mate o brillante', 'Cálculo exacto por m²'] },
     { id: 'vinil', name: 'Vinilo adhesivo personalizado', category: 'Gran formato', type: 'm2', calcType: 'm2', pricingMode: 'area', price: 9.5, price_inst: 14.0, price_corp: 8.75, unit: 'm²', image: media.vinil, description: 'Vinilo de impresión y corte para vitrinas, señalización y vehículos.', featured: true, specs: ['Corte opcional', 'Interior / exterior', 'Aplicación profesional', 'Cálculo exacto por m²'] },
     { id: 'banner-a', name: 'Banner en A (Porta-banner)', category: 'Gran formato', type: 'm2', calcType: 'm2', pricingMode: 'area', price: 12.0, unit: 'm²', image: media.stand || media.lona, description: 'Soporte publicitario de doble cara tipo A ideal para puntos de venta y ferias.', featured: false, specs: ['Estructura de aluminio', 'Lona intercambiable', 'Doble cara'] },
     { id: 'banner-arana', name: 'Banner Araña (Tensión)', category: 'Gran formato', type: 'm2', calcType: 'm2', pricingMode: 'area', price: 15.0, unit: 'm²', image: media.bannerX || media.stand, description: 'Display con estructura metálica tipo araña y lona tensada sin arrugas.', featured: false, specs: ['Estructura ligera', 'Lona de alta tensión', 'Fácil armado'] },

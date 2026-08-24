@@ -27,9 +27,8 @@ export const DEFAULT_BUSINESS_SCHEDULE = {
     { id: 'hol-6', date: '2026-05-24', name: 'Batalla de Pichincha', isOpen: false, note: 'Feriado cívico' },
     { id: 'hol-7', date: '2026-08-10', name: 'Primer Grito de Independencia', isOpen: false, note: 'Feriado nacional' },
     { id: 'hol-8', date: '2026-10-09', name: 'Independencia de Guayaquil', isOpen: false, note: 'Feriado nacional' },
-    { id: 'hol-9', date: '2026-11-02', name: 'Día de los Difuntos', isOpen: false, note: 'Feriado nacional' },
-    { id: 'hol-10', date: '2026-11-03', name: 'Independencia de Cuenca', isOpen: false, note: 'Feriado nacional' },
-    { id: 'hol-11', date: '2026-12-06', name: 'Fundación de Quito', isOpen: false, note: 'Feriado local Quito' },
+    { id: 'hol-10', date: '2026-09-17', name: 'Cantonización de Milagro', isOpen: false, note: 'Feriado local Milagro' },
+    { id: 'hol-11', date: '2026-11-03', name: 'Independencia de Cuenca', isOpen: false, note: 'Feriado nacional' },
     { id: 'hol-12', date: '2026-12-25', name: 'Navidad', isOpen: false, note: 'Cerrado por Navidad' }
   ]
 };

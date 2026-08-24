@@ -23,10 +23,15 @@ Una lámpara con vinil impreso, por ejemplo, se propone como `diseño → aproba
 - `src/pages/pos/POSProductionControl.jsx`: tablero operativo y calendario de capacidad.
 - `src/pages/pos/POSPage.jsx`: mostrador, selección de ruta y centro operativo.
 - `supabase/migrations/20260824000000_pos_production_workflow_engine.sql`: esquema, índices, realtime y dependencias.
+- `supabase/migrations/20260824020000_pos_team_roles_cash_permissions.sql`: capacidades de caja, metas, espacio inicial y validación de apertura por rol.
 
 ## Reglas funcionales
 
 - Una venta exige turno abierto, cliente, teléfono, artículos y ruta productiva.
+- Solo `asesora`, `admin` y `super_admin` pueden abrir caja. Supabase lo valida con el trigger `trg_pos_validate_cash_shift_owner`.
+- Solo `asesora` tiene meta semanal de ventas. Los demás roles conservan `weekly_goal = 0`.
+- Administradores acceden a todos los espacios; coordinación asigna responsables, fechas y duración; cada operador ve y ejecuta únicamente trabajos compatibles con su área.
+- Los PIN semanales de caja solo se rotan para integrantes con `can_open_cash = true`; el resto usa acceso operativo sin convertirse en cajero.
 - Un descuento exige motivo.
 - Efectivo recibido, valor aplicado y vuelto se guardan por separado.
 - Los números de orden evitan colisiones entre terminales.

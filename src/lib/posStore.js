@@ -1,6 +1,6 @@
 import { supabase, hasSupabase } from './supabase';
 import { estebanCatalogProducts } from '../catalog';
-import { buildProductionPlan, recalculateOperationReadiness } from './productionWorkflow';
+import { buildProductionPlan, recalculateOperationReadiness, PRODUCTION_AREAS } from './productionWorkflow';
 
 export const POS_STORAGE_KEY = 'gigaprint-pos-v1';
 export const POS_SESSION_KEY = 'gigaprint-pos-session-v1';
@@ -81,6 +81,7 @@ export function rotateAdvisorsCredentials(advisors = [], force = false, targetDa
   const monday = getMondayOfWeek(targetDate);
 
   return advisors.map((adv) => {
+    if (!getRoleCapabilities(adv.role).canOpenCash) return adv;
     if (adv.currentWeekCode !== currentWeek || force || !adv.weeklyPin || String(adv.weeklyPin).length < 6) {
       const pin = force
         ? String(Math.floor(100000 + Math.random() * 900000))
@@ -103,17 +104,18 @@ export function rotateAdvisorsCredentials(advisors = [], force = false, targetDa
 export function formatWeeklyCredentialsForWhatsApp(advisors = []) {
   const weekCode = getISOWeekCode();
   const monday = getMondayOfWeek();
-  const activeAdvisors = advisors.filter((a) => a.isActive !== false);
+  const activeAdvisors = advisors.filter((a) => a.isActive !== false && getRoleCapabilities(a.role).canOpenCash);
 
   let text = `🔐 *GIGAPRINT — CREDENCIALES SEMANALES DE PUNTO DE VENTA (POS)*\n`;
   text += `📅 *Semana:* ${weekCode} (Válidas desde Lun ${monday})\n`;
   text += `-------------------------------------------\n\n`;
 
   activeAdvisors.forEach((adv, index) => {
-    text += `👤 *Asesora ${index + 1}: ${adv.name}*\n`;
+    text += `👤 *Caja ${index + 1}: ${adv.name}*\n`;
     text += `   • PIN de Caja (6 dígitos): *${adv.weeklyPin || adv.pin || '123456'}*\n`;
     text += `   • Clave: *${adv.weeklyPassword || `${adv.name.toLowerCase()}-123456`}*\n`;
-    text += `   • Meta Semanal: $${adv.weeklyGoal || 3200}\n\n`;
+    if (getRoleCapabilities(adv.role).hasSalesGoal) text += `   • Meta Semanal: $${Number(adv.weeklyGoal || 0).toFixed(2)}\n`;
+    text += '\n';
   });
   text += `-------------------------------------------\n`;
   text += `⚠️ *Aviso:* Las credenciales se renuevan automáticamente cada LUNES a las 00:00 para control y seguridad de las ventas.`;
@@ -123,6 +125,7 @@ export function formatWeeklyCredentialsForWhatsApp(advisors = []) {
 export const formatWeeklyCredentialsText = formatWeeklyCredentialsForWhatsApp;
 
 export const SYSTEM_ROLES = [
+  { id: 'super_admin', label: '⭐ Superadministrador', area: 'gerencia', color: '#c2410c' },
   { id: 'admin', label: '👑 Administrador General', area: 'gerencia', color: '#ea580c' },
   { id: 'encargado_local', label: '🏬 Encargado de Local', area: 'sucursal', color: '#d97706' },
   { id: 'coordinador_taller', label: '📋 Coordinador/a de Taller', area: 'taller', color: '#6366f1' },
@@ -136,20 +139,61 @@ export const SYSTEM_ROLES = [
 ];
 
 export function getRoleCapabilities(role = 'asesora') {
+  const normalizedRole = role || 'asesora';
+  const isAdmin = normalizedRole === 'admin' || normalizedRole === 'super_admin';
+  const canOpenCash = isAdmin || normalizedRole === 'asesora';
+  const hasSalesGoal = normalizedRole === 'asesora';
+  const roleWorkspaces = {
+    asesora: ['cashier', 'crm', 'orders', 'products'],
+    encargado_local: ['billboard', 'flow', 'kanban', 'orders', 'inventory', 'purchases', 'products', 'crm'],
+    coordinador_taller: ['billboard', 'flow', 'stations', 'kanban', 'orders', 'inventory'],
+    disenador: ['flow', 'kanban'],
+    operador_impresion: ['flow', 'stations'],
+    operador_sublimacion: ['flow', 'stations'],
+    operador_corte_laser: ['flow', 'stations'],
+    operador_taller: ['flow', 'kanban'],
+    instalador: ['flow', 'kanban'],
+  };
+  const roleAreas = {
+    encargado_local: ['calidad', 'entrega'],
+    coordinador_taller: ['diseno', 'aprobacion', 'impresion', 'corte_laser', 'sublimacion', 'taller', 'calidad', 'entrega'],
+    disenador: ['diseno', 'aprobacion'],
+    operador_impresion: ['impresion'],
+    operador_sublimacion: ['sublimacion'],
+    operador_corte_laser: ['corte_laser'],
+    operador_taller: ['taller', 'calidad'],
+    instalador: ['entrega'],
+    asesora: ['asesoria'],
+  };
+  const allowedTabs = isAdmin
+    ? ['cashier', 'flow', 'billboard', 'stations', 'kanban', 'crm', 'products', 'orders', 'inventory', 'purchases', 'weekly', 'expenses', 'advisors']
+    : (roleWorkspaces[normalizedRole] || ['flow']);
+  const defaultTabs = {
+    asesora: 'cashier', encargado_local: 'billboard', coordinador_taller: 'billboard', disenador: 'flow',
+    operador_impresion: 'stations', operador_sublimacion: 'stations', operador_corte_laser: 'stations',
+    operador_taller: 'flow', instalador: 'flow', admin: 'cashier', super_admin: 'cashier',
+  };
   return {
-    isAdmin: role === 'admin' || role === 'super_admin',
-    isStoreManager: role === 'encargado_local' || role === 'admin' || role === 'super_admin',
-    isWorkshopCoordinator: role === 'coordinador_taller' || role === 'admin' || role === 'super_admin',
-    isDesigner: role === 'disenador' || role === 'admin' || role === 'super_admin',
-    isPrintOperator: role === 'operador_impresion' || role === 'admin' || role === 'coordinador_taller',
-    isSublimationOperator: role === 'operador_sublimacion' || role === 'admin' || role === 'coordinador_taller',
-    isLaserOperator: role === 'operador_corte_laser' || role === 'admin' || role === 'coordinador_taller',
-    isAdvisor: role === 'asesora' || role === 'cajera' || role === 'admin' || role === 'encargado_local',
-    canEditMasterCatalog: ['admin', 'super_admin', 'encargado_local'].includes(role),
-    canManageExpenses: ['admin', 'super_admin', 'encargado_local'].includes(role),
-    canCreatePurchaseOrders: ['admin', 'super_admin', 'encargado_local'].includes(role),
-    canAuditCash: ['admin', 'super_admin', 'encargado_local'].includes(role),
-    canDispatchWorkshop: ['admin', 'super_admin', 'coordinador_taller', 'encargado_local'].includes(role)
+    isAdmin,
+    isStoreManager: normalizedRole === 'encargado_local' || isAdmin,
+    isWorkshopCoordinator: normalizedRole === 'coordinador_taller' || isAdmin,
+    isDesigner: normalizedRole === 'disenador' || isAdmin,
+    isPrintOperator: normalizedRole === 'operador_impresion' || normalizedRole === 'coordinador_taller' || isAdmin,
+    isSublimationOperator: normalizedRole === 'operador_sublimacion' || normalizedRole === 'coordinador_taller' || isAdmin,
+    isLaserOperator: normalizedRole === 'operador_corte_laser' || normalizedRole === 'coordinador_taller' || isAdmin,
+    isAdvisor: normalizedRole === 'asesora' || isAdmin,
+    canOpenCash,
+    hasSalesGoal,
+    canManageCash: isAdmin,
+    canEditMasterCatalog: ['encargado_local'].includes(normalizedRole) || isAdmin,
+    canManageExpenses: isAdmin,
+    canCreatePurchaseOrders: ['encargado_local'].includes(normalizedRole) || isAdmin,
+    canAuditCash: isAdmin,
+    canDispatchWorkshop: ['coordinador_taller', 'encargado_local'].includes(normalizedRole) || isAdmin,
+    canManageAssignments: normalizedRole === 'coordinador_taller' || isAdmin,
+    allowedTabs,
+    defaultTab: defaultTabs[normalizedRole] || 'flow',
+    managedAreas: isAdmin ? PRODUCTION_AREAS.map((area) => area.id) : (roleAreas[normalizedRole] || []),
   };
 }
 
@@ -165,7 +209,7 @@ export const DEFAULT_WORKSTATIONS = [
 // Default initial advisors with 6-digit PINs & multi-role support
 export const DEFAULT_ADVISORS = [
   // Encargado de Local
-  { id: 'adv-encargado', name: 'Esteban (Encargado Local)', email: 'esteban@gigaprint.ec', pin: '654321', weeklyPin: '654321', weeklyPassword: 'esteban-654321', phone: '0990000100', role: 'encargado_local', assignedArea: 'sucursal', weeklyGoal: 5000, isActive: true, currentWeekCode: getISOWeekCode(), pinLastRotatedAt: getMondayOfWeek() },
+  { id: 'adv-encargado', name: 'Esteban (Encargado Local)', email: 'esteban@gigaprint.ec', pin: '654321', weeklyPin: '654321', weeklyPassword: 'esteban-654321', phone: '0990000100', role: 'encargado_local', assignedArea: 'sucursal', weeklyGoal: 0, isActive: true, currentWeekCode: getISOWeekCode(), pinLastRotatedAt: getMondayOfWeek() },
   // Coordinador de Taller
   { id: 'adv-coordinador', name: 'Mauricio (Coordinador Taller)', email: 'taller@gigaprint.ec', pin: '456789', weeklyPin: '456789', weeklyPassword: 'taller-456789', phone: '0990000101', role: 'coordinador_taller', assignedArea: 'taller', weeklyGoal: 0, isActive: true, currentWeekCode: getISOWeekCode(), pinLastRotatedAt: getMondayOfWeek() },
   // Operadores de Estaciones
@@ -184,13 +228,13 @@ export const DEFAULT_ADVISORS = [
 
 // Default Customers with rich CRM metadata
 export const DEFAULT_CUSTOMERS = [
-  { id: 'cust-1', name: 'Agrofunción', identification: '1790012345001', phone: '0987654321', email: 'agrofuncion@gmail.com', city: 'Quito', address: 'Av. Granados', companyName: 'Agrofunción S.A.', isVip: true, creditLimit: 2500, creditDays: 15, tags: ['Empresarial', 'Factura', 'Crédito 15d'], notes: 'Solicita siempre lonas con dobladillo y ojales reforzados cada 30cm.' },
-  { id: 'cust-2', name: 'Mauro Peñafiel', identification: '1712345678', phone: '0991234567', email: 'mauro.p@hotmail.com', city: 'Quito', address: 'Cumbayá', companyName: '', isVip: false, creditLimit: 500, creditDays: 0, tags: ['Frecuente', 'Viniles'], notes: 'Prefiere vinil brillante con laminado mate.' },
-  { id: 'cust-3', name: 'Jhony Gaspar', identification: '1723456789', phone: '0983456789', email: 'jgaspar@gmail.com', city: 'Quito', address: 'Norte de Quito', companyName: 'Gaspar Publicidad', isVip: true, creditLimit: 1500, creditDays: 30, tags: ['Agencia', 'Mayorista'], notes: 'Diseñador independiente, envía artes listos en PDF.' },
-  { id: 'cust-4', name: 'Juan Carlos', identification: '1709876543', phone: '0978901234', email: 'jc@outlook.com', city: 'Quito', address: 'Sector La Mariscal', companyName: '', isVip: false, creditLimit: 300, creditDays: 0, tags: ['Puntual'], notes: 'Paga 100% por transferencia antes de retirar.' },
-  { id: 'cust-5', name: 'Melissa Andrade', identification: '1718293041', phone: '0998765432', email: 'melissa.a@gmail.com', city: 'Quito', address: 'Tumbaco', companyName: 'Eventos & Bodas', isVip: false, creditLimit: 600, creditDays: 0, tags: ['Eventos', 'Roll-Ups'], notes: 'Pide respaldos de estructura de araña y roll-up.' },
-  { id: 'cust-6', name: 'Escuela El Rosario', identification: '1792345678001', phone: '022345678', email: 'elrosario@edu.ec', city: 'Quito', address: 'Valle de los Chillos', companyName: 'U.E. El Rosario', isVip: true, creditLimit: 3000, creditDays: 30, tags: ['Institución', 'Factura'], notes: 'Requiere comprobante de retención y orden de compra formal.' },
-  { id: 'cust-7', name: 'Karen Rodas', identification: '1729485721', phone: '0961234567', email: 'karen.r@gmail.com', city: 'Quito', address: 'Quito Sur', companyName: '', isVip: false, creditLimit: 400, creditDays: 0, tags: ['Rótulos'], notes: 'Cotizaciones de letras 3D y acrílico.' }
+  { id: 'cust-1', name: 'Agrofunción', identification: '0990012345001', phone: '0987654321', email: 'agrofuncion@gmail.com', city: 'Milagro', address: 'Av. 17 de Septiembre', companyName: 'Agrofunción S.A.', isVip: true, creditLimit: 2500, creditDays: 15, tags: ['Empresarial', 'Factura', 'Crédito 15d'], notes: 'Solicita siempre lonas con dobladillo y ojales reforzados cada 30cm.' },
+  { id: 'cust-2', name: 'Mauro Peñafiel', identification: '0912345678', phone: '0991234567', email: 'mauro.p@hotmail.com', city: 'Milagro', address: 'Cdla. Los Vergeles', companyName: '', isVip: false, creditLimit: 500, creditDays: 0, tags: ['Frecuente', 'Viniles'], notes: 'Prefiere vinil brillante con laminado mate.' },
+  { id: 'cust-3', name: 'Jhony Gaspar', identification: '0923456789', phone: '0983456789', email: 'jgaspar@gmail.com', city: 'Milagro', address: 'Sector Centro', companyName: 'Gaspar Publicidad', isVip: true, creditLimit: 1500, creditDays: 30, tags: ['Agencia', 'Mayorista'], notes: 'Diseñador independiente, envía artes listos en PDF.' },
+  { id: 'cust-4', name: 'Juan Carlos', identification: '0909876543', phone: '0978901234', email: 'jc@outlook.com', city: 'Milagro', address: 'Av. Los Chirijos', companyName: '', isVip: false, creditLimit: 300, creditDays: 0, tags: ['Puntual'], notes: 'Paga 100% por transferencia antes de retirar.' },
+  { id: 'cust-5', name: 'Melissa Andrade', identification: '0918293041', phone: '0998765432', email: 'melissa.a@gmail.com', city: 'Milagro', address: 'Cdla. Las Piñas', companyName: 'Eventos & Bodas', isVip: false, creditLimit: 600, creditDays: 0, tags: ['Eventos', 'Roll-Ups'], notes: 'Pide respaldos de estructura de araña y roll-up.' },
+  { id: 'cust-6', name: 'Escuela El Rosario', identification: '0992345678001', phone: '042711234', email: 'elrosario@edu.ec', city: 'Milagro', address: 'Sector La Pradera', companyName: 'U.E. El Rosario', isVip: true, creditLimit: 3000, creditDays: 30, tags: ['Institución', 'Factura'], notes: 'Requiere comprobante de retención y orden de compra formal.' },
+  { id: 'cust-7', name: 'Karen Rodas', identification: '0929485721', phone: '0961234567', email: 'karen.r@gmail.com', city: 'Milagro', address: 'Sector San Miguel', companyName: '', isVip: false, creditLimit: 400, creditDays: 0, tags: ['Rótulos'], notes: 'Cotizaciones de letras 3D y acrílico.' }
 ];
 
 // Default Initial Products (derived from catalog)
@@ -228,10 +272,10 @@ export const DEFAULT_MATERIALS = [
 
 // Default Suppliers Directory
 export const DEFAULT_SUPPLIERS = [
-  { id: 'sup-1', name: 'Importadora Gráfica Ecuador', identification: '1791234567001', contactName: 'Carlos Morales', phone: '0981112233', email: 'ventas@importadoragrafica.ec', city: 'Quito', address: 'Av. Galo Plaza Lasso', materialsSupplied: ['Lona Frontlit 13oz', 'Lona 10oz', 'Lona Mesh'], paymentTerms: 'Crédito 30d', notes: 'Entrega a domicilio los días martes y jueves.' },
-  { id: 'sup-2', name: 'Suministros Visuales del Austro', identification: '1792223334001', contactName: 'Patricia Vélez', phone: '0994445566', email: 'suministros@visuales.com.ec', city: 'Quito', address: 'Sector El Inca', materialsSupplied: ['Lona Backlit', 'Vinil Microperforado'], paymentTerms: 'Crédito 15d', notes: 'Descuento 5% por pronto pago en 8 días.' },
-  { id: 'sup-3', name: 'Distribuidora Avery / Ritrama', identification: '1793334445001', contactName: 'Ing. David Salazar', phone: '0977778899', email: 'dsalazar@viniles.ec', city: 'Quito', address: 'Carcelén Industrial', materialsSupplied: ['Vinil Adhesivo Blanco', 'Vinil Mate', 'Laminado en Frío'], paymentTerms: 'Contado', notes: 'Excelente calidad de adhesivo para exteriores.' },
-  { id: 'sup-4', name: 'Plásticos & Rígidos Industriales', identification: '1794445556001', contactName: 'Roberto Campana', phone: '0988889900', email: 'rcampana@plasticos.com.ec', city: 'Quito', address: 'Calderón', materialsSupplied: ['Planchas Sintra 3mm', 'Acrílico Cristal'], paymentTerms: 'Crédito 15d', notes: 'Corte a medida con sierra de banco sin costo adicional.' }
+  { id: 'sup-1', name: 'Importadora Gráfica Ecuador', identification: '1791234567001', contactName: 'Carlos Morales', phone: '0981112233', email: 'ventas@importadoragrafica.ec', city: 'Guayaquil', address: 'Av. Juan Tanca Marengo', materialsSupplied: ['Lona Frontlit 13oz', 'Lona 10oz', 'Lona Mesh'], paymentTerms: 'Crédito 30d', notes: 'Entrega en Milagro los días martes y jueves.' },
+  { id: 'sup-2', name: 'Suministros Visuales del Austro', identification: '1792223334001', contactName: 'Patricia Vélez', phone: '0994445566', email: 'suministros@visuales.com.ec', city: 'Guayaquil', address: 'Sector El Inca', materialsSupplied: ['Lona Backlit', 'Vinil Microperforado'], paymentTerms: 'Crédito 15d', notes: 'Descuento 5% por pronto pago en 8 días.' },
+  { id: 'sup-3', name: 'Distribuidora Avery / Ritrama', identification: '1793334445001', contactName: 'Ing. David Salazar', phone: '0977778899', email: 'dsalazar@viniles.ec', city: 'Guayaquil', address: 'Vía Daule Km 8.5', materialsSupplied: ['Vinil Adhesivo Blanco', 'Vinil Mate', 'Laminado en Frío'], paymentTerms: 'Contado', notes: 'Excelente calidad de adhesivo para exteriores.' },
+  { id: 'sup-4', name: 'Plásticos & Rígidos Industriales', identification: '1794445556001', contactName: 'Roberto Campana', phone: '0988889900', email: 'rcampana@plasticos.com.ec', city: 'Milagro', address: 'Sector El Chorrillo', materialsSupplied: ['Planchas Sintra 3mm', 'Acrílico Cristal'], paymentTerms: 'Crédito 15d', notes: 'Corte a medida con sierra de banco sin costo adicional.' }
 ];
 
 // Helper to generate Next Order Number (e.g., 61930)
@@ -648,16 +692,22 @@ export function createPOSAdvisor(store, advisorData) {
   const pin = String(advisorData.pin || advisorData.weeklyPin || Math.floor(100000 + Math.random() * 900000)).trim();
   const weeklyPassword = advisorData.weeklyPassword || `${firstName || 'asesora'}-${pin}`;
 
+  const role = advisorData.role || 'asesora';
+  const capabilities = getRoleCapabilities(role);
+  const roleDefinition = SYSTEM_ROLES.find((item) => item.id === role);
   const newAdvisor = {
     id: advisorData.id || `adv-${Date.now()}`,
     name: rawName,
     email: advisorData.email ? advisorData.email.trim() : `${firstName || 'asesora'}@gigaprint.ec`,
     phone: advisorData.phone ? advisorData.phone.trim() : '',
-    role: advisorData.role || 'asesora',
+    role,
+    assignedArea: advisorData.assignedArea || roleDefinition?.area || 'ventas',
     pin,
     weeklyPin: pin,
     weeklyPassword,
-    weeklyGoal: Number(advisorData.weeklyGoal) || 3200,
+    weeklyGoal: capabilities.hasSalesGoal ? (Number(advisorData.weeklyGoal) || 3200) : 0,
+    canOpenCash: capabilities.canOpenCash,
+    hasSalesGoal: capabilities.hasSalesGoal,
     isActive: advisorData.isActive !== false,
     currentWeekCode,
     pinLastRotatedAt: currentMonday
@@ -686,13 +736,19 @@ export function updatePOSAdvisor(store, advisorId, updates) {
       const firstName = (updates.name || adv.name).split(' ')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
       const weeklyPassword = updates.weeklyPassword || `${firstName || 'asesora'}-${pin}`;
 
+      const nextRole = updates.role || adv.role || 'asesora';
+      const capabilities = getRoleCapabilities(nextRole);
+      const roleDefinition = SYSTEM_ROLES.find((item) => item.id === nextRole);
       const merged = {
         ...adv,
         ...updates,
         pin,
         weeklyPin: pin,
         weeklyPassword,
-        weeklyGoal: updates.weeklyGoal !== undefined ? Number(updates.weeklyGoal) : adv.weeklyGoal,
+        assignedArea: updates.assignedArea || (updates.role ? roleDefinition?.area : adv.assignedArea) || roleDefinition?.area,
+        weeklyGoal: capabilities.hasSalesGoal ? (updates.weeklyGoal !== undefined ? Number(updates.weeklyGoal) : Number(adv.weeklyGoal ?? 3200)) : 0,
+        canOpenCash: capabilities.canOpenCash,
+        hasSalesGoal: capabilities.hasSalesGoal,
         isActive: updates.isActive !== undefined ? updates.isActive : adv.isActive,
         currentWeekCode: adv.currentWeekCode || currentWeekCode,
         pinLastRotatedAt: adv.pinLastRotatedAt || currentMonday
@@ -763,7 +819,7 @@ export function setPOSSession(advisorOrAdmin) {
 
 export function authenticateAdvisor(advisors, advisorId, pinOrPassword) {
   const advisor = advisors.find((a) => a.id === advisorId && a.isActive !== false);
-  if (!advisor) return { ok: false, error: 'Asesora no encontrada o inactiva.' };
+  if (!advisor) return { ok: false, error: 'Integrante no encontrado o inactivo.' };
 
   const cleanInput = String(pinOrPassword).trim().toLowerCase();
   const validPin = String(advisor.weeklyPin || advisor.pin || '').trim().toLowerCase();
@@ -771,19 +827,20 @@ export function authenticateAdvisor(advisors, advisorId, pinOrPassword) {
 
   if (
     cleanInput === validPin ||
-    cleanInput === validPass ||
-    cleanInput === '000000' ||
-    cleanInput === '123456' ||
-    cleanInput === '0000' ||
-    cleanInput === 'gigaprint'
+    cleanInput === validPass
   ) {
+    const capabilities = getRoleCapabilities(advisor.role);
     const session = setPOSSession({
       id: advisor.id,
       name: advisor.name,
       email: advisor.email,
       role: advisor.role || 'asesora',
-      isAdmin: false,
-      weeklyGoal: advisor.weeklyGoal || 3200
+      isAdmin: capabilities.isAdmin,
+      canOpenCash: capabilities.canOpenCash,
+      hasSalesGoal: capabilities.hasSalesGoal,
+      assignedArea: advisor.assignedArea || SYSTEM_ROLES.find((item) => item.id === advisor.role)?.area || null,
+      defaultTab: capabilities.defaultTab,
+      weeklyGoal: capabilities.hasSalesGoal ? Number(advisor.weeklyGoal || 0) : 0,
     });
     return { ok: true, session };
   }
@@ -825,6 +882,11 @@ export function getActiveCashShift(shifts = [], advisorId) {
 }
 
 export function openCashShift(store, advisorId, openingCash = 0, notes = '') {
+  const advisor = (store.advisors || []).find((person) => person.id === advisorId);
+  const role = advisor?.role || (advisorId === 'adv-admin' ? 'super_admin' : '');
+  if (!getRoleCapabilities(role).canOpenCash) {
+    return { ok: false, error: 'Este rol no tiene permiso para abrir caja. Debe ingresar a coordinación de trabajos.', updatedStore: store };
+  }
   const today = toISODate();
   const shiftId = `shf-${Date.now()}`;
   const newShift = {
@@ -846,7 +908,7 @@ export function openCashShift(store, advisorId, openingCash = 0, notes = '') {
   const updatedStore = { ...store, shifts: updatedShifts };
   savePOSStoreLocal(updatedStore);
   syncEntityRemote('pos_cash_shifts', newShift);
-  return { updatedStore, shift: newShift };
+  return { ok: true, updatedStore, shift: newShift };
 }
 
 export function closeCashShift(store, shiftId, closingCash = 0, notes = '') {
@@ -914,7 +976,7 @@ export function createPOSOrder(store, orderData) {
     jobName: orderData.jobName || `Trabajo #${orderNumber}`,
     orderDate: today,
     deliveryDate: orderData.deliveryDate || today,
-    pickupLocation: orderData.pickupLocation || 'Matriz Gigaprint - Av. de la Prensa y Vaca de Castro, Quito',
+    pickupLocation: orderData.pickupLocation || 'Matriz Gigaprint - Av. García Moreno y 9 de Octubre, Milagro',
     pickupPin: String(Math.floor(1000 + Math.random() * 9000)),
     dayOfWeek,
     productionStage: orderData.productionStage || 'preprensa',
@@ -1616,7 +1678,7 @@ export function upsertCustomer(store, customerData) {
     identification: customerData.identification || '',
     phone: customerData.phone || '',
     email: customerData.email || '',
-    city: customerData.city || 'Quito',
+    city: customerData.city || 'Milagro',
     address: customerData.address || '',
     companyName: customerData.companyName || '',
     isVip: Boolean(customerData.isVip),
@@ -1811,7 +1873,7 @@ export function upsertSupplier(store, supData) {
     contactName: supData.contactName || '',
     phone: supData.phone || '',
     email: supData.email || '',
-    city: supData.city || 'Quito',
+    city: supData.city || 'Milagro',
     address: supData.address || '',
     materialsSupplied: Array.isArray(supData.materialsSupplied) ? supData.materialsSupplied : [],
     paymentTerms: supData.paymentTerms || 'Contado',

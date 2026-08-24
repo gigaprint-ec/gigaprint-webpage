@@ -15,7 +15,9 @@ import {
   authenticateAdvisor,
   authenticateAdmin,
   getISOWeekCode,
-  getMondayOfWeek
+  getMondayOfWeek,
+  getRoleCapabilities,
+  SYSTEM_ROLES
 } from '../../lib/posStore';
 
 export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess }) {
@@ -31,6 +33,8 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess 
   const currentWeekCode = getISOWeekCode();
 
   const selectedAdvisor = advisors.find((a) => a.id === selectedAdvisorId) || advisors[0] || { name: 'Vicky', id: 'adv-vicky' };
+  const selectedCapabilities = getRoleCapabilities(selectedAdvisor.role);
+  const selectedRole = SYSTEM_ROLES.find((role) => role.id === selectedAdvisor.role);
 
   // Handle Physical Keyboard input
   useEffect(() => {
@@ -144,10 +148,10 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess 
             <div className="pos-brand-logo-mark" style={{ width: '42px', height: '42px' }}>G</div>
             <div>
               <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 900, color: 'var(--pos-text-main)' }}>
-                Gigaprint POS
+                Gigaprint Equipo
               </h2>
               <small style={{ color: 'var(--pos-text-muted)', fontSize: '11px', textTransform: 'uppercase', fontWeight: 800 }}>
-                Punto de Venta & Caja
+                Operación, coordinación y caja
               </small>
             </div>
           </div>
@@ -170,7 +174,7 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess 
               setPinInput('');
             }}
           >
-            <User size={15} /> Asesoras Comerciales
+            <User size={15} /> Acceso del equipo
           </button>
           <button
             type="button"
@@ -189,7 +193,7 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess 
         {/* ADVISOR LOGIN MODE */}
         {loginMode === 'advisor' && (
           <div style={{ display: 'grid', gap: '14px' }}>
-            {/* Advisor Selector Avatars */}
+            {/* Team member selector */}
             <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
               {(advisors.length > 0 ? advisors : [{ id: 'adv-vicky', name: 'Vicky', role: 'asesora' }])
                 .filter((a) => a.isActive !== false)
@@ -221,10 +225,10 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderRadius: '11px', background: '#f8fafc', border: '1px solid var(--pos-border)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
                 <Key size={16} style={{ color: 'var(--pos-primary)' }} />
-                <span>Ingresa el PIN (6 dígitos) de <b>{selectedAdvisor?.name}</b>:</span>
+                <span>PIN de acceso de <b>{selectedAdvisor?.name}</b></span>
               </div>
               <small style={{ color: 'var(--pos-text-muted)', fontSize: '11px', fontWeight: 700 }}>
-                Lunes {currentMonday}
+                {selectedRole?.label || selectedAdvisor.role}
               </small>
             </div>
 
@@ -295,6 +299,12 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess 
               </button>
             </div>
 
+            <div style={{ padding: '10px 14px', borderRadius: '11px', background: 'var(--pos-primary-soft)', color: 'var(--pos-text-main)', fontSize: '12px', lineHeight: 1.5 }}>
+              {selectedCapabilities.canOpenCash
+                ? 'Al ingresar podrás abrir caja, registrar ventas y gestionar clientes.'
+                : `Al ingresar abrirás coordinación de trabajos${selectedCapabilities.managedAreas.length ? ` para ${selectedCapabilities.managedAreas.join(', ')}` : ''}. Este rol no abre caja ni tiene meta comercial.`}
+            </div>
+
             {/* Unlock Button */}
             <button
               type="button"
@@ -303,7 +313,7 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess 
               onClick={handleAdvisorSubmit}
               disabled={pinInput.length === 0}
             >
-              <span>Desbloquear Turno</span>
+              <span>Entrar a mi espacio de trabajo</span>
               <ArrowRight size={18} />
             </button>
           </div>
@@ -331,7 +341,7 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess 
                 Modo Administrador General
               </h3>
               <p style={{ margin: 0, fontSize: '12px', color: 'var(--pos-text-muted)' }}>
-                Acceso a todas las asesoras, cuadres consolidados y Hub Maestro.
+                Acceso total a caja, equipo, coordinación, inventario y reportes.
               </p>
             </div>
 

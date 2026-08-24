@@ -88,7 +88,8 @@ export function POSProductQuickMatrix({
       name.includes('blackout')
     ) {
       return [
-        { id: 'none', label: 'Sin acabados extra / Corte al ras', cost: 0 },
+        { id: 'none', label: 'Estándar / Con margen blanco (demasía para bastidor)', cost: 0 },
+        { id: 'corte_al_ras', label: 'Corte al ras / Refilado exacto a medida (+$1.00)', cost: 1.00 },
         { id: 'ojales_pequenos', label: 'Ojales estándar niquelados (+$0.30 c/u)', cost: 0.30 },
         { id: 'ojales_reforzados', label: 'Ojales reforzados 4 esquinas (+$0.50 c/u)', cost: 0.50 },
         { id: 'dobladillo_perimetral', label: 'Dobladillo termosellado perimetral (+$0.75/m)', cost: 0.75 },

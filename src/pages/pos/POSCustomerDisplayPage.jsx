@@ -324,9 +324,9 @@ export function POSCustomerDisplayPage() {
         justifyContent: 'space-between',
         alignItems: 'center'
       }}>
-        <span>Gigaprint Ecuador • RUC: 1790012345001</span>
-        <span>📍 Av. de la Prensa N58-120 y Vaca de Castro, Quito</span>
-        <span>📞 099 000 0000</span>
+        <span>Gigaprint Ecuador • RUC: 0992345678001</span>
+        <span>📍 Av. García Moreno y 9 de Octubre, Milagro, Guayas</span>
+        <span>📞 +593 98 765 4321</span>
       </footer>
     </div>
   );

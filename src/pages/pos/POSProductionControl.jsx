@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Filter, Play, Users, Zap } from 'lucide-react';
-import { AREA_BY_ID, PRODUCTION_AREAS, getAreaCapacity } from '../../lib/productionWorkflow';
-import { updateProductionOperation } from '../../lib/posStore';
+import { AREA_BY_ID, PRODUCTION_AREAS, getAreaCapacity, isEligibleForProductionArea } from '../../lib/productionWorkflow';
+import { getRoleCapabilities, updateProductionOperation } from '../../lib/posStore';
 
 const STATUS = {
   blocked: { label: 'Bloqueado', color: '#64748b' },
@@ -24,11 +24,15 @@ function startOfWeek(value) {
   return date;
 }
 
-function OperationCard({ operation, order, advisors, onUpdate }) {
+function OperationCard({ operation, order, advisors, onUpdate, session, canManage }) {
   const area = AREA_BY_ID[operation.area] || { label: operation.area, color: '#64748b' };
   const status = STATUS[operation.status] || STATUS.blocked;
   const assignee = advisors.find((person) => person.id === operation.assignedTo);
   const blocked = operation.status === 'blocked';
+  const isAssignedWorker = operation.assignedTo === session?.id;
+  const canClaim = !operation.assignedTo && isEligibleForProductionArea(session || {}, operation.area);
+  const canOperate = canManage || isAssignedWorker;
+  const eligibleAdvisors = advisors.filter((person) => person.isActive !== false && isEligibleForProductionArea(person, operation.area));
 
   return (
     <article className={`pos-operation-card status-${operation.status}`} style={{ '--area-color': area.color }}>
@@ -42,33 +46,22 @@ function OperationCard({ operation, order, advisors, onUpdate }) {
         <span><Clock3 size={13} /> {formatTime(operation.scheduledStart)}–{formatTime(operation.scheduledEnd)} · {formatDuration(operation.estimatedMinutes)}</span>
         <span><Users size={13} /> {assignee?.name || 'Sin responsable'}</span>
       </div>
-      <div className="pos-operation-fields">
-        <select value={operation.assignedTo || ''} onChange={(event) => onUpdate(operation.id, { assignedTo: event.target.value || null })}>
-          <option value="">Asignar responsable…</option>
-          {advisors.filter((person) => person.isActive !== false).map((person) => <option key={person.id} value={person.id}>{person.name}</option>)}
-        </select>
-        <input
-          type="number"
-          min="5"
-          step="5"
-          value={operation.estimatedMinutes || 30}
-          aria-label="Duración estimada en minutos"
-          onChange={(event) => onUpdate(operation.id, { estimatedMinutes: Math.max(5, Number(event.target.value) || 5) })}
-        />
-        <input
-          type="date"
-          value={operation.scheduledStart?.slice(0, 10) || ''}
-          aria-label="Fecha programada"
-          onChange={(event) => {
+      {canManage && <div className="pos-operation-fields">
+          <select value={operation.assignedTo || ''} onChange={(event) => onUpdate(operation.id, { assignedTo: event.target.value || null })}>
+            <option value="">Asignar responsable…</option>
+            {eligibleAdvisors.map((person) => <option key={person.id} value={person.id}>{person.name}</option>)}
+          </select>
+          <input type="number" min="5" step="5" value={operation.estimatedMinutes || 30} aria-label="Duración estimada en minutos" onChange={(event) => onUpdate(operation.id, { estimatedMinutes: Math.max(5, Number(event.target.value) || 5) })} />
+          <input type="date" value={operation.scheduledStart?.slice(0, 10) || ''} aria-label="Fecha programada" onChange={(event) => {
             const start = new Date(`${event.target.value}T08:00:00`);
             const end = new Date(start.getTime() + Number(operation.estimatedMinutes || 30) * 60000);
             onUpdate(operation.id, { scheduledStart: start.toISOString(), scheduledEnd: end.toISOString() });
-          }}
-        />
-      </div>
+          }} />
+        </div>}
       <div className="pos-operation-actions">
-        {operation.status === 'ready' && <button type="button" onClick={() => onUpdate(operation.id, { status: 'in_progress' })}><Play size={14} /> Iniciar</button>}
-        {operation.status === 'in_progress' && <button type="button" className="complete" onClick={() => onUpdate(operation.id, { status: 'done' })}><CheckCircle2 size={14} /> Terminar y notificar</button>}
+        {canClaim && operation.status === 'ready' && <button type="button" onClick={() => onUpdate(operation.id, { assignedTo: session.id, status: 'in_progress' })}><Play size={14} /> Tomar e iniciar trabajo</button>}
+        {canOperate && operation.status === 'ready' && <button type="button" onClick={() => onUpdate(operation.id, { status: 'in_progress' })}><Play size={14} /> Iniciar</button>}
+        {canOperate && operation.status === 'in_progress' && <button type="button" className="complete" onClick={() => onUpdate(operation.id, { status: 'done' })}><CheckCircle2 size={14} /> Terminar y notificar</button>}
         {operation.status === 'done' && <span className="pos-operation-done"><CheckCircle2 size={14} /> Completado</span>}
         {blocked && <span className="pos-operation-blocked">Espera etapas anteriores</span>}
       </div>
@@ -81,13 +74,19 @@ export function POSProductionControl({ store, setStore, session }) {
   const [areaFilter, setAreaFilter] = useState('all');
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const operations = store.productionOperations || [];
+  const capabilities = useMemo(() => getRoleCapabilities(session?.role), [session?.role]);
+  const canManage = capabilities.canManageAssignments;
   const ordersById = useMemo(() => Object.fromEntries((store.orders || []).map((order) => [order.id, order])), [store.orders]);
   const activeOperations = useMemo(() => operations.filter((operation) => operation.status !== 'cancelled' && ordersById[operation.orderId]?.status !== 'cancelled'), [operations, ordersById]);
-  const visible = areaFilter === 'all' ? activeOperations : activeOperations.filter((operation) => operation.area === areaFilter);
-  const areas = PRODUCTION_AREAS.filter((area) => area.id !== 'asesoria');
-  const unassigned = activeOperations.filter((operation) => !operation.assignedTo && !['done', 'blocked'].includes(operation.status)).length;
-  const overdue = activeOperations.filter((operation) => !['done', 'cancelled'].includes(operation.status) && operation.scheduledEnd && new Date(operation.scheduledEnd) < new Date()).length;
-  const inProgress = activeOperations.filter((operation) => operation.status === 'in_progress').length;
+  const scopedOperations = useMemo(() => {
+    if (canManage || capabilities.isAdmin) return activeOperations;
+    return activeOperations.filter((operation) => capabilities.managedAreas.includes(operation.area) && (!operation.assignedTo || operation.assignedTo === session?.id));
+  }, [activeOperations, canManage, capabilities, session?.id]);
+  const visible = areaFilter === 'all' ? scopedOperations : scopedOperations.filter((operation) => operation.area === areaFilter);
+  const areas = PRODUCTION_AREAS.filter((area) => area.id !== 'asesoria' && (canManage || capabilities.isAdmin || capabilities.managedAreas.includes(area.id)));
+  const unassigned = scopedOperations.filter((operation) => !operation.assignedTo && !['done', 'blocked'].includes(operation.status)).length;
+  const overdue = scopedOperations.filter((operation) => !['done', 'cancelled'].includes(operation.status) && operation.scheduledEnd && new Date(operation.scheduledEnd) < new Date()).length;
+  const inProgress = scopedOperations.filter((operation) => operation.status === 'in_progress').length;
 
   const update = (operationId, changes) => {
     const result = updateProductionOperation(store, operationId, changes, session?.id);
@@ -105,8 +104,8 @@ export function POSProductionControl({ store, setStore, session }) {
       <div className="pos-flow-hero">
         <div>
           <span className="pos-flow-kicker"><Zap size={15} /> Centro operativo sincronizado</span>
-          <h2>Producción, responsables y capacidad</h2>
-          <p>Cada venta se convierte en operaciones encadenadas. Lo bloqueado se libera automáticamente cuando termina la etapa anterior.</p>
+          <h2>{canManage ? 'Producción, responsables y capacidad' : 'Mis trabajos y agenda'}</h2>
+          <p>{canManage ? 'Cada venta se convierte en operaciones encadenadas. Lo bloqueado se libera automáticamente cuando termina la etapa anterior.' : 'Aquí aparecen únicamente los trabajos de tu área. Puedes tomar uno disponible, iniciarlo y notificar cuando esté terminado.'}</p>
         </div>
         <div className="pos-flow-view-switch">
           <button className={view === 'board' ? 'active' : ''} onClick={() => setView('board')}>Flujo por área</button>
@@ -118,14 +117,14 @@ export function POSProductionControl({ store, setStore, session }) {
         <div><strong>{inProgress}</strong><span>En proceso</span></div>
         <div><strong>{unassigned}</strong><span>Sin responsable</span></div>
         <div className={overdue ? 'danger' : ''}><strong>{overdue}</strong><span>Fuera de horario</span></div>
-        <div><strong>{new Set(activeOperations.map((operation) => operation.orderId)).size}</strong><span>Órdenes activas</span></div>
+        <div><strong>{new Set(scopedOperations.map((operation) => operation.orderId)).size}</strong><span>Órdenes activas</span></div>
       </div>
 
       {view === 'board' ? (
         <>
           <div className="pos-flow-toolbar">
             <Filter size={15} />
-            <button className={areaFilter === 'all' ? 'active' : ''} onClick={() => setAreaFilter('all')}>Todas</button>
+            {areas.length > 1 && <button className={areaFilter === 'all' ? 'active' : ''} onClick={() => setAreaFilter('all')}>Todas</button>}
             {areas.map((area) => <button key={area.id} className={areaFilter === area.id ? 'active' : ''} onClick={() => setAreaFilter(area.id)}>{area.label}</button>)}
           </div>
           <div className="pos-flow-board">
@@ -135,7 +134,7 @@ export function POSProductionControl({ store, setStore, session }) {
                 <div className="pos-flow-column" key={area.id}>
                   <header style={{ '--area-color': area.color }}><span>{area.label}</span><b>{areaOperations.length}</b></header>
                   <div className="pos-flow-column-body">
-                    {areaOperations.length ? areaOperations.map((operation) => <OperationCard key={operation.id} operation={operation} order={ordersById[operation.orderId]} advisors={store.advisors || []} onUpdate={update} />) : <div className="pos-flow-empty">Sin trabajos pendientes</div>}
+                    {areaOperations.length ? areaOperations.map((operation) => <OperationCard key={operation.id} operation={operation} order={ordersById[operation.orderId]} advisors={store.advisors || []} onUpdate={update} session={session} canManage={canManage || capabilities.isAdmin} />) : <div className="pos-flow-empty">Sin trabajos pendientes</div>}
                   </div>
                 </div>
               );
@@ -158,7 +157,7 @@ export function POSProductionControl({ store, setStore, session }) {
                 {days.map((day) => {
                   const dayCode = isoDay(day);
                   const dayOperations = visible.filter((operation) => operation.area === area.id && operation.scheduledStart?.slice(0, 10) === dayCode && operation.status !== 'done');
-                  const capacity = getAreaCapacity(activeOperations, dayCode, area.id);
+                  const capacity = getAreaCapacity(scopedOperations, dayCode, area.id);
                   return (
                     <div className={`pos-calendar-cell ${capacity.percentage > 100 ? 'overload' : ''}`} key={`${area.id}-${dayCode}`}>
                       <div className="pos-capacity-meter"><span style={{ width: `${Math.min(100, capacity.percentage)}%`, background: capacity.percentage > 100 ? '#dc2626' : area.color }} /></div>

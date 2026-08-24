@@ -176,7 +176,7 @@ export function POSReceiptModal({ order, items = [], advisor, isOpen, onClose })
             <div style={{ textAlign: 'center', marginBottom: '12px' }}>
               <h2 style={{ margin: 0, fontSize: receiptWidth === '58mm' ? '18px' : '22px', fontWeight: 900, color: '#ea580c' }}>GIGAPRINT</h2>
               <p style={{ margin: '2px 0', fontSize: '10px', fontWeight: 700 }}>Tus ideas en grande</p>
-              <p style={{ margin: '2px 0', fontSize: '10px' }}>Quito, Ecuador · Tel: 099 000 0000</p>
+              <p style={{ margin: '2px 0', fontSize: '10px' }}>Milagro, Guayas - Ecuador · Tel: +593 98 765 4321</p>
               <p style={{ margin: '4px 0 0', fontSize: '12px', fontWeight: 800 }}>ORDEN # {order.orderNumber}</p>
             </div>
 

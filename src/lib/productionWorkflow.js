@@ -98,7 +98,7 @@ function addWorkingMinutes(startValue, minutes) {
   return current;
 }
 
-function eligibleForArea(person, area) {
+export function isEligibleForProductionArea(person, area) {
   const roleAreas = {
     diseno: ['disenador'],
     impresion: ['operador_impresion'],
@@ -113,7 +113,7 @@ function eligibleForArea(person, area) {
 }
 
 function selectLeastLoadedStaff(advisors, operations, area) {
-  const candidates = advisors.filter((person) => person.isActive !== false && eligibleForArea(person, area));
+  const candidates = advisors.filter((person) => person.isActive !== false && isEligibleForProductionArea(person, area));
   if (!candidates.length) return null;
   const load = Object.fromEntries(candidates.map((person) => [person.id, 0]));
   operations.forEach((operation) => {

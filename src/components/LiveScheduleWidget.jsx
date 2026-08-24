@@ -20,7 +20,7 @@ export function LiveScheduleWidget({
   schedule = DEFAULT_BUSINESS_SCHEDULE,
   phone = '+593 98 765 4321',
   whatsapp = '593987654321',
-  address = 'Av. de la Prensa N58-120 y Vaca de Castro, Quito',
+  address = 'Av. García Moreno y 9 de Octubre, Milagro, Guayas',
   compact = false
 }) {
   const [now, setNow] = useState(() => new Date());

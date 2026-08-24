@@ -33,7 +33,8 @@ import {
   updateOrderStationStage,
   toggleOrderItemStationCheck,
   logMaterialScrap,
-  toISODate
+  toISODate,
+  getRoleCapabilities
 } from '../../lib/posStore';
 
 export function POSStationWorkspaces({
@@ -56,7 +57,13 @@ export function POSStationWorkspaces({
   const [scrapReason, setScrapReason] = useState('Atasco de cabezal / Falla inyección');
   const [scrapNotes, setScrapNotes] = useState('');
 
-  const currentStation = onStationChange ? activeStation : station;
+  const capabilities = getRoleCapabilities(session?.role);
+  const stationIds = ['impresion', 'sublimacion', 'corte_laser'];
+  const allowedStations = (capabilities.isAdmin || capabilities.isWorkshopCoordinator)
+    ? stationIds
+    : stationIds.filter((area) => capabilities.managedAreas.includes(area));
+  const requestedStation = onStationChange ? activeStation : station;
+  const currentStation = allowedStations.includes(requestedStation) ? requestedStation : (allowedStations[0] || requestedStation);
   const setStationTab = onStationChange || setStation;
 
   // Filter orders for the active station
@@ -463,6 +470,7 @@ export function POSStationWorkspaces({
 
           {/* Station Switcher Tabs */}
           <div style={{ display: 'flex', gap: '6px' }}>
+            {allowedStations.includes('impresion') && <>
             <button
               type="button"
               onClick={() => setStationTab('impresion')}
@@ -482,6 +490,8 @@ export function POSStationWorkspaces({
             >
               <Printer size={14} /> 🖨️ Impresión
             </button>
+            </>}
+            {allowedStations.includes('sublimacion') && <>
             <button
               type="button"
               onClick={() => setStationTab('sublimacion')}
@@ -501,6 +511,8 @@ export function POSStationWorkspaces({
             >
               <Flame size={14} /> 👕 Sublimación
             </button>
+            </>}
+            {allowedStations.includes('corte_laser') && <>
             <button
               type="button"
               onClick={() => setStationTab('corte_laser')}
@@ -520,6 +532,7 @@ export function POSStationWorkspaces({
             >
               <Zap size={14} /> ⚡ Corte Láser
             </button>
+            </>}
           </div>
         </div>
 
