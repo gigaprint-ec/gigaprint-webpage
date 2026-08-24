@@ -25,6 +25,7 @@ export function imageFor(category = '', text = '') {
   const haystack = `${category} ${text}`.toLowerCase();
 
   // 1. Souvenirs, Jarros & Regalos
+  if (haystack.includes('color interior') || haystack.includes('asa de color')) return media.jarroColorInterior || media.taza;
   if (haystack.includes('escarchado')) return media.jarroEscarchado || media.jarroMagico;
   if (haystack.includes('metalizado') || haystack.includes('dorado') || haystack.includes('plateado')) return media.jarroMetalizado || media.taza;
   if (haystack.includes('porta taza') || haystack.includes('caja taza')) return media.portaTazaCaja || media.taza;
@@ -33,8 +34,10 @@ export function imageFor(category = '', text = '') {
   if (haystack.includes('mason')) return media.jarroMason || media.taza;
   if (haystack.includes('taz') || haystack.includes('jarro') || haystack.includes('plato')) return media.taza;
   if (haystack.includes('almohada') || haystack.includes('cojin') || haystack.includes('cojín')) return media.almohada;
+  if (haystack.includes('500 ml') || (haystack.includes('tomatodo') && haystack.includes('aluminio'))) return media.tomatodoBlancoSublimado || media.tomatodo;
   if (haystack.includes('tomatodo') && (haystack.includes('plast') || haystack.includes('dtf'))) return media.tomatodoPlastico || media.tomatodo;
   if (haystack.includes('tomatodo') || haystack.includes('termo') || haystack.includes('botella')) return media.tomatodo;
+  if (haystack.includes('10 cm') || haystack.includes('predeterminada') || haystack.includes('silueta')) return media.llaverosSilueta || media.llaveros;
   if (haystack.includes('llavero')) return media.llaveros;
   if (haystack.includes('pin') || haystack.includes('pines') || haystack.includes('boton') || haystack.includes('botón')) return media.pinesMetalicos || media.souvenirsPack;
   if (haystack.includes('sello') || haystack.includes('fechador') || haystack.includes('trodat')) return media.sellosTrodat || media.sellosStickers;
@@ -43,33 +46,50 @@ export function imageFor(category = '', text = '') {
   if (haystack.includes('cuaderno') || haystack.includes('agenda') || haystack.includes('pasta dura')) return media.cuadernoPastaDura || media.folletosPack;
 
   // 2. Imprenta, Credenciales & Papelería
-  if (haystack.includes('brazo') || haystack.includes('reflectivo')) return media.portacredencialBrazo || media.credencialesCombo;
-  if (haystack.includes('arenada') || haystack.includes('portacredencial') || haystack.includes('yoyo') || haystack.includes('retractil')) return media.portacredencialAcrilica || media.yoyoRetractil || media.credencialesCombo;
+  if (haystack.includes('brazo') || haystack.includes('reflectivo')) return media.portacredencialBrazoSeguridad || media.portacredencialBrazo;
+  if (haystack.includes('arenada') || (haystack.includes('portacredencial') && haystack.includes('clip'))) return media.portacredencialArenadaRigida || media.portacredencialAcrilica;
+  if (haystack.includes('yoyo') || haystack.includes('retractil')) return media.yoyoRetractil || media.credencialesCombo;
   if (haystack.includes('combo credencial') || (haystack.includes('credencial') && haystack.includes('combo'))) return media.credencialesCombo;
-  if (haystack.includes('credencial') || haystack.includes('carnet') || haystack.includes('cordon') || haystack.includes('cordón') || haystack.includes('lanyard')) return media.credencialesLanyard;
+  if (haystack.includes('cordon') || haystack.includes('cordón') || haystack.includes('lanyard')) return media.cordonLanyardSublimado || media.credencialesLanyard;
+  if (haystack.includes('credencial') || haystack.includes('carnet')) return media.credencialesLanyard;
+  if (haystack.includes('uv') || haystack.includes('selectivo') || haystack.includes('sectorizado')) return media.tarjetasUVSectorizado || media.tarjetas;
   if (haystack.includes('tarjeta') || haystack.includes('presentacion') || haystack.includes('presentación')) return media.tarjetas;
+  if (haystack.includes('a5') && (haystack.includes('tiro y retiro') || haystack.includes('dos lados'))) return media.volantesA5DobleCara || media.flyers;
+  if (haystack.includes('a6')) return media.volantesA6Compactos || media.flyers;
   if (haystack.includes('volante') || haystack.includes('flyer') || haystack.includes('afiche')) return media.flyers;
-  if (haystack.includes('triptico') || haystack.includes('tríptico') || haystack.includes('diptico') || haystack.includes('díptico') || haystack.includes('folleto') || haystack.includes('brochure')) return media.folletosPack;
+  if (haystack.includes('diptico') || haystack.includes('díptico')) return media.dipticosPlegablesA4 || media.folletosPack;
+  if (haystack.includes('triptico') || haystack.includes('tríptico') || haystack.includes('folleto') || haystack.includes('brochure')) return media.tripticosCorporativosA4 || media.folletosPack;
   if (haystack.includes('escritorio') || haystack.includes('sobremesa') || haystack.includes('wire-o') || haystack.includes('12 hojas')) return media.calendarioSobremesa || media.calendariosPack;
-  if (haystack.includes('calendario') || haystack.includes('almanaque') || haystack.includes('santoral')) return media.calendarioPared || media.calendariosPack;
+  if (haystack.includes('350 gr') || haystack.includes('santoral') || haystack.includes('varilla')) return media.calendarioParedVarilla || media.calendarioPared;
+  if (haystack.includes('calendario') || haystack.includes('almanaque')) return media.calendarioPared || media.calendariosPack;
   if (haystack.includes('imprenta') || haystack.includes('factura')) return media.folletosPack;
 
-  // 3. Fundas, Bolsos & Empaques
+  // 3. Diseño, Identidad & Accesorios de Montaje
+  if (haystack.includes('brief') || haystack.includes('manual') || haystack.includes('identidad')) return media.manualIdentidadMarca || media.folletosPack;
+  if (haystack.includes('logotipo') || haystack.includes('propuestas') || haystack.includes('ilustrator')) return media.disenoLogotipoBranding || media.folletosPack;
+  if (haystack.includes('ojal') || haystack.includes('ojales')) return media.ojalesAccesoriosMontaje || media.stickers;
+  if (haystack.includes('tubo') || haystack.includes('guindola') || haystack.includes('cortina')) return media.tubosDoradosGuindola || media.bannerX;
+
+  // 4. Fundas, Bolsos & Empaques
+  if (haystack.includes('pastillera') || haystack.includes('radiografia')) return media.fundasPastilleraFarmacia || media.fundasCamiseta;
+  if (haystack.includes('jumbo') || haystack.includes('t6') || haystack.includes('t8') || haystack.includes('supermercado')) return media.fundasJumboSupermercado || media.fundasCamiseta;
   if (haystack.includes('boutique') || haystack.includes('manija') || haystack.includes('baja densidad') || haystack.includes('troquelada')) return media.fundasBoutique || media.fundasPlasticas;
-  if (haystack.includes('funda') || haystack.includes('bolsa') || haystack.includes('radiografia') || haystack.includes('pastillera') || (haystack.includes('camiseta') && haystack.includes('funda'))) return media.fundasCamiseta || media.fundasPlasticas;
+  if (haystack.includes('funda') || haystack.includes('bolsa') || (haystack.includes('camiseta') && haystack.includes('funda'))) return media.fundasCamiseta || media.fundasPlasticas;
   if (haystack.includes('cambrella') || haystack.includes('bolso')) return media.bolsosCambrellaTote || media.bolsoCambrella;
   if (haystack.includes('mochila') || haystack.includes('rodeo') || haystack.includes('gymsack')) return media.mochilaGymsack || media.mochilaRodeo;
   if (haystack.includes('funda roll') || haystack.includes('funda para roll')) return media.fundaRollup || media.bolso;
   if (haystack.includes('funda banner') || haystack.includes('funda araña') || haystack.includes('funda arana')) return media.fundaBannerX || media.bolso;
 
-  // 4. Textil & Gorras
+  // 5. Textil & Gorras
   if (haystack.includes('body') || haystack.includes('bebe') || haystack.includes('bebé') || haystack.includes('recien nacido')) return media.bodyBebe || media.camiseta;
   if (haystack.includes('polo') || haystack.includes('pique') || haystack.includes('piqué')) return media.poloPique || media.camisetaPolo;
   if (haystack.includes('gabardina') || (haystack.includes('gorra') && haystack.includes('bordad'))) return media.gorraBordada;
   if (haystack.includes('trucker') || haystack.includes('malla')) return media.gorraTrucker;
   if (haystack.includes('gorra ecuador') || haystack.includes('patria')) return media.gorraPatria || media.gorraEcuador || media.gorra;
   if (haystack.includes('gorra') || haystack.includes('vicera') || haystack.includes('visera')) return media.gorraPatria || media.gorra;
-  if (haystack.includes('camiseta') || haystack.includes('sublimacion') || haystack.includes('dtf')) return media.camiseta;
+  if (haystack.includes('dtf')) return media.camisetasDTFEstampado || media.camiseta;
+  if (haystack.includes('sublimacion') || haystack.includes('sublimación')) return media.camisetasSublimadasTextil || media.camiseta;
+  if (haystack.includes('camiseta')) return media.camiseta;
 
   // 5. Rótulos, Gran Formato & Señalética
   if (haystack.includes('pancarta') || haystack.includes('guindola') || haystack.includes('desfile')) return media.pancartasMadera;

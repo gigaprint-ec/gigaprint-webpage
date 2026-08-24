@@ -567,6 +567,7 @@ export function AdminNav() {
     {
       title: 'CRM & TALLER',
       items: [
+        ['/admin/whatsapp', '💬 Centro WhatsApp', '/admin/whatsapp'],
         ['/admin/crm', '👥 Clientes & CRM 360°', '/admin/crm'],
         ['/admin/pos/asesoras', '🔑 Asesoras & PINs Semanales', '/admin/pos/asesoras'],
       ]
