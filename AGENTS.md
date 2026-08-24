@@ -1,70 +1,83 @@
-# Gigaprint — memoria para agentes
+# Gigaprint — Memoria y Guía Técnica para Agentes
 
-Lee este archivo antes de modificar el proyecto. Es el mapa rápido de la aplicación, su despliegue y lo que queda pendiente.
+Lee este archivo antes de modificar el proyecto. Es el mapa rápido de la aplicación, su arquitectura completa, su despliegue y sus convenciones.
+Para el resumen exhaustivo y detallado, consulta [PROJECT_COMPLETE_SUMMARY.md](file:///G:/CODE/Giga/PROJECT_COMPLETE_SUMMARY.md).
 
-## Identidad del proyecto
+---
 
-- Marca: **Gigaprint — Tus ideas en grande**.
-- Tipo: sitio comercial de publicidad, impresión, fabricación visual y cotizador inteligente.
-- Stack: React, Vite, React Router, TipTap y Lucide.
-- Repositorio: https://github.com/gigaprint-ec/gigaprint-webpage
-- Sitio publicado: https://gigaprint-ec.github.io/gigaprint-webpage/
-- Proyecto Supabase: `ihifnhibzlgxotywbeji`.
+## Identidad del Proyecto
 
-## Reglas de seguridad
+- **Marca:** Gigaprint — Tus ideas en grande.
+- **Tipo:** Plataforma web comercial, cotizador inteligente multivariable y ERP/POS de taller publicitario.
+- **Stack:** React 19, Vite 8, React Router v7, TipTap, Lucide Icons, Supabase (PostgreSQL, Auth, RLS, Storage).
+- **Repositorio Oficial:** `https://github.com/gigaprint-ec/gigaprint-webpage`
+- **Sitio Desplegado:** `https://gigaprint-ec.github.io/gigaprint-webpage/`
+- **Proyecto Supabase:** `ihifnhibzlgxotywbeji`.
 
-- Nunca guardes tokens de GitHub, contraseñas de Supabase, service-role keys ni secretos en el código, Markdown, commits o variables `VITE_*` salvo la publishable/anon key.
-- El token de GitHub y la contraseña de base de datos compartidos durante la configuración deben revocarse/rotarse antes de producción.
-- No uses el acceso admin demo en producción. Actualmente la contraseña demo es `gigaprint` y existe solo para desarrollo local/prototipo.
-- `localStorage` queda como fallback; Supabase Auth, lectura remota, persistencia admin, RLS y Storage ya están conectados en el código.
+---
 
-## Comandos principales
+## Reglas de Seguridad & Secretos
+
+- **Cero secretos en código:** Nunca guardes contraseñas, tokens de GitHub o service-role keys en archivos commiteados. Usa `.env.local` para desarrollo local y variables seguras en CI/CD.
+- **Modo Demo:** La contraseña de prueba local es `gigaprint` y solo opera en modo prototipo/fallback. En producción se utiliza Supabase Auth.
+- **Local-First Resiliente:** Toda la operativa de caja y taller funciona al 100% en `localStorage` ante caídas de red y se sincroniza en segundo plano con Supabase mediante `safeQuery` y `syncEntityRemote`.
+
+---
+
+## Comandos Principales
 
 ```bash
-npm install
-npm run dev
-npm run build
+npm install     # Instalar dependencias
+npm run dev     # Iniciar entorno de desarrollo local (HMR)
+npm run build   # Compilar para producción (Vite + Rolldown)
 ```
 
-El build de GitHub Pages se ejecuta automáticamente con `.github/workflows/deploy-pages.yml` al hacer push a `main`.
+El build de GitHub Pages se ejecuta automáticamente con `.github/workflows/deploy-pages.yml` ante cada `push` a la rama `main`.
 
-## Arquitectura rápida
+---
 
-- `src/App.jsx`: páginas públicas, rutas admin y páginas de producto/cotizador.
-- `src/components.jsx`: Header, Footer, shells públicos/admin, tarjetas, carrito, buscador y menú contextual.
-- `src/store.jsx`: estado local/fallback, carrito, solicitudes, tema claro/oscuro y tema de temporada; sincroniza con Supabase cuando hay sesión admin.
-- `src/lib/supabase.js` y `src/lib/siteRepository.js`: cliente, lectura pública, Auth/roles, persistencia CMS y Storage.
-- `src/data.js`: contenido inicial, productos manuales, promociones y seis temas visuales activables.
-- `src/catalog.js`: normalización del catálogo de Esteban y reglas m²/unidad/lotes/volumen.
-- `src/data/estebanCatalog.json`: 849 filas de tarifas importadas y agrupadas en familias editables.
-- `src/components/studio/`: Block Builder, editor TipTap, medios WebP, galerías, calendario, formularios, pickers y Chrome UI.
-- `src/theme.css`: animaciones premium, temas estacionales, menú contextual y accesibilidad de movimiento. La identidad naranja usa `#ea580c`.
-- `supabase/schema.sql`: esquema remoto inicial.
-- `supabase/migrations/20260821010000_auth_storage_admin.sql`: perfiles, roles, RLS de escritura y buckets.
-- `scripts/seed-supabase.mjs`: migración del catálogo/contenido local a Supabase.
-- `scripts/check-supabase.mjs`: verificación de conteos y buckets.
-- `scripts/optimize-resources.mjs`: convierte los recursos originales en copias web organizadas.
+## Arquitectura de Código & Archivos Clave
 
-## Persistencia actual
+### 1. Núcleo Público & CMS
+- `src/App.jsx`: Rutas públicas, shells de navegación y rutas privadas admin.
+- `src/components.jsx`: Header, Footer, Hero, buscador de comandos `Ctrl+K`, carrito y menú contextual.
+- `src/store.jsx`: Estado local/fallback del CMS público, carrito de cotizaciones y temas de temporada.
+- `src/catalog.js`: Normalización del catálogo de Esteban con 849 filas de tarifas agrupadas en familias.
+- `src/components/studio/`: Block Builder, editor TipTap, uploader WebP y selector de colores.
 
-- Sitio: `gigaprint-site-v1`.
-- Carrito: `gigaprint-cart-v1`.
-- Modo claro/oscuro: `gigaprint-theme`.
-- Sesión admin Supabase Auth; la clave local solo se usa como fallback sin variables Supabase.
+### 2. ERP, Punto de Venta (POS) & Taller Multi-Rol
+- `src/lib/posStore.js`: Motor de datos Local-First, sincronización Supabase, cálculo de turnos, envejecimiento de cartera, actualización de etapas y checklist por ítem.
+- `src/pos.css`: Estilos dedicados para punto de venta, tarjetas táctiles, vista de 3 columnas de producción y tickets térmicos `@media print`.
+- `src/pages/pos/POSPage.jsx`: Terminal de cobranza rápida en mostrador, cálculo por $m^2$, acabados, diseño, instalación y ventas en espera.
+- `src/pages/pos/components/POSProductQuickMatrix.jsx`: Selector táctil de sustratos, desglose de tarifas y sobreescritura de precio comercial por ítem.
+- `src/pages/pos/components/POSVisualScaleComparator.jsx`: Comparador visual a escala real (Persona 1.75m, Fachada 3m, Vehículo 4.5m, Escritorio).
+- `src/pages/pos/POSStationWorkspaces.jsx`: Tablero táctil de 3 columnas (`Por Fabricar ➔ En Máquina ➔ Terminado`) con checklist por ítem para **Impresión**, **Sublimación & DTF** y **Corte Láser & CNC**.
+- `src/pages/pos/POSWorkshopMasterBillboard.jsx`: Cartelera semanal para el **Coordinador de Taller** (ejecución vs montaje en sitio, WhatsApp y OTs).
+- `src/pages/pos/POSCustomerCRM.jsx`: CRM de clientes, cartera vencida (15d/30d/+60d), WhatsApp directo y bitácora.
+- `src/pages/pos/POSAdminDashboard.jsx`: Cuadre semanal ejecutivo, arqueo de caja ciego/declarado y auditoría de turnos.
+- `src/pages/pos/POSInventoryMaterials.jsx`: Inventario de bobinas en $m^2$, tintas y registro de mermas.
+- `src/pages/pos/POSPurchaseOrdersManager.jsx`: Órdenes de compra a proveedores con recepción automática a stock.
+- `src/pages/pos/POSAdvisorsManagement.jsx`: Gestión de colaboradoras, PINs semanales, roles RBAC y metas.
+- `src/pages/pos/POSSRIInvoiceModal.jsx`: Facturación electrónica SRI con clave de acceso Módulo 11 e IVA 15%/0%.
 
-## Rutas públicas
+### 3. Base de Datos & Migraciones
+- `supabase/schema_pos_complete.sql`: Esquema SQL maestro con todas las tablas, índices, RLS y triggers listo para ejecutar en Supabase.
 
-`/`, `/gigaprint`, `/promociones`, `/tienda`, `/tienda/:id`, `/cotizador`, `/contacto`, `/carrito`.
+---
 
-## Rutas privadas
+## Rutas del Sistema
 
-`/admin`, `/admin/login`, `/admin/editor`, `/admin/contenido`, `/admin/productos`, `/admin/temas`, `/admin/promociones`, `/admin/solicitudes`.
+### Rutas Públicas:
+`/`, `/gigaprint`, `/promociones`, `/tienda`, `/tienda/:id`, `/cotizador`, `/rastreo/:token`, `/contacto`, `/carrito`.
 
-## Siguiente trabajo recomendado
+### Rutas Privadas / Operativas:
+`/admin`, `/admin/login`, `/admin/pos`, `/admin/taller`, `/admin/estaciones`, `/admin/crm`, `/admin/pos/dashboard`, `/admin/inventario`, `/admin/compras`, `/admin/equipo`, `/admin/productos`, `/admin/contenido`, `/admin/editor`.
 
-1. Los usuarios Auth `ecgigaprint@gmail.com` y `estebanico10@gmail.com` ya fueron creados y promovidos a `profiles.role = 'super_admin'`. Para agregar más administradores, crear el usuario desde Supabase Auth y actualizar su perfil con RLS.
-2. Completar el uploader visual para enviar archivos a `gigaprint-media`/`gigaprint-private`.
-3. Añadir Edge Function para WhatsApp Business/correo y guardar estados de solicitudes.
-4. Añadir dominio propio/Vercel, SEO, analítica, legales y backups.
+---
 
-Para el detalle completo, lee `docs/PROJECT_STATUS.md`, `docs/COMPONENTS.md` y `docs/OPERATIONS.md`.
+## Convenciones para Agentes Antigravity
+
+- **Idioma de interacción:** Responde siempre en español al usuario.
+- **Idioma del código:** Variables, funciones, comentarios y mensajes de commit siempre en inglés.
+- **Commits atómicos:** Formato Conventional Commits (`feat:`, `fix:`, `refactor:`, `chore:`).
+- **Validación obligatoria:** Siempre ejecutar `npm run build` antes de proponer como completa una tarea.

@@ -1,5 +1,6 @@
 import { supabase, hasSupabase } from './supabase';
 import { estebanCatalogProducts } from '../catalog';
+import { buildProductionPlan, recalculateOperationReadiness } from './productionWorkflow';
 
 export const POS_STORAGE_KEY = 'gigaprint-pos-v1';
 export const POS_SESSION_KEY = 'gigaprint-pos-session-v1';
@@ -125,9 +126,12 @@ export const SYSTEM_ROLES = [
   { id: 'admin', label: '👑 Administrador General', area: 'gerencia', color: '#ea580c' },
   { id: 'encargado_local', label: '🏬 Encargado de Local', area: 'sucursal', color: '#d97706' },
   { id: 'coordinador_taller', label: '📋 Coordinador/a de Taller', area: 'taller', color: '#6366f1' },
+  { id: 'disenador', label: '🎨 Diseñador/a', area: 'diseno', color: '#7c3aed' },
   { id: 'operador_impresion', label: '🖨️ Operador Impresión (Gran Formato & Digital)', area: 'impresion', color: '#3b82f6' },
   { id: 'operador_sublimacion', label: '👕 Operador Sublimación & Textil DTF', area: 'sublimacion', color: '#ec4899' },
   { id: 'operador_corte_laser', label: '⚡ Operador Corte Láser & CNC', area: 'corte_laser', color: '#8b5cf6' },
+  { id: 'operador_taller', label: '🔧 Operador/a de Taller y Armado', area: 'taller', color: '#ea580c' },
+  { id: 'instalador', label: '🚚 Instalador/a', area: 'entrega', color: '#334155' },
   { id: 'asesora', label: '💼 Asesora Comercial & Caja', area: 'ventas', color: '#10b981' }
 ];
 
@@ -136,6 +140,7 @@ export function getRoleCapabilities(role = 'asesora') {
     isAdmin: role === 'admin' || role === 'super_admin',
     isStoreManager: role === 'encargado_local' || role === 'admin' || role === 'super_admin',
     isWorkshopCoordinator: role === 'coordinador_taller' || role === 'admin' || role === 'super_admin',
+    isDesigner: role === 'disenador' || role === 'admin' || role === 'super_admin',
     isPrintOperator: role === 'operador_impresion' || role === 'admin' || role === 'coordinador_taller',
     isSublimationOperator: role === 'operador_sublimacion' || role === 'admin' || role === 'coordinador_taller',
     isLaserOperator: role === 'operador_corte_laser' || role === 'admin' || role === 'coordinador_taller',
@@ -271,6 +276,7 @@ export const INITIAL_POS_STORE = {
   customerLogs: [],
   suppliers: DEFAULT_SUPPLIERS,
   workstations: DEFAULT_WORKSTATIONS,
+  productionOperations: [],
   parkedSales: [],
   lastUpdated: new Date().toISOString()
 };
@@ -315,6 +321,7 @@ export function loadPOSStore() {
     customerLogs: parsed.customerLogs || [],
     suppliers: (parsed.suppliers && parsed.suppliers.length > 0) ? parsed.suppliers : DEFAULT_SUPPLIERS,
     workstations: (parsed.workstations && parsed.workstations.length > 0) ? parsed.workstations : DEFAULT_WORKSTATIONS,
+    productionOperations: parsed.productionOperations || [],
     parkedSales: parsed.parkedSales || [],
     lastUpdated: parsed.lastUpdated || new Date().toISOString()
   };

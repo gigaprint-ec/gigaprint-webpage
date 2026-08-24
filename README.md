@@ -1,50 +1,75 @@
-# Gigaprint — Tus ideas en grande
+# 🚀 Gigaprint — Tus ideas en grande
 
-Sitio comercial de publicidad, impresión y fabricación visual. Está construido con React + Vite y funciona desde el primer arranque con datos demo persistidos en `localStorage`.
+> Plataforma comercial de publicidad exterior, gigantografías, rotulación y sistema ERP / POS de taller publicitario.
 
-## Incluye
+[![Deploy to GitHub Pages](https://github.com/gigaprint-ec/gigaprint-webpage/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/gigaprint-ec/gigaprint-webpage/actions/workflows/deploy-pages.yml)
+[![Live Demo](https://img.shields.io/badge/Sitio_Online-gigaprint--ec.github.io-ea580c?style=flat&logo=google-chrome)](https://gigaprint-ec.github.io/gigaprint-webpage/)
 
-- Páginas públicas: Inicio, Gigaprint, Promociones, Tienda, detalle de producto, Cotizador, Contacto y Carrito de cotizaciones.
-- Catálogo filtrable con productos por medida, unidad y precio por lote.
-- Catálogo de Esteban normalizado en `src/catalog.js` + `src/data/estebanCatalog.json`: 849 filas de tarifas agrupadas en familias editables, con variantes y escalas por volumen.
-- Cotizador inteligente con cálculo por m², precio unitario escalonado, precio total por lote, variantes, diseño e instalación.
-- Panel privado para editar textos, productos, promociones y revisar solicitudes.
-- Temas de temporada editables desde `/admin/temas`: base Gigaprint, Navidad y Fiestas de Milagro. Se aplica o quita con un botón, conserva el naranja del logo y queda listo para persistirse en Supabase.
-- Studio de edición reutilizable en `/admin/editor`: Block Builder, editor enriquecido, formularios dinámicos, galería, calendario, paleta de color, biblioteca de medios con WebP, buscador Ctrl/Cmd+K y modo claro/oscuro.
-- Menú contextual personalizado con clic derecho y pulsación larga en móvil, más animaciones premium con soporte para `prefers-reduced-motion`.
-- Esquema base en `supabase/schema.sql` para migrar el contenido y leads.
+---
 
-## Desarrollo local
+## 🌟 Características Principales
+
+### 🌐 Frente Público & Comercial
+- **Catálogo Inteligente de Soluciones:** Gran Formato (Lonas, Viniles, Microperforado), Rótulos 3D, Cajas de Luz, Textil & Sublimación, Neón LED y Papelería.
+- **Cotizador Multivariable:** Cálculo en vivo por $m^2$ (Ancho × Alto cm), unidades, lotes, escalas de volumen, acabados (ojetes, dobladillo) e instalación en sitio.
+- **Seguimiento Público de Pedidos:** Rastreo de estado de producción mediante código QR impreso en el ticket o PIN de seguridad.
+- **Carrito de Cotizaciones:** Guardado local de solicitudes con envío directo a asesores por WhatsApp.
+
+### 🏢 ERP, Punto de Venta (POS) & Taller Multi-Rol
+- **Terminal de Cobranza Rápida (POS Mostrador):** Cobro multi-pago (Efectivo, Transferencia Banco Pichincha, Tarjeta, DeUna, Crédito), ventas en espera e impresión térmica de 80mm/58mm.
+- **Comparador Visual de Escala & Proporción Humana:** Renderizado interactivo a escala real frente a una persona (1.75m), fachada comercial (3m), vehículo (4.5m) o escritorio.
+- **Cartelera Semanal de Taller (Master Dispatcher):** Planificación de lunes a sábado con conmutador de *Fecha de Fabricación* vs *Fecha de Instalación en Sitio*, WhatsApp directo con clientes y descarga de vectores.
+- **Estaciones de Trabajo Táctiles (3 Estados):** Tableros dedicados con checklist por ítem para **🖨️ Impresión**, **👕 Sublimación & DTF** y **⚡ Corte Láser & CNC**.
+- **CRM de Clientes & Cuentas por Cobrar:** Matriz de antigüedad de saldos (15d/30d/+60d), alertas de crédito y bitácora comercial.
+- **Arqueo de Caja & Cuadre Semanal:** Arqueo ciego con cálculo automático de faltantes/sobrantes, caja chica y exportación a Excel.
+- **Facturación Electrónica SRI:** Generación de Clave de Acceso estándar de 49 dígitos (Módulo 11), validación de RUC/Cédula y cálculo de IVA 15%/0%.
+
+---
+
+## 🚀 Inicio Rápido
 
 ```bash
+# 1. Clonar el repositorio
+git clone https://github.com/gigaprint-ec/gigaprint-webpage.git
+cd gigaprint-webpage
+
+# 2. Instalar dependencias
 npm install
+
+# 3. Iniciar el servidor local de desarrollo
 npm run dev
+
+# 4. Compilar para producción
+npm run build
 ```
 
-El acceso demo del panel es `/admin` con contraseña `gigaprint`. Antes de publicar hay que reemplazarlo por Supabase Auth.
+El sitio se despliega automáticamente en **GitHub Pages** al hacer `push` a la rama `main`.
 
-## Publicación
+---
 
-GitHub Pages se publica automáticamente desde la rama `main` mediante GitHub Actions en:
-`https://gigaprint-ec.github.io/gigaprint-webpage/`
+## 🧭 Mapa de Rutas
 
-## Próximo paso con Supabase
+| Tipo | Ruta | Descripción |
+| :--- | :--- | :--- |
+| **Pública** | `/` | Página principal de la marca y servicios |
+| **Pública** | `/tienda` | Catálogo de productos y fichas técnicas |
+| **Pública** | `/cotizador` | Cotizador inteligente interactivo |
+| **Pública** | `/rastreo/:token` | Seguimiento público de orden con QR |
+| **Pública** | `/carrito` | Carrito de cotizaciones del cliente |
+| **POS** | `/admin/pos` | Terminal de punto de venta y cobro |
+| **Taller** | `/admin/taller` | Cartelera semanal de despacho y montaje |
+| **Taller** | `/admin/estaciones` | Estaciones de Impresión, Sublimación y Láser |
+| **CRM** | `/admin/crm` | Gestión de clientes y cartera vencida |
+| **Finanzas** | `/admin/pos/dashboard` | Cuadre semanal y arqueo de caja |
+| **Inventario** | `/admin/inventario` | Stock de bobinas, tintas y mermas |
+| **Admin** | `/admin/equipo` | Asesoras, metas y roles RBAC |
+| **CMS** | `/admin/contenido` | Editor de textos del sitio público |
 
-1. Ejecutar `supabase/schema.sql` en el proyecto.
-2. Copiar `.env.example` a `.env.local` y completar URL y anon key.
-3. Cambiar el adaptador de `src/store.jsx` por consultas a Supabase, manteniendo los mismos IDs y colecciones.
-4. Agregar políticas de escritura para usuarios autenticados antes de conectar el panel en producción.
+---
 
-## Sistema de componentes
+## 📚 Documentación Técnica
 
-Los componentes de edición viven en `src/components/studio/`:
-
-- `BlockBuilder.jsx` y `BlockRenderer.jsx`: bloques de texto, columnas, imágenes, galerías, banners, video, divisor, botones, redes, mapa, HTML y formularios.
-- `RichTextEditor.jsx`: editor TipTap con encabezados, listas, citas, enlaces, imágenes, código, resaltado, color, alineación y pantalla completa.
-- `MediaUploader.jsx`: subida múltiple, drag & drop y conversión de imágenes a WebP en el navegador.
-- `MediaGallery.jsx`: mosaico, masonry, carrusel y lightbox.
-- `Calendar.jsx`: calendario mensual con eventos y agenda.
-- `FieldRenderer.jsx`: texto, textarea, número, selector, opción única, múltiples, colores, fechas, archivos y rating.
-- `ColorPicker.jsx`: color picker múltiple y valores HEX, RGB, HSB y CMYK.
-- `Chrome.jsx`: tema, diálogo, toast, context menu, buscador Ctrl/Cmd+K y utilidades de interfaz.
-- El editor de productos permite crear variables, colores, tamaños y reglas de precio sin tocar código.
+Para consultar la arquitectura profunda, modelos de datos y manual de operaciones:
+- 📖 [PROJECT_COMPLETE_SUMMARY.md](PROJECT_COMPLETE_SUMMARY.md) — Resumen maestro y arquitectura del sistema.
+- 📋 [AGENTS.md](AGENTS.md) — Guía rápida de desarrollo y convenciones.
+- 🗄️ [supabase/schema_pos_complete.sql](supabase/schema_pos_complete.sql) — Esquema SQL consolidado de base de datos.
