@@ -51,7 +51,6 @@ El build de GitHub Pages se ejecuta automáticamente con `.github/workflows/depl
 - `src/pos.css`: Estilos dedicados para punto de venta, tarjetas táctiles, vista de 3 columnas de producción y tickets térmicos `@media print`.
 - `src/pages/pos/POSPage.jsx`: Terminal de cobranza rápida en mostrador, cálculo por $m^2$, acabados, diseño, instalación y ventas en espera.
 - `src/pages/pos/components/POSProductQuickMatrix.jsx`: Selector táctil de sustratos, desglose de tarifas y sobreescritura de precio comercial por ítem.
-- `src/pages/pos/components/POSVisualScaleComparator.jsx`: Comparador visual a escala real (Persona 1.75m, Fachada 3m, Vehículo 4.5m, Escritorio).
 - `src/pages/pos/POSStationWorkspaces.jsx`: Tablero táctil de 3 columnas (`Por Fabricar ➔ En Máquina ➔ Terminado`) con checklist por ítem para **Impresión**, **Sublimación & DTF** y **Corte Láser & CNC**.
 - `src/pages/pos/POSWorkshopMasterBillboard.jsx`: Cartelera semanal para el **Coordinador de Taller** (ejecución vs montaje en sitio, WhatsApp y OTs).
 - `src/pages/pos/POSProductionControl.jsx`: Centro operativo con flujo por área y calendario semanal de capacidad.

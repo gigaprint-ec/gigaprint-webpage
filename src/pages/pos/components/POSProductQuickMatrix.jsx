@@ -13,7 +13,6 @@ import {
   FileText
 } from 'lucide-react';
 import { calculatePrintItemPrice } from '../../../lib/posStore';
-import { LiveScaleVisualizer } from '../../../components/studio/LiveScaleVisualizer';
 import { playAddSound } from '../../../lib/posAudio';
 
 export function POSProductQuickMatrix({
@@ -37,7 +36,6 @@ export function POSProductQuickMatrix({
   const [customInstallationCost, setCustomInstallationCost] = useState('');
   const [customPriceOverride, setCustomPriceOverride] = useState('');
   const [itemNotes, setItemNotes] = useState('');
-  const [showVisualScale, setShowVisualScale] = useState(false);
 
   const currentProduct = selectedProduct || products[0] || null;
 
@@ -386,43 +384,7 @@ export function POSProductQuickMatrix({
                 (Base: {money(currentProduct.basePrice)} / {currentProduct.calcType === 'area' ? 'm²' : 'u'})
               </span>
             </div>
-
-            {/* Scale Visualizer Toggle */}
-            {currentProduct.calcType === 'area' && (
-              <button
-                type="button"
-                onClick={() => setShowVisualScale(!showVisualScale)}
-                style={{
-                  background: showVisualScale ? 'var(--orange)' : '#fff',
-                  color: showVisualScale ? '#fff' : 'var(--orange-dark)',
-                  border: '1px solid var(--orange)',
-                  borderRadius: '6px',
-                  padding: '4px 10px',
-                  fontSize: '11px',
-                  fontWeight: 800,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
-              >
-                <Eye size={13} /> {showVisualScale ? 'Ocultar Escala' : '📐 Escala y Proporción en Vivo'}
-              </button>
-            )}
           </div>
-
-          {/* Optional Live Scale & Human Proportion Visualizer */}
-          {showVisualScale && currentProduct.calcType === 'area' && (
-            <div style={{ background: '#fff', borderRadius: '12px', padding: '10px', border: '1px solid var(--line)', animation: 'pos-fade-in 0.2s ease' }}>
-              <LiveScaleVisualizer
-                widthCm={widthCm}
-                heightCm={heightCm}
-                productName={currentProduct.name}
-                category={currentProduct.category}
-                eyeletMode={finishingType.includes('ojales') ? '4-corners' : 'none'}
-              />
-            </div>
-          )}
 
           {/* Quick Presets for Signage & Banners */}
           {currentProduct.calcType === 'area' && (

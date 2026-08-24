@@ -15,13 +15,12 @@
 4. [Matriz de Roles y Permisos (RBAC)](#4-matriz-de-roles-y-permisos-rbac)
 5. [Módulos Principales del Sistema](#5-módulos-principales-del-sistema)
    - [5.1 Punto de Venta (POS) & Cotizador en Mostrador](#51-punto-de-venta-pos--cotizador-en-mostrador)
-   - [5.2 Comparador Visual de Escala y Proporción Humana](#52-comparador-visual-de-escala-y-proporción-humana)
-   - [5.3 CRM de Clientes, Cuentas por Cobrar & WhatsApp Directo](#53-crm-de-clientes-cuentas-por-cobrar--whatsapp-directo)
-   - [5.4 Cartelera Semanal de Taller (Master Dispatcher)](#54-cartelera-semanal-de-taller-master-dispatcher)
-   - [5.5 Estaciones de Trabajo de Producción (3 Estados Táctiles)](#55-estaciones-de-trabajo-de-producción-3-estados-táctiles)
-   - [5.6 Arqueo de Caja Diario y Cuadre Semanal (Caja Chica & Auditoría)](#56-arqueo-de-caja-diario-y-cuadre-semanal-caja-chica--auditoría)
-   - [5.7 Inventario de Sustratos, Consumos & Mermas](#57-inventario-de-sustratos-consumos--mermas)
-   - [5.8 Facturación Electrónica SRI (Módulo 11 & RUC)](#58-facturación-electrónica-sri-módulo-11--ruc)
+   - [5.2 CRM de Clientes, Cuentas por Cobrar & WhatsApp Directo](#52-crm-de-clientes-cuentas-por-cobrar--whatsapp-directo)
+   - [5.3 Cartelera Semanal de Taller (Master Dispatcher)](#53-cartelera-semanal-de-taller-master-dispatcher)
+   - [5.4 Estaciones de Trabajo de Producción (3 Estados Táctiles)](#54-estaciones-de-trabajo-de-producción-3-estados-táctiles)
+   - [5.5 Arqueo de Caja Diario y Cuadre Semanal (Caja Chica & Auditoría)](#55-arqueo-de-caja-diario-y-cuadre-semanal-caja-chica--auditoría)
+   - [5.6 Inventario de Sustratos, Consumos & Mermas](#56-inventario-de-sustratos-consumos--mermas)
+   - [5.7 Facturación Electrónica SRI (Módulo 11 & RUC)](#57-facturación-electrónica-sri-módulo-11--ruc)
 6. [Mapa Completo de Rutas del Sistema](#6-mapa-completo-de-rutas-del-sistema)
 7. [Base de Datos & Esquema SQL Consolidado](#7-base-de-datos--esquema-sql-consolidado)
 8. [Guía de Comandos y Flujo de Despliegue](#8-guía-de-comandos-y-flujo-de-despliegue)
@@ -113,18 +112,7 @@ El sistema cuenta con un control de acceso basado en roles granular para protege
   - Venta en espera (Park/Hold sale) para atender a otro cliente y reanudar con 1 clic.
   - Impresión de Ticket Térmico de 80mm/58mm con código QR de tracking público.
 
-### 5.2 Comparador Visual de Escala y Proporción Humana
-- **Componente:** `src/pages/pos/components/POSVisualScaleComparator.jsx`
-- **Capacidades:**
-  - Renderizado vectorial en tiempo real del tamaño del rótulo/lona frente a referencias del mundo real.
-  - **4 Entornos Intercambiables:**
-    1. 🧍 **Persona (1.75 m):** Muestra la proporción exacta frente a una silueta humana a escala matemática milimétrica.
-    2. 🏬 **Fachada Comercial (3.00 m):** Simula la marquesina o rótulo exterior en un local comercial.
-    3. 🚗 **Vehículo / Van (4.50 m):** Visualiza la proporción para rotulación vehicular y adhesivos.
-    4. 💻 **Escritorio / Handheld:** Para cuadros pequeños, stickers y papelería.
-  - Textura de lona con ojetes metálicos y etiquetas de dimensión flotantes anti-colisión.
-
-### 5.3 CRM de Clientes, Cuentas por Cobrar & WhatsApp Directo
+### 5.2 CRM de Clientes, Cuentas por Cobrar & WhatsApp Directo
 - **Ruta:** `/admin/pos/crm` o `/admin/crm`
 - **Capacidades:**
   - Búsqueda rápida por Cédula, RUC, Teléfono o Nombre.
@@ -132,7 +120,7 @@ El sistema cuenta con un control de acceso basado en roles granular para protege
   - Enlaces de WhatsApp automáticos con mensaje preformateado de proforma, aprobación de arte o recordatorio de saldo pendiente.
   - Bitácora de actividades CRM (Llamada, Visita, WhatsApp, Envío de prueba).
 
-### 5.4 Cartelera Semanal de Taller (Master Dispatcher)
+### 5.3 Cartelera Semanal de Taller (Master Dispatcher)
 - **Ruta:** `/admin/taller` o `/admin/pos/cartelera`
 - **Capacidades:**
   - Vista semanal consolidada de Lunes a Sábado.
@@ -142,7 +130,7 @@ El sistema cuenta con un control de acceso basado en roles granular para protege
   - Botón de WhatsApp con el cliente para coordinar toma de medidas en sitio.
   - Impresión de Orden de Trabajo (OT) técnica en lote.
 
-### 5.5 Estaciones de Trabajo de Producción (3 Estados Táctiles)
+### 5.4 Estaciones de Trabajo de Producción (3 Estados Táctiles)
 - **Ruta:** `/admin/estaciones` o `/admin/pos/estaciones`
 - **Tablero de 3 Columnas por Oficio:**
   1. **⏳ Por Fabricar / En Cola:** Trabajos pendientes listos para preparar material.
@@ -150,7 +138,7 @@ El sistema cuenta con un control de acceso basado en roles granular para protege
   3. **✅ Terminado / Acabados:** Trabajos listos en mesa de secado, ojetes o empaque individual.
 - **Botón de Merma Técnica (`⚠️ Merma`):** Registro de desperdicio de material con descuento automático de inventario.
 
-### 5.6 Arqueo de Caja Diario y Cuadre Semanal (Caja Chica & Auditoría)
+### 5.5 Arqueo de Caja Diario y Cuadre Semanal (Caja Chica & Auditoría)
 - **Ruta:** `/admin/pos/dashboard` o `/admin/dashboard`
 - **Capacidades:**
   - Resumen ejecutivo semanal con desglose de Ventas Brutas, Abonos, Saldos por Cobrar y Gastos de Caja Chica.
@@ -158,14 +146,14 @@ El sistema cuenta con un control de acceso basado en roles granular para protege
   - Historial de cierres de turno por asesora.
   - Exportación de reportes a Excel / CSV.
 
-### 5.7 Inventario de Sustratos, Consumos & Mermas
+### 5.6 Inventario de Sustratos, Consumos & Mermas
 - **Ruta:** `/admin/inventario` o `/admin/pos/inventario`
 - **Capacidades:**
   - Control de stock de bobinas en $m^2$, tintas en litros y unidades de roll-ups/planchas.
   - Alerta visual de stock mínimo.
   - Registro de Órdenes de Compra (OC) a proveedores con recepción y aumento automático de stock.
 
-### 5.8 Facturación Electrónica SRI (Módulo 11 & RUC)
+### 5.7 Facturación Electrónica SRI (Módulo 11 & RUC)
 - **Modal:** `POSSRIInvoiceModal.jsx`
 - **Capacidades:**
   - Cálculo de IVA 15% / Tarifa 0% según normativa tributaria ecuatoriana.

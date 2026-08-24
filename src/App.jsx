@@ -13,7 +13,6 @@ import { POSAdvisorsManagement } from './pages/pos/POSAdvisorsManagement';
 import { OrderTrackingPage } from './pages/pos/OrderTrackingPage';
 import { POSCustomerDisplayPage } from './pages/pos/POSCustomerDisplayPage';
 import { POSArtProofPublicPage } from './pages/pos/POSArtProofPublicPage';
-import { LiveScaleVisualizer } from './components/studio/LiveScaleVisualizer';
 import { ToastProvider } from './components/studio/Toast';
 const EditorPage = lazy(() => import('./pages/EditorPage').then((module) => ({ default: module.EditorPage })));
 
@@ -891,16 +890,6 @@ function SmartProductDetailPage() {
                 <div className="detail-area-tag">
                   Área unitaria: {quote.area.toFixed(2)} m² · Tarifa activa: {money(quote.rate)} / m²
                 </div>
-                <div style={{ marginTop: '16px', marginBottom: '16px' }}>
-                  <LiveScaleVisualizer
-                    widthCm={widthCm}
-                    heightCm={heightCm}
-                    eyeletMode={finishing === 'none' || finishing === 'bolsillo' ? 'none' : eyeletPreset === 'corners' ? '4-corners' : eyeletPreset === 'every50' ? 'perimeter-50' : eyeletPreset === 'every30' ? 'perimeter-30' : 'custom'}
-                    customEyeletCount={effectiveEyeletCount}
-                    productName={product.name}
-                    category={product.category}
-                  />
-                </div>
 
                 {/* Finishing & Confección (Only for Banners / Lonas / Gran Formato) */}
                 {(/lona|banner|mesh|valla|gran formato/i.test(product?.category || '') || /lona|banner|mesh|valla/i.test(product?.name || '')) && (
@@ -1531,18 +1520,6 @@ function SmartQuotePage() {
                         onChange={(event) => setHeightCm(Math.max(1, Number(event.target.value) || 1))}
                       />
                     </label>
-                  </div>
-
-                  {/* Interactive Scale Visualizer */}
-                  <div style={{ marginTop: '14px', marginBottom: '14px' }}>
-                    <LiveScaleVisualizer
-                      widthCm={widthCm}
-                      heightCm={heightCm}
-                      eyeletMode={finishing === 'none' || finishing === 'bolsillo' ? 'none' : eyeletPreset === 'corners' ? '4-corners' : eyeletPreset === 'every50' ? 'perimeter-50' : eyeletPreset === 'every30' ? 'perimeter-30' : 'custom'}
-                      customEyeletCount={effectiveEyeletCount}
-                      productName={selectedProduct?.name}
-                      category={selectedProduct?.category}
-                    />
                   </div>
 
                   <div className="quote-insight">

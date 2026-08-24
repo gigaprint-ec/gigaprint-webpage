@@ -17,7 +17,6 @@
 
 ### 🏢 ERP, Punto de Venta (POS) & Taller Multi-Rol
 - **Terminal de Cobranza Rápida (POS Mostrador):** Cobro multi-pago (Efectivo, Transferencia Banco Pichincha, Tarjeta, DeUna, Crédito), ventas en espera e impresión térmica de 80mm/58mm.
-- **Comparador Visual de Escala & Proporción Humana:** Renderizado interactivo a escala real frente a una persona (1.75m), fachada comercial (3m), vehículo (4.5m) o escritorio.
 - **Cartelera Semanal de Taller (Master Dispatcher):** Planificación de lunes a sábado con conmutador de *Fecha de Fabricación* vs *Fecha de Instalación en Sitio*, WhatsApp directo con clientes y descarga de vectores.
 - **Estaciones de Trabajo Táctiles (3 Estados):** Tableros dedicados con checklist por ítem para **🖨️ Impresión**, **👕 Sublimación & DTF** y **⚡ Corte Láser & CNC**.
 - **CRM de Clientes & Cuentas por Cobrar:** Matriz de antigüedad de saldos (15d/30d/+60d), alertas de crédito y bitácora comercial.
