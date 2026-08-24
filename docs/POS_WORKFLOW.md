@@ -25,6 +25,10 @@ Una lámpara con vinil impreso, por ejemplo, se propone como `diseño → aproba
 - `supabase/migrations/20260824000000_pos_production_workflow_engine.sql`: esquema, índices, realtime y dependencias.
 - `supabase/migrations/20260824020000_pos_team_roles_cash_permissions.sql`: capacidades de caja, metas, espacio inicial y validación de apertura por rol.
 - `supabase/migrations/20260824030000_auth_pos_access_realtime.sql`: propietarios superadmin idempotentes y publicación Realtime de todas las tablas escuchadas por el POS.
+- `supabase/migrations/20260824050000_pos_secure_sessions_rls.sql`: PIN cifrado, sesiones revocables, bloqueo por intentos, bitácora y cierre de RLS anónimo.
+- `supabase/migrations/20260824051000_pos_atomic_sales.sql`: venta completa atómica e idempotente.
+- `supabase/migrations/20260824052000_pos_public_tracking_art.sql`: rastreo y aprobación pública con datos limitados.
+- `supabase/migrations/20260824060000_pos_business_operations.sql`: calidad, postventa, mantenimiento, instalaciones, recetas y automatizaciones.
 
 ## Reglas funcionales
 
@@ -55,15 +59,21 @@ node scripts/test-pos-workflow-transaction.mjs
 
 La prueba transaccional usa `BEGIN/ROLLBACK` y no deja pedidos de prueba.
 
-## Deuda de seguridad conocida
+## Seguridad vigente
 
-Las terminales aún autentican al personal con PIN local. Por compatibilidad, varias políticas POS permiten operaciones anónimas. Antes de exponer `/pos` públicamente se debe crear un usuario Supabase Auth por empleado, vincularlo con `pos_advisors.auth_user_id`, mover los PIN a hashes verificados por una función segura y restringir RLS por rol/área. No almacenar PIN ni contraseñas legibles en el frontend.
+- Administradores: Supabase Auth más rol `admin`/`super_admin` en `profiles`.
+- Personal operativo: PIN verificado exclusivamente en PostgreSQL; el navegador recibe un token aleatorio revocable de 12 horas.
+- Los PIN se guardan con `pgcrypto` y no se devuelven en directorios, vistas ni caché local.
+- Ocho intentos fallidos bloquean temporalmente la identidad durante 15 minutos.
+- Las escrituras pasan por RPC según rol; las políticas anónimas de las tablas operativas fueron eliminadas.
+- El catálogo activo conserva lectura pública. Rastreo y artes usan RPC limitadas, no lectura directa del POS.
+- Cada venta usa una clave idempotente y una sola transacción para evitar pedidos duplicados o incompletos.
 
 ## Próxima fase recomendada
 
-1. Supabase Auth individual y RLS por sucursal/área.
-2. Horarios por empleado, feriados, ausencias y turnos configurables.
-3. Recetas/BOM por producto y reservas reales de material.
-4. Notificaciones automáticas por eventos del flujo.
-5. Pausas, reprocesos, desperdicio y tiempos reales.
-6. Instalación en campo con evidencia y firma de entrega.
+1. Crear recetas/BOM reales por familia del catálogo y reservas de material por orden.
+2. Conectar la cola `pos_automation_outbox` a WhatsApp Business/Meta y correo mediante Edge Functions.
+3. Añadir horarios por empleado, feriados, ausencias y capacidad por máquina.
+4. Integrar facturación electrónica con un proveedor autorizado por SRI; la pantalla actual no autoriza comprobantes reales.
+5. Activar backups programados, alertas de errores y analítica de uso.
+6. Vincular dominio propio y Vercel cuando el propietario lo decida.

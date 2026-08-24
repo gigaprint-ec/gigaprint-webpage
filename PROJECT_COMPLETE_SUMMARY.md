@@ -188,6 +188,7 @@ GIGAPRINT RUTAS
     ├── /admin/inventario         ➔ Inventario de Materiales & Bobinas
     ├── /admin/compras            ➔ Órdenes de Compra a Proveedores
     ├── /admin/equipo             ➔ Gestión de Asesoras, PINs Semanales & Roles
+    ├── /admin/operaciones        ➔ Calidad, postventa, mantenimiento e instalaciones
     ├── /admin/productos          ➔ Catálogo de Productos y Tarifas
     ├── /admin/contenido          ➔ Editor de Textos y CMS
     └── /admin/editor             ➔ Block Builder & Studio de Edición
@@ -215,6 +216,13 @@ Todo el esquema de base de datos se encuentra listo y optimizado en:
 12. `pos_parked_sales`: Ventas en espera / carritos pausados en mostrador.
 13. `pos_customer_activity_logs`: Historial de llamadas, visitas y seguimiento comercial.
 14. `pos_workstations`: Registro de maquinaria y estaciones de producción.
+15. `pos_access_sessions` / `pos_auth_attempts`: sesiones seguras por PIN y control de intentos.
+16. `pos_audit_log` / `pos_idempotency_keys`: auditoría y protección contra operaciones duplicadas.
+17. `pos_product_recipes`: recetas de materiales, ruta y tiempos por producto.
+18. `pos_quality_checks` / `pos_returns`: calidad, retrabajos, reclamos y garantías.
+19. `pos_assets` / `pos_maintenance_orders`: maquinaria y mantenimiento.
+20. `pos_field_visits`: mediciones, instalaciones, evidencia y firma.
+21. `pos_automation_rules` / `pos_automation_outbox`: reglas y cola para integraciones externas.
 
 ---
 
@@ -244,14 +252,20 @@ git push origin main
 
 ## 9. Próximos Pasos & Hoja de Ruta (Roadmap)
 
-1. **Ejecución del Esquema Remoto en Supabase:**
-   - Abrir el **SQL Editor** en el proyecto Supabase `ihifnhibzlgxotywbeji` y ejecutar el contenido de `supabase/schema_pos_complete.sql`.
-2. **Conexión Directa con WhatsApp Business API / Webhooks:**
+1. **Conexión Directa con WhatsApp Business API / Webhooks:**
    - Implementar un Edge Function en Supabase para enviar mensajes automáticos de WhatsApp cuando el estado de la orden cambie a *"Listo para Retiro"* o *"En Ruta de Instalación"*.
+2. **Facturación SRI autorizada:**
+   - Conectar un proveedor de firma electrónica, autorización y envío de XML/RIDE. La interfaz existente es preparatoria.
 3. **Módulo de Compras Avanzado (Cuentas por Pagar a Proveedores):**
    - Registrar facturas de compras a crédito de proveedores de vinil y lona con fechas de vencimiento de pago.
 4. **Dominio Propio & Certificado SSL:**
    - Vincular el dominio corporativo `gigaprint.ec` o `gigaprint.com.ec` a Vercel / GitHub Pages.
+
+### Estado remoto al 24 de agosto de 2026
+
+- Supabase `ihifnhibzlgxotywbeji`: migraciones aplicadas hasta `20260824060000`.
+- `ecgigaprint@gmail.com` y `estebanico10@gmail.com`: rol `super_admin` comprobado.
+- No guardar contraseñas, PIN, token de GitHub ni claves service-role en este documento. Se configuran fuera del repositorio.
 
 ---
 *Documento compilado y generado automáticamente para la memoria y continuidad del proyecto Gigaprint.*
