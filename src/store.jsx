@@ -66,10 +66,8 @@ function loadSiteData() {
 
   const rawProducts = catalogIsCurrent && stored.products?.length ? stored.products : initialData.products;
   const enrichedProducts = rawProducts.map((p) => {
-    if (p.source === 'esteban' || !p.image || p.image.includes('stickers.png') || p.image.includes('tazita.webp')) {
-      return { ...p, image: imageFor(p.category, p.name) };
-    }
-    return p;
+    const customImage = imageFor(p.category, p.name);
+    return { ...p, image: customImage || p.image };
   });
 
   const next = {

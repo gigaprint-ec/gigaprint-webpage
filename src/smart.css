@@ -349,6 +349,59 @@
   font-size: 13px;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.whatsapp-export-modal {
+  width: min(760px, calc(100vw - 30px));
+}
+
+.whatsapp-export-intro {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 20px;
+  padding: 14px;
+  border: 1px solid #25d36655;
+  border-radius: 11px;
+  background: #25d36612;
+  color: #b6e8c7;
+}
+
+.whatsapp-export-intro svg { color: #25d366; flex: 0 0 auto; }
+.whatsapp-export-intro b { color: var(--cream); font-size: 13px; }
+.whatsapp-export-intro p { margin: 4px 0 0; color: #9aa99f; font-size: 11px; line-height: 1.5; }
+
+.whatsapp-export-preview {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 16px;
+  padding: 14px;
+  border: 1px solid #ffffff15;
+  border-radius: 11px;
+  background: #151513;
+}
+
+.whatsapp-export-preview img { width: 130px; height: 130px; object-fit: cover; border-radius: 8px; background: #22221e; }
+.whatsapp-export-preview h3 { margin: 8px 0 5px; color: var(--cream); font-size: 20px; }
+.whatsapp-export-preview p { margin: 0 0 10px; color: #a5a298; font-size: 11px; line-height: 1.5; }
+.whatsapp-export-preview strong { display: block; color: var(--orange); font: 600 17px 'Space Grotesk'; }
+.whatsapp-export-preview small { display: block; overflow: hidden; margin-top: 8px; color: #77756c; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+
+.whatsapp-export-columns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.whatsapp-export-columns span { padding: 13px; border-radius: 9px; background: #151513; color: #85837b; font-size: 10px; text-align: center; }
+.whatsapp-export-columns b { display: block; margin-bottom: 4px; color: var(--cream); font: 600 16px 'Space Grotesk'; }
+
+@media (max-width: 640px) {
+  .header-actions { align-items: stretch; flex-direction: column; }
+  .whatsapp-export-preview { grid-template-columns: 90px 1fr; }
+  .whatsapp-export-preview img { width: 90px; height: 90px; }
+  .whatsapp-export-columns { grid-template-columns: 1fr; }
+}
+
 .smart-product-modal {
   width: min(980px, calc(100vw - 30px));
   max-height: calc(100vh - 30px);
@@ -2430,6 +2483,5 @@
   border-color: rgba(245, 242, 233, 0.16);
   color: #f5f2e9;
 }
-
 
 
