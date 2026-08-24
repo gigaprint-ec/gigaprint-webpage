@@ -29,6 +29,7 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess,
   const [adminEmail, setAdminEmail] = useState(defaultAdminEmail);
   const [adminPass, setAdminPass] = useState('');
   const [adminSubmitting, setAdminSubmitting] = useState(false);
+  const [advisorSubmitting, setAdvisorSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [isShaking, setIsShaking] = useState(false);
 
@@ -38,6 +39,15 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess,
   const selectedAdvisor = teamMembers.find((a) => a.id === selectedAdvisorId) || teamMembers[0] || { name: 'Vicky', id: 'adv-vicky', role: 'asesora' };
   const selectedCapabilities = getRoleCapabilities(selectedAdvisor.role);
   const selectedRole = SYSTEM_ROLES.find((role) => role.id === selectedAdvisor.role);
+
+  const attemptAdvisorLogin = async (pin) => {
+    if (advisorSubmitting) return;
+    setAdvisorSubmitting(true);
+    const res = await authenticateAdvisor(advisors, selectedAdvisorId, pin);
+    setAdvisorSubmitting(false);
+    if (res.ok) handleAuthCallback(res.session);
+    else triggerError(res.error || 'PIN de 6 dígitos incorrecto.');
+  };
 
   useEffect(() => {
     if (teamMembers.length && !teamMembers.some((person) => person.id === selectedAdvisorId)) {
@@ -54,14 +64,7 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess,
             if (prev.length >= 6) return prev;
             const nextPin = prev + e.key;
             if (nextPin.length === 6) {
-              setTimeout(() => {
-                const res = authenticateAdvisor(advisors, selectedAdvisorId, nextPin);
-                if (res.ok) {
-                  handleAuthCallback(res.session);
-                } else {
-                  triggerError(res.error || 'PIN de 6 dígitos incorrecto.');
-                }
-              }, 120);
+              setTimeout(() => attemptAdvisorLogin(nextPin), 120);
             }
             return nextPin;
           });
@@ -87,14 +90,7 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess,
       if (prev.length >= 6) return prev;
       const nextPin = prev + num;
       if (nextPin.length === 6) {
-        setTimeout(() => {
-          const res = authenticateAdvisor(advisors, selectedAdvisorId, nextPin);
-          if (res.ok) {
-            handleAuthCallback(res.session);
-          } else {
-            triggerError(res.error || 'PIN de 6 dígitos incorrecto.');
-          }
-        }, 120);
+        setTimeout(() => attemptAdvisorLogin(nextPin), 120);
       }
       return nextPin;
     });
@@ -118,19 +114,14 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess,
     setPinInput('');
   };
 
-  const handleAdvisorSubmit = (e) => {
+  const handleAdvisorSubmit = async (e) => {
     if (e) e.preventDefault();
     if (!pinInput.trim()) {
       triggerError('Por favor ingresa tu PIN de 6 dígitos.');
       return;
     }
 
-    const res = authenticateAdvisor(advisors, selectedAdvisorId, pinInput);
-    if (res.ok) {
-      handleAuthCallback(res.session);
-    } else {
-      triggerError(res.error || 'PIN de 6 dígitos incorrecto.');
-    }
+    await attemptAdvisorLogin(pinInput);
   };
 
   const handleAdminSubmit = async (e) => {
@@ -332,9 +323,9 @@ export function POSLockScreen({ advisors = [], onAuthenticated, onUnlockSuccess,
               className="pos-add-cart-btn"
               style={{ padding: '14px', fontSize: '15px' }}
               onClick={handleAdvisorSubmit}
-              disabled={pinInput.length === 0}
+              disabled={pinInput.length === 0 || advisorSubmitting}
             >
-              <span>Entrar a mi espacio de trabajo</span>
+              <span>{advisorSubmitting ? 'Verificando acceso seguro…' : 'Entrar a mi espacio de trabajo'}</span>
               <ArrowRight size={18} />
             </button>
           </div>

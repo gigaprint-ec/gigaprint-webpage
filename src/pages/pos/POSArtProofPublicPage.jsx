@@ -17,10 +17,8 @@ import {
   ArrowLeft
 } from 'lucide-react';
 import {
-  fetchRemotePOSStore,
-  approveOrderArtProof,
-  addArtProofPin,
-  updateOrderProductionStage
+  fetchPublicPOSOrder,
+  submitPublicArtDecision
 } from '../../lib/posStore';
 
 export function POSArtProofPublicPage() {
@@ -45,9 +43,9 @@ export function POSArtProofPublicPage() {
   const isDrawing = useRef(false);
 
   useEffect(() => {
-    fetchRemotePOSStore().then((st) => {
+    fetchPublicPOSOrder(orderId).then((st) => {
       setStore(st);
-      const found = (st.orders || []).find((o) => o.id === orderId || o.orderNumber === orderId);
+      const found = (st.orders || [])[0];
       if (found) {
         setOrder(found);
         setPins(found.artProofPins || []);
@@ -136,7 +134,7 @@ export function POSArtProofPublicPage() {
   };
 
   // Final Action: Client Approves with E-Signature
-  const handleConfirmApproval = () => {
+  const handleConfirmApproval = async () => {
     if (!confirmedChecklist) {
       alert('Por favor marca la casilla de verificación de conformidad técnica.');
       return;
@@ -153,7 +151,12 @@ export function POSArtProofPublicPage() {
       } catch (e) {}
     }
 
-    const res = approveOrderArtProof(store, order.id, approverName || 'Cliente', order.artUrl, signatureUrl, pins);
+    const res = await submitPublicArtDecision(order.trackingToken || orderId, {
+      approverName: approverName || 'Cliente',
+      decision: 'approved',
+      signature: signatureUrl,
+      pins,
+    });
     if (res.ok) {
       setStore(res.updatedStore);
       setOrder(res.order);
@@ -164,13 +167,16 @@ export function POSArtProofPublicPage() {
   };
 
   // Request Changes with Pins
-  const handleRequestCorrections = () => {
+  const handleRequestCorrections = async () => {
     if (pins.length === 0) {
       alert('Haz clic sobre el boceto para clavar al menos un pin con la corrección deseada.');
       return;
     }
-    const note = `El cliente ha solicitado correcciones con ${pins.length} anotaciones en el arte.`;
-    const res = updateOrderProductionStage(store, order.id, 'aprobacion_arte', note);
+    const res = await submitPublicArtDecision(order.trackingToken || orderId, {
+      approverName: approverName || 'Cliente',
+      decision: 'changes_requested',
+      pins,
+    });
     if (res.ok) {
       alert('Tus observaciones fueron enviadas al equipo de diseño de Gigaprint. ¡Te contactaremos en breve!');
     }

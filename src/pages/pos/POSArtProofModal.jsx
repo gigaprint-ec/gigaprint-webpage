@@ -110,7 +110,7 @@ export function POSArtProofModal({ order, store, setStore, isOpen, onClose }) {
     setPins(pins.map((p) => (p.id === pinId ? { ...p, resolved: !p.resolved } : p)));
   };
 
-  const publicProofUrl = `${window.location.origin}${window.location.pathname}#/prueba-arte/${order.id}`;
+  const publicProofUrl = `${window.location.origin}${window.location.pathname}#/prueba-arte/${order.trackingToken || order.id}`;
 
   const handleSaveAndApprove = () => {
     let signatureUrl = order.artProofSignature || null;

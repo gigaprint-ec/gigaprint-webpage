@@ -242,7 +242,7 @@ export function POSCustomerCRM({ store, onStoreUpdate, onReorder }) {
     const orderNum = lastOrd?.orderNumber || '0000';
     const jobTitle = lastOrd?.jobName || 'tu proyecto de impresión';
     const balance = (stats?.totalBalanceDue || 0).toFixed(2);
-    const proofUrl = `${window.location.origin}${window.location.pathname}#/prueba-arte/${lastOrd?.id || ''}`;
+    const proofUrl = `${window.location.origin}${window.location.pathname}#/prueba-arte/${lastOrd?.trackingToken || lastOrd?.id || ''}`;
 
     return [
       {

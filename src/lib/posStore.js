@@ -6,6 +6,8 @@ import { extractGoogleMapsCoordinates } from './maps';
 
 export const POS_STORAGE_KEY = 'gigaprint-pos-v1';
 export const POS_SESSION_KEY = 'gigaprint-pos-session-v1';
+export const POS_ACCESS_TOKEN_KEY = 'gigaprint-pos-access-token-v1';
+export const POS_DEVICE_ID_KEY = 'gigaprint-pos-device-id-v1';
 
 export const DAYS_SPANISH = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 
@@ -409,12 +411,28 @@ export function savePOSStoreLocal(store) {
   if (typeof window === 'undefined') return;
   const dataToSave = {
     ...store,
+    advisors: (store.advisors || []).map(({ pin, weeklyPin, weeklyPassword, pinHash, ...advisor }) => advisor),
     lastUpdated: new Date().toISOString()
   };
   localStorage.setItem(POS_STORAGE_KEY, JSON.stringify(dataToSave));
 }
 
 export const savePOSStore = savePOSStoreLocal;
+
+export function getPOSAccessToken() {
+  if (typeof window === 'undefined') return '';
+  return sessionStorage.getItem(POS_ACCESS_TOKEN_KEY) || '';
+}
+
+export function getPOSDeviceId() {
+  if (typeof window === 'undefined') return 'server';
+  let deviceId = localStorage.getItem(POS_DEVICE_ID_KEY);
+  if (!deviceId) {
+    deviceId = globalThis.crypto?.randomUUID?.() || `device-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    localStorage.setItem(POS_DEVICE_ID_KEY, deviceId);
+  }
+  return deviceId;
+}
 
 export function appendPOSAuditEvent(store, event) {
   const auditEvent = {
@@ -498,12 +516,29 @@ export async function flushSyncQueue() {
 
   for (const item of queue) {
     try {
-      if (item.actionType === 'upsert') {
+      const accessToken = getPOSAccessToken();
+      const { data: authData } = await supabase.auth.getSession();
+      if (!accessToken && !authData.session) throw new Error('Sesión POS requerida para sincronizar.');
+      if (item.actionType === 'sale_bundle') {
+        const bundle = item.payload || {};
+        const { error } = await supabase.rpc('pos_create_sale', {
+          p_token: accessToken || null,
+          p_idempotency_key: bundle.idempotencyKey,
+          p_customer: toSnakeCase(bundle.customer),
+          p_order: toSnakeCase(bundle.order),
+          p_items: (bundle.items || []).map(toSnakeCase),
+          p_payments: (bundle.payments || []).map(toSnakeCase),
+          p_operations: (bundle.operations || []).map(toSnakeCase),
+          p_material_logs: (bundle.materialLogs || []).map(toSnakeCase),
+          p_materials: (bundle.materials || []).map(toSnakeCase),
+        });
+        if (error) throw error;
+      } else if (item.actionType === 'upsert') {
         const snake = toSnakeCase(item.payload);
-        const { error } = await supabase.from(item.tableName).upsert(snake, { onConflict: 'id' });
+        const { error } = await supabase.rpc('pos_secure_upsert', { p_token: accessToken || null, p_table: item.tableName, p_payload: snake });
         if (error) throw error;
       } else if (item.actionType === 'delete') {
-        const { error } = await supabase.from(item.tableName).delete().eq('id', item.payload.id || item.payload);
+        const { error } = await supabase.rpc('pos_secure_delete', { p_token: accessToken || null, p_table: item.tableName, p_id: item.payload.id || item.payload });
         if (error) throw error;
       }
     } catch (err) {
@@ -534,10 +569,14 @@ export async function syncEntityRemote(tableName, record) {
   try {
     setSyncStatus('syncing');
     const snake = toSnakeCase(record);
-    const { data, error } = await supabase
-      .from(tableName)
-      .upsert(snake, { onConflict: 'id' })
-      .select();
+    const accessToken = getPOSAccessToken();
+    const { data: authData } = await supabase.auth.getSession();
+    const response = accessToken
+      ? await supabase.rpc('pos_secure_upsert', { p_token: accessToken, p_table: tableName, p_payload: snake })
+      : authData.session
+        ? await supabase.rpc('pos_secure_upsert', { p_token: null, p_table: tableName, p_payload: snake })
+        : { data: null, error: { message: 'Inicia sesión en el POS para sincronizar.' } };
+    const { data, error } = response;
 
     if (error) {
       console.warn(`[Supabase Sync Warn] ${tableName}:`, error.message);
@@ -564,10 +603,11 @@ export async function deleteEntityRemote(tableName, id) {
   }
   try {
     setSyncStatus('syncing');
-    const { error } = await supabase
-      .from(tableName)
-      .delete()
-      .eq('id', id);
+    const accessToken = getPOSAccessToken();
+    const { data: authData } = await supabase.auth.getSession();
+    const { error } = accessToken || authData.session
+      ? await supabase.rpc('pos_secure_delete', { p_token: accessToken || null, p_table: tableName, p_id: id })
+      : { error: { message: 'Inicia sesión en el POS para sincronizar.' } };
 
     if (error) {
       console.warn(`[Supabase Delete Warn] ${tableName}:`, error.message);
@@ -608,46 +648,40 @@ export async function fetchRemotePOSStore() {
   if (!hasSupabase || !supabase || !remoteTablesAvailable) return loadPOSStore();
   try {
     setSyncStatus('syncing');
-    const [
-      advRes, custRes, ordRes, itmRes, payRes, expRes, shfRes, matRes, logRes, cLogRes, supRes, prkRes, prdRes, opsRes, wsRes
-    ] = await Promise.all([
-      safeQuery(() => supabase.from('pos_advisors').select('*')),
-      safeQuery(() => supabase.from('pos_customers').select('*')),
-      safeQuery(() => supabase.from('pos_orders').select('*').order('created_at', { ascending: false }).limit(200)),
-      safeQuery(() => supabase.from('pos_order_items').select('*').limit(500)),
-      safeQuery(() => supabase.from('pos_payments').select('*').limit(500)),
-      safeQuery(() => supabase.from('pos_expenses').select('*').limit(200)),
-      safeQuery(() => supabase.from('pos_cash_shifts').select('*').limit(100)),
-      safeQuery(() => supabase.from('pos_materials_inventory').select('*')),
-      safeQuery(() => supabase.from('pos_material_usage_logs').select('*').limit(300)),
-      safeQuery(() => supabase.from('pos_customer_activity_logs').select('*').order('created_at', { ascending: false }).limit(200)),
-      safeQuery(() => supabase.from('pos_suppliers').select('*')),
-      safeQuery(() => supabase.from('pos_parked_sales').select('*')),
-      safeQuery(() => supabase.from('pos_products').select('*')),
-      safeQuery(() => supabase.from('pos_production_operations').select('*').order('scheduled_start', { ascending: true }).limit(1000)),
-      safeQuery(() => supabase.from('pos_workstations').select('*'))
-    ]);
-
     const local = loadPOSStore();
+    const accessToken = getPOSAccessToken();
+    const { data: authData } = await supabase.auth.getSession();
 
-    const remoteAdvisors = (advRes?.data || []).map(toCamelCase);
-    const remoteCustomers = (custRes?.data || []).map(toCamelCase);
-    const remoteOrders = (ordRes?.data || []).map(toCamelCase);
-    const remoteItems = (itmRes?.data || []).map(toCamelCase);
-    const remotePayments = (payRes?.data || []).map(toCamelCase);
-    const remoteExpenses = (expRes?.data || []).map(toCamelCase);
-    const remoteShifts = (shfRes?.data || []).map(toCamelCase);
-    const remoteMaterials = (matRes?.data || []).map(toCamelCase);
-    const remoteUsageLogs = (logRes?.data || []).map(toCamelCase);
-    const remoteCustLogs = (cLogRes?.data || []).map(toCamelCase);
-    const remoteSuppliers = (supRes?.data || []).map(toCamelCase);
-    const remoteParked = (prkRes?.data || []).map(toCamelCase);
-    const remoteProducts = (prdRes?.data || []).map(toCamelCase);
-    const remoteOperations = (opsRes?.data || []).map(toCamelCase);
-    const remoteWorkstations = (wsRes?.data || []).map(toCamelCase);
+    if (!accessToken && !authData.session) {
+      const { data: directory, error } = await supabase.rpc('pos_team_directory');
+      if (error) throw error;
+      const publicStore = { ...local, advisors: (directory || []).map(toCamelCase) };
+      savePOSStoreLocal(publicStore);
+      setSyncStatus('synced');
+      return publicStore;
+    }
+
+    const { data: payload, error } = await supabase.rpc('pos_fetch_store', { p_token: accessToken || null });
+    if (error) throw error;
+    const rows = (key) => (payload?.[key] || []).map(toCamelCase);
+    const remoteAdvisors = rows('advisors');
+    const remoteCustomers = rows('customers');
+    const remoteOrders = rows('orders');
+    const remoteItems = rows('order_items');
+    const remotePayments = rows('payments');
+    const remoteExpenses = rows('expenses');
+    const remoteShifts = rows('shifts');
+    const remoteMaterials = rows('materials');
+    const remoteUsageLogs = rows('material_logs');
+    const remoteCustLogs = rows('customer_logs');
+    const remoteSuppliers = rows('suppliers');
+    const remoteParked = rows('parked_sales');
+    const remoteProducts = rows('products');
+    const remoteOperations = rows('production_operations');
+    const remoteWorkstations = rows('workstations');
 
     const merged = {
-      advisors: remoteAdvisors.length ? rotateAdvisorsCredentials(remoteAdvisors) : local.advisors,
+      advisors: remoteAdvisors.length ? remoteAdvisors : local.advisors,
       customers: remoteCustomers.length ? remoteCustomers : local.customers,
       products: remoteProducts.length ? remoteProducts : local.products,
       orders: remoteOrders.length ? remoteOrders : local.orders,
@@ -683,6 +717,15 @@ export async function fetchRemotePOSStore() {
 // Realtime Subscriptions Handler for Multi-device live sync
 export function subscribePOSRealtime(onUpdate) {
   if (!hasSupabase || !supabase) return () => {};
+
+  // PIN sessions are application sessions rather than Supabase JWTs. Polling
+  // keeps them synchronized without reopening direct table policies.
+  if (getPOSAccessToken()) {
+    const poll = window.setInterval(() => {
+      if (document.visibilityState === 'visible') fetchRemotePOSStore().then(onUpdate);
+    }, 10000);
+    return () => window.clearInterval(poll);
+  }
 
   const channelName = `pos-realtime-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
   const channel = supabase
@@ -835,10 +878,12 @@ export function getPOSSession() {
   if (raw) {
     const session = safeJSONParse(raw, null);
     if (session) {
-      if (!session.expiresAt || new Date(session.expiresAt).getTime() >= Date.now()) {
+      const hasRequiredAccessToken = !hasSupabase || session.isAdmin || Boolean(getPOSAccessToken());
+      if (hasRequiredAccessToken && (!session.expiresAt || new Date(session.expiresAt).getTime() >= Date.now())) {
         return session;
       }
       localStorage.removeItem(POS_SESSION_KEY);
+      sessionStorage.removeItem(POS_ACCESS_TOKEN_KEY);
     }
   }
 
@@ -863,7 +908,7 @@ export function getPOSSession() {
 
 export function setPOSSession(advisorOrAdmin) {
   if (typeof window === 'undefined') return;
-  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(); // 30 days
+  const expiresAt = advisorOrAdmin.expiresAt || new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString();
   const session = {
     ...advisorOrAdmin,
     unlockedAt: new Date().toISOString(),
@@ -873,9 +918,35 @@ export function setPOSSession(advisorOrAdmin) {
   return session;
 }
 
-export function authenticateAdvisor(advisors, advisorId, pinOrPassword) {
+export async function authenticateAdvisor(advisors, advisorId, pinOrPassword) {
   const advisor = advisors.find((a) => a.id === advisorId && a.isActive !== false);
   if (!advisor) return { ok: false, error: 'Integrante no encontrado o inactivo.' };
+
+  if (hasSupabase && supabase) {
+    const { data, error } = await supabase.rpc('pos_login_with_pin', {
+      p_advisor_id: advisorId,
+      p_pin: String(pinOrPassword).trim(),
+      p_device_id: getPOSDeviceId(),
+    });
+    if (error || !data?.length) return { ok: false, error: error?.message || 'PIN incorrecto.' };
+    const access = toCamelCase(data[0]);
+    sessionStorage.setItem(POS_ACCESS_TOKEN_KEY, access.accessToken);
+    const capabilities = getRoleCapabilities(access.advisorRole);
+    const session = setPOSSession({
+      id: access.advisorId,
+      name: access.advisorName,
+      email: access.advisorEmail,
+      role: access.advisorRole,
+      isAdmin: capabilities.isAdmin,
+      canOpenCash: access.canOpenCash,
+      hasSalesGoal: access.hasSalesGoal,
+      assignedArea: access.assignedArea,
+      defaultTab: capabilities.defaultTab,
+      weeklyGoal: Number(access.weeklyGoal || 0),
+      expiresAt: access.sessionExpiresAt,
+    });
+    return { ok: true, session };
+  }
 
   const cleanInput = String(pinOrPassword).trim().toLowerCase();
   const validPin = String(advisor.weeklyPin || advisor.pin || '').trim().toLowerCase();
@@ -906,13 +977,7 @@ export function authenticateAdvisor(advisors, advisorId, pinOrPassword) {
 
 export function authenticateAdmin(password) {
   const clean = String(password).trim();
-  if (
-    clean === 'gigaprint' ||
-    clean === '000000' ||
-    clean === '123456' ||
-    clean === '0000' ||
-    clean === 'admin2026'
-  ) {
+  if (!hasSupabase && clean === 'gigaprint') {
     const session = setPOSSession({
       id: 'adv-admin',
       name: 'Administrador General',
@@ -924,6 +989,41 @@ export function authenticateAdmin(password) {
     return { ok: true, session };
   }
   return { ok: false, error: 'Contraseña de Administrador incorrecta.' };
+}
+
+// A sale is one business transaction: customer, order, lines, payments,
+// production tasks and material deductions either all persist or none do.
+export async function syncPOSOrderBundle(bundle) {
+  if (!hasSupabase || !supabase || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+    enqueueSyncAction('sale_bundle', 'pos_sales', bundle);
+    setSyncStatus('offline');
+    return { ok: true, queued: true };
+  }
+
+  try {
+    setSyncStatus('syncing');
+    const accessToken = getPOSAccessToken();
+    const { data: authData } = await supabase.auth.getSession();
+    if (!accessToken && !authData.session) throw new Error('Inicia sesión en el POS para sincronizar la venta.');
+    const { data, error } = await supabase.rpc('pos_create_sale', {
+      p_token: accessToken || null,
+      p_idempotency_key: bundle.idempotencyKey,
+      p_customer: toSnakeCase(bundle.customer),
+      p_order: toSnakeCase(bundle.order),
+      p_items: (bundle.items || []).map(toSnakeCase),
+      p_payments: (bundle.payments || []).map(toSnakeCase),
+      p_operations: (bundle.operations || []).map(toSnakeCase),
+      p_material_logs: (bundle.materialLogs || []).map(toSnakeCase),
+      p_materials: (bundle.materials || []).map(toSnakeCase),
+    });
+    if (error) throw error;
+    setSyncStatus('synced');
+    return { ok: true, data };
+  } catch (error) {
+    enqueueSyncAction('sale_bundle', 'pos_sales', bundle);
+    setSyncStatus('error');
+    return { ok: false, error: error.message, queued: true };
+  }
 }
 
 export function getSyncHealth() {
@@ -953,6 +1053,11 @@ export function createAdminPOSSession(adminUser = {}) {
 
 export function logoutPOSSession() {
   if (typeof window === 'undefined') return;
+  const accessToken = getPOSAccessToken();
+  if (accessToken && hasSupabase && supabase) {
+    supabase.rpc('pos_logout', { p_token: accessToken }).catch(() => {});
+  }
+  sessionStorage.removeItem(POS_ACCESS_TOKEN_KEY);
   localStorage.removeItem(POS_SESSION_KEY);
 }
 
@@ -1169,8 +1274,9 @@ export function createPOSOrder(store, orderData) {
   newOrder.involvedAreas = plan.involvedAreas;
 
   // Auto-deduct inventory materials if matched
-  let updatedMaterials = [...(store.materials || [])];
+  let updatedMaterials = (store.materials || []).map((material) => ({ ...material }));
   const newMaterialLogs = [];
+  const changedMaterialIds = new Set();
 
   newItems.forEach((itm) => {
     if (itm.areaM2 && itm.areaM2 > 0) {
@@ -1182,6 +1288,8 @@ export function createPOSOrder(store, orderData) {
 
       if (matched) {
         matched.currentStock = Math.max(0, Number((matched.currentStock - neededM2).toFixed(2)));
+        matched.updatedAt = now;
+        changedMaterialIds.add(matched.id);
         newMaterialLogs.push({
           id: `mlog-${Date.now()}-${matched.id}`,
           materialId: matched.id,
@@ -1217,13 +1325,18 @@ export function createPOSOrder(store, orderData) {
 
   savePOSStoreLocal(updatedStore);
 
-  // Asynchronous Cloud Upserts
-  syncEntityRemote('pos_orders', newOrder);
-  syncEntityRemote('pos_customers', customerRecord);
-  newItems.forEach((itm) => syncEntityRemote('pos_order_items', itm));
-  newPayments.forEach((pay) => syncEntityRemote('pos_payments', pay));
-  newMaterialLogs.forEach((log) => syncEntityRemote('pos_material_usage_logs', log));
-  plan.operations.forEach((operation) => syncEntityRemote('pos_production_operations', operation));
+  // One idempotent cloud transaction prevents partial sales and duplicates.
+  syncPOSOrderBundle({
+    id: orderId,
+    idempotencyKey: `sale:${orderId}`,
+    customer: customerRecord,
+    order: newOrder,
+    items: newItems,
+    payments: newPayments,
+    operations: plan.operations,
+    materialLogs: newMaterialLogs,
+    materials: updatedMaterials.filter((material) => changedMaterialIds.has(material.id)),
+  });
 
   return { ok: true, updatedStore, order: newOrder, items: newItems, payments: newPayments, operations: plan.operations };
 }
@@ -2058,6 +2171,46 @@ export function deleteParkedSale(store, parkId) {
   return { ok: true, updatedStore };
 }
 
+export async function fetchPublicPOSOrder(reference) {
+  const fallback = loadPOSStore();
+  if (!reference) return fallback;
+  if (!hasSupabase || !supabase) return fallback;
+
+  const { data, error } = await supabase.rpc('pos_public_order', { p_reference: String(reference).trim() });
+  if (error) throw error;
+  if (!data?.order) return { ...fallback, orders: [], orderItems: [], advisors: [] };
+  return {
+    ...fallback,
+    orders: [toCamelCase(data.order)],
+    orderItems: (data.items || []).map(toCamelCase),
+    advisors: data.advisor ? [toCamelCase(data.advisor)] : [],
+  };
+}
+
+export async function submitPublicArtDecision(reference, {
+  approverName,
+  decision,
+  pins = [],
+  signature = null,
+}) {
+  if (!hasSupabase || !supabase) return { ok: false, error: 'La aprobación en línea requiere conexión.' };
+  const { data, error } = await supabase.rpc('pos_submit_art_decision', {
+    p_reference: String(reference).trim(),
+    p_approver_name: String(approverName || '').trim(),
+    p_decision: decision,
+    p_pins: pins,
+    p_signature: signature,
+  });
+  if (error) return { ok: false, error: error.message };
+  const updatedStore = {
+    ...loadPOSStore(),
+    orders: data?.order ? [toCamelCase(data.order)] : [],
+    orderItems: (data?.items || []).map(toCamelCase),
+    advisors: data?.advisor ? [toCamelCase(data.advisor)] : [],
+  };
+  return { ok: true, updatedStore, order: updatedStore.orders[0] || null };
+}
+
 // Public Order Tracking by Token
 export function getOrderPublicTracking(store, trackingTokenOrOrderNumber) {
   const query = String(trackingTokenOrOrderNumber).trim().toLowerCase();
@@ -2082,6 +2235,8 @@ export function getOrderPublicTracking(store, trackingTokenOrOrderNumber) {
     pickupLocation: order.pickupLocation,
     pickupPin: order.pickupPin,
     paymentStatus: order.paymentStatus,
+    depositAmount: Number(order.depositAmount || 0),
+    balanceDue: Number(order.balanceDue || 0),
     advisorName: advisor?.name || 'Asesora Gigaprint',
     items: items.map((i) => ({
       productName: i.productName,

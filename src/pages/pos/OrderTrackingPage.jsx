@@ -27,9 +27,9 @@ import {
 import { calculateLiveScheduleStatus } from '../../lib/scheduleEngine';
 import {
   loadPOSStore,
-  fetchRemotePOSStore,
+  fetchPublicPOSOrder,
   getOrderPublicTracking,
-  approveOrderArtProof
+  submitPublicArtDecision
 } from '../../lib/posStore';
 import { useToast } from '../../components/studio/Toast';
 import { useSite } from '../../store';
@@ -49,8 +49,11 @@ export function OrderTrackingPage() {
   const [approvedSuccess, setApprovedSuccess] = useState(false);
 
   useEffect(() => {
-    fetchRemotePOSStore().then(setStore);
-  }, []);
+    if (!activeSearchToken) return;
+    fetchPublicPOSOrder(activeSearchToken)
+      .then(setStore)
+      .catch(() => setStore({ ...loadPOSStore(), orders: [], orderItems: [], advisors: [] }));
+  }, [activeSearchToken]);
 
   useEffect(() => {
     if (urlToken) {
@@ -88,7 +91,7 @@ export function OrderTrackingPage() {
   const currentStageIndex = orderData ? stages.findIndex((s) => s.id === orderData.productionStage) : 0;
   const isReady = orderData?.productionStage === 'listo' || orderData?.productionStage === 'entregado';
 
-  const handleApproveArt = (e) => {
+  const handleApproveArt = async (e) => {
     e.preventDefault();
     if (!approvalName.trim()) {
       toast.warning('Por favor ingresa tu nombre para registrar la aprobación.');
@@ -101,7 +104,10 @@ export function OrderTrackingPage() {
 
     if (!order) return;
 
-    const res = approveOrderArtProof(store, order.id, approvalName.trim());
+    const res = await submitPublicArtDecision(order.trackingToken || activeSearchToken, {
+      approverName: approvalName.trim(),
+      decision: 'approved',
+    });
     if (res.ok) {
       setStore(res.updatedStore);
       setApprovedSuccess(true);

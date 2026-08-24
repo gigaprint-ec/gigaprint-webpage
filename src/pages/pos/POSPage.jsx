@@ -257,7 +257,7 @@ export function POSPage({ initialTab = 'cashier' }) {
       unsubscribeRealtime();
       window.clearInterval(syncHealthTimer);
     };
-  }, []);
+  }, [session?.id]);
 
   useEffect(() => {
     try {
